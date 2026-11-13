@@ -3,8 +3,8 @@ title: "Track changelog"
 editUrl: "https://github.com/gateweavehq/track/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Track"
-  version: "v0.34.1"
-  url: "https://github.com/gateweavehq/track/blob/v0.34.1/CHANGELOG.md"
+  version: "v0.35.1"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.1/CHANGELOG.md"
 ---
 Notable changes to Gateweave Track, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,51 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.35.1] - 2026-11-13
+
+Opening the demo is quick again from far away. There is no migration in this release.
+
+### Fixed
+
+- **The demo opened slowly outside Europe.** Since 0.35.0 each sandbox lives in the EU, and its
+  sample data went over one write at a time, so from the US opening a demo took about twenty
+  seconds. It now goes in two calls. A guided team and its issues go in one call too, which helps a
+  new workspace made far from its server's jurisdiction. ([#286])
+
+### If you run your own
+
+- **Nothing to do.**
+
+## [0.35.0] - 2026-11-13
+
+A server can now keep its workspaces in one of Cloudflare's jurisdictions, and Gateweave Cloud's
+workspaces move into the EU, after its database and files. This release adds a D1 migration,
+which `pnpm run deploy` applies.
+
+### Added
+
+- **Workspaces in one jurisdiction.** `DURABLE_OBJECT_JURISDICTION` (`eu`, `us`, `fedramp` or
+  `fedramp-high`) keeps each workspace's Durable Object, which holds its issues, comments and
+  members, in that jurisdiction. New workspaces are made there. The daily Cron Trigger moves the
+  older ones there, three a run: each is paused for a few seconds while its rows are copied and
+  checked against the original, then its clients reconnect to the new place and carry on. The old
+  copy is sealed and kept until the workspace is deleted. Rate limits are counted there too.
+  ([#284])
+
+### Changed
+
+- **Gateweave Cloud's workspaces are in the EU.** track.gateweave.com, staging and the demo set
+  `DURABLE_OBJECT_JURISDICTION` to `eu`. The demo's list of sandboxes moved to a database in the
+  EU as well. ([#283], [#284])
+
+### If you run your own
+
+- **The D1 migration** adds the `workspace_location` table, which notes where each workspace's
+  object is. `pnpm run deploy` applies it before the new code goes live.
+- **Nothing else changes unless you set `DURABLE_OBJECT_JURISDICTION`.** "Keeping data in one
+  jurisdiction" in `docs/self-hosting.md` covers it, with the database and the bucket of files.
+  Unsetting it later moves nothing back.
 
 ## [0.34.1] - 2026-11-13
 
@@ -1503,6 +1548,8 @@ The first pre-release.
 - An MCP server at `/mcp`: AI agents sign in with your approval, then search, read, create and
   update issues. ([#15])
 
+[0.35.1]: https://github.com/gateweavehq/track/releases/tag/v0.35.1
+[0.35.0]: https://github.com/gateweavehq/track/releases/tag/v0.35.0
 [0.34.1]: https://github.com/gateweavehq/track/releases/tag/v0.34.1
 [0.34.0]: https://github.com/gateweavehq/track/releases/tag/v0.34.0
 [0.33.0]: https://github.com/gateweavehq/track/releases/tag/v0.33.0
@@ -1577,6 +1624,9 @@ The first pre-release.
 [0.1.0-alpha.3]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.1
+[#286]: https://github.com/gateweavehq/track/pull/286
+[#284]: https://github.com/gateweavehq/track/pull/284
+[#283]: https://github.com/gateweavehq/track/pull/283
 [#281]: https://github.com/gateweavehq/track/pull/281
 [#280]: https://github.com/gateweavehq/track/pull/280
 [#279]: https://github.com/gateweavehq/track/pull/279

@@ -3,8 +3,8 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.34.1"
-  url: "https://github.com/gateweavehq/track/blob/v0.34.1/docs/self-hosting.md"
+  version: "v0.35.1"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.1/docs/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
 list of workspaces, a Durable Object for each workspace, and an R2 bucket for attached files.
@@ -97,6 +97,20 @@ pnpm wrangler d1 create gateweave-track --location apac
 Then pick it instead of **Create new** on the button's form, or put its id in `wrangler.jsonc` as
 `database_id`.
 
+### Keeping data in one jurisdiction
+
+Cloudflare can keep data inside the EU, the US or FedRAMP data centers. Each part of Track is set
+on its own:
+
+- **The database**: `pnpm wrangler d1 create gateweave-track --jurisdiction eu`, before the first
+  deploy, then use it as above. A database's jurisdiction can't change once it exists.
+- **Attached files**: `pnpm wrangler r2 bucket create gateweave-track-files --jurisdiction eu`, and
+  `"jurisdiction": "eu"` on the `FILES` binding in `wrangler.jsonc`.
+- **Workspaces**: set `DURABLE_OBJECT_JURISDICTION` to `eu`. New workspaces are made there. Ones
+  made before move there in the daily run at 03:23 UTC, three at a time, each paused for a few
+  seconds while it is copied. The copy each leaves behind is kept until the workspace is deleted.
+  Unsetting it later moves nothing back. Rate limits are counted there too.
+
 ## Settings
 
 Everything except `BETTER_AUTH_SECRET` is optional. Set them in the Cloudflare dashboard
@@ -110,27 +124,28 @@ Text variables and secrets both stay through a deploy, because `wrangler.jsonc` 
 copy older than v0.28.1 lost its text variables on every deploy, so look through them after
 updating. A site key missing there means the request forms were not open.
 
-| Name                        | What it does                                                                  |
-| --------------------------- | ----------------------------------------------------------------------------- |
-| `BETTER_AUTH_SECRET`        | Signs sessions. Required.                                                     |
-| `BETTER_AUTH_URL`           | The address people use, such as `https://track.example.com`. Turns on MCP.    |
-| `GITHUB_CLIENT_ID`          | Turns on "Sign in with GitHub", with `GITHUB_CLIENT_SECRET`.                  |
-| `GITHUB_CLIENT_SECRET`      | The client secret of the same GitHub OAuth app.                               |
-| `OIDC_ISSUER`               | Turns on an OpenID Connect provider, with the two below. See below.           |
-| `OIDC_CLIENT_ID`            | This deployment's client ID at the provider.                                  |
-| `OIDC_CLIENT_SECRET`        | Its client secret there.                                                      |
-| `OIDC_PROVIDER_NAME`        | What the sign-in button calls it. Unset: "single sign-on".                    |
-| `GITHUB_APP_SLUG`           | Turns on the GitHub App, with the three below. See below.                     |
-| `GITHUB_APP_CLIENT_ID`      | The GitHub App's client ID.                                                   |
-| `GITHUB_APP_CLIENT_SECRET`  | The GitHub App's client secret.                                               |
-| `GITHUB_APP_WEBHOOK_SECRET` | The secret that signs the GitHub App's deliveries.                            |
-| `EMAIL_FROM`                | Turns on email, such as `Gateweave Track <track@example.com>`.                |
-| `PUSH_VAPID_KEY`            | Turns on push notifications. A secret; see below.                             |
-| `ATTACHMENT_QUOTA_MB`       | Limits each workspace's attached files, such as `1024`. Unset or blank: none. |
-| `LEGAL_NOTICE_URL`          | The address of your legal notice. See below.                                  |
-| `PRIVACY_POLICY_URL`        | The address of your privacy policy.                                           |
-| `TERMS_URL`                 | The address of your terms.                                                    |
-| `SIGN_UP_REQUEST_URL`       | Where to ask for an account, shown while sign-up is closed. See below.        |
+| Name                          | What it does                                                                  |
+| ----------------------------- | ----------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET`          | Signs sessions. Required.                                                     |
+| `BETTER_AUTH_URL`             | The address people use, such as `https://track.example.com`. Turns on MCP.    |
+| `GITHUB_CLIENT_ID`            | Turns on "Sign in with GitHub", with `GITHUB_CLIENT_SECRET`.                  |
+| `GITHUB_CLIENT_SECRET`        | The client secret of the same GitHub OAuth app.                               |
+| `OIDC_ISSUER`                 | Turns on an OpenID Connect provider, with the two below. See below.           |
+| `OIDC_CLIENT_ID`              | This deployment's client ID at the provider.                                  |
+| `OIDC_CLIENT_SECRET`          | Its client secret there.                                                      |
+| `OIDC_PROVIDER_NAME`          | What the sign-in button calls it. Unset: "single sign-on".                    |
+| `GITHUB_APP_SLUG`             | Turns on the GitHub App, with the three below. See below.                     |
+| `GITHUB_APP_CLIENT_ID`        | The GitHub App's client ID.                                                   |
+| `GITHUB_APP_CLIENT_SECRET`    | The GitHub App's client secret.                                               |
+| `GITHUB_APP_WEBHOOK_SECRET`   | The secret that signs the GitHub App's deliveries.                            |
+| `EMAIL_FROM`                  | Turns on email, such as `Gateweave Track <track@example.com>`.                |
+| `PUSH_VAPID_KEY`              | Turns on push notifications. A secret; see below.                             |
+| `ATTACHMENT_QUOTA_MB`         | Limits each workspace's attached files, such as `1024`. Unset or blank: none. |
+| `LEGAL_NOTICE_URL`            | The address of your legal notice. See below.                                  |
+| `PRIVACY_POLICY_URL`          | The address of your privacy policy.                                           |
+| `TERMS_URL`                   | The address of your terms.                                                    |
+| `SIGN_UP_REQUEST_URL`         | Where to ask for an account, shown while sign-up is closed. See below.        |
+| `DURABLE_OBJECT_JURISDICTION` | Keeps workspaces in a jurisdiction, such as `eu`. See above.                  |
 
 ### Your legal pages
 
