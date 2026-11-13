@@ -31,6 +31,9 @@ export default defineConfig({
 					description:
 						"Gateweave is a family of open-source business tools that run on Cloudflare: each is one Worker, with Durable Objects and D1, that you can run on your own account or use on Gateweave Cloud.",
 					details: products.map((p) => `- ${p.name} (${p.version}): ${p.summary}`).join("\n"),
+					// The short version is for using the products: changelogs and architecture notes, which make
+					// up most of the text, stay in llms-full.txt and in each product's own file.
+					exclude: ["*/changelog", "*/architecture"],
 					customSets: products.map((p) => ({
 						label: p.name,
 						paths: [`${p.key}/**`, p.key],
