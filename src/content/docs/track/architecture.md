@@ -1,0 +1,1961 @@
+---
+title: "Track architecture"
+editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
+source:
+  product: "Gateweave Track"
+  version: "v0.34.0"
+  url: "https://github.com/gateweavehq/track/blob/v0.34.0/docs/architecture.md"
+---
+Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
+This document explains how the pieces fit together and why they are built the way they are.
+
+## Overview
+
+```mermaid
+flowchart LR
+  Browser -- "HTTPS (pages, auth, snapshot)" --> Worker
+  Browser -- "WebSocket (live sync)" --> Worker
+  Agent["AI agent"] -- "MCP over HTTPS (OAuth token or agent key)" --> Worker
+  subgraph Worker["gateweave-track worker (apps/web)"]
+    Start["TanStack Start<br/>pages + server functions"]
+    Auth["Better Auth<br/>/api/auth/*"]
+    Gateway["Sync gateway<br/>/api/sync/:slug/*"]
+    Mcp["MCP gateway<br/>/mcp"]
+    Files["File gateway<br/>/api/files/*"]
+  end
+  Auth --> D1[("D1<br/>users, sessions,<br/>workspaces, members,<br/>OAuth clients, agent keys")]
+  Gateway -- "checks session + membership" --> D1
+  Gateway -- "RPC / WebSocket" --> DO
+  Mcp -- "checks token + membership" --> D1
+  Mcp -- "RPC" --> DO
+  Files -- "checks session + membership" --> D1
+  Files --> R2[("R2<br/>attached files")]
+  Auth -- "membership hooks (RPC)" --> DO
+  subgraph DO["WorkspaceDO (one per workspace)"]
+    SQLite[("SQLite<br/>teams, issues, labels,<br/>projects, comments, activity,<br/>views, members, inboxes, oplog")]
+  end
+```
+
+Everything ships as **one Worker**:
+
+- **TanStack Start** renders the app and serves server functions.
+- **Better Auth** handles accounts, sessions and workspaces. A workspace is a Better Auth
+  organization, so members, roles and invitations come from its organization plugin.
+- **D1** stores identity and the workspace directory.
+- **One Durable Object per workspace** (`WorkspaceDO`, in `packages/sync-server`) stores that
+  workspace's content in its own SQLite database and fans changes out to connected clients.
+- **R2** keeps the files attached to descriptions and comments.
+
+A single deployable means one `wrangler deploy`, and the client and the sync server can never run
+different protocol versions in production. It also gives self-hosters one thing to set up.
+
+## Repository layout
+
+| Path                   | Purpose                                                                  |
+| ---------------------- | ------------------------------------------------------------------------ |
+| `apps/web`             | The Worker: UI, auth, the sync and MCP gateways, and the D1 schema       |
+| `packages/protocol`    | Wire contract shared by client and server: entities, mutations, messages |
+| `packages/sync-server` | `WorkspaceDO`: storage, mutation logic, realtime fan-out                 |
+| `packages/sync-client` | Browser replica: IndexedDB cache, optimistic mutations, tab coordination |
+
+`protocol` has no server dependencies, so the browser bundle never pulls in database code.
+
+## Data ownership
+
+| Data                                 | Lives in     | Owner                              |
+| ------------------------------------ | ------------ | ---------------------------------- |
+| Users, sessions, OAuth accounts      | D1           | Better Auth                        |
+| Workspaces, members, invitations     | D1           | Better Auth organization plugin    |
+| OAuth clients, grants, signing keys  | D1           | Better Auth MCP plugin             |
+| Agent members' keys (hashed)         | D1           | Track's agent members plugin       |
+| Who runs the server, sign-up setting | D1           | Track's deployment plugin          |
+| Sign-up list (addresses, notes)      | D1           | Track's deployment plugin          |
+| Teams, issues, labels, projects      | Workspace DO | `sync-server`                      |
+| Saved views                          | Workspace DO | `sync-server`                      |
+| Comments on issues                   | Workspace DO | `sync-server`                      |
+| Issue activity (history)             | Workspace DO | `sync-server`, from issue writes   |
+| Subscriptions and inbox items        | Workspace DO | `sync-server`, from issue writes   |
+| Notification settings                | Workspace DO | `sync-server`, each person's own   |
+| Due-date reminders sent              | Workspace DO | `sync-server`, from the alarm      |
+| Team automations' runs               | Workspace DO | `sync-server`, from the alarm      |
+| Webhooks, their secrets, deliveries  | Workspace DO | `sync-server`, managed by admins   |
+| GitHub connections and secrets       | Workspace DO | `sync-server`, managed by admins   |
+| Pull requests that mention issues    | Workspace DO | `sync-server`, from GitHub         |
+| Member replica (name, avatar, role)  | Workspace DO | Pushed from D1 by membership hooks |
+| Attached files                       | R2           | The file gateway                   |
+
+A backup Worker reads the workspace objects through the `Backup` entrypoint ([Backups](#backups)).
+
+Some rows in D1 have a time limit that nothing would otherwise enforce, because Better Auth removes a
+session or a verification only when something looks it up. So the Worker's daily Cron Trigger deletes
+sessions, verifications, OAuth tokens and client assertions past their time, and invitations
+(`apps/web/src/server/db/prune.ts`). Every deployment inherits the schedule from `wrangler.jsonc`, and
+the demo runs it after its own cleanup, every ten minutes. Gateweave Cloud's privacy policy states
+these periods, so a change here is a change to it.
+
+The DO keeps a replica of membership for two reasons: it authorizes writes (for example, only
+admins manage teams) and clients need member names to render assignees. Better Auth hooks push
+every join, role change and removal to the DO. Two removals pass no organization hook, so they
+have hooks of their own: leaving (`/organization/leave`, an after-hook on the path) and deleting
+a user, whose memberships go by cascade (a database hook notes their workspaces before the
+delete and tells each one after). A removal closes the person's sockets. The replica also heals
+itself, because each time a member connects their current profile is upserted. Someone who deletes
+their own account takes another path, which does more ([below](#deleting-an-account)).
+
+Sessions end the same way. The gateway checks the session only when a socket opens, so it hands
+the object the session's id and expiry with the member, and the socket keeps them. When a session
+ends early (signing out, revoking sessions, a password reset, deleting the user), Better Auth's
+session delete hook, which every one of those paths runs for each session, notes it
+(`apps/web/src/server/auth/ended-sessions.ts`). When the request is over, its after hook sends
+what it noted in the background (`waitUntil`): one D1 lookup of each user's workspaces, and one
+`endSessions` call per workspace with all of that user's ended sessions, which closes the sockets
+opened with them. A password reset that ends ten sessions costs the same as one. A socket whose
+session has run out is closed the next time it sends or would be sent anything, which also covers
+a report that failed. Both close with `4401`.
+
+### Roles and invitations
+
+Roles are Better Auth's defaults: `owner`, `admin` and `member`. Admins invite people, change
+roles, remove members and manage teams. Only owners can make or manage owners, and a workspace
+always keeps at least one.
+
+The fourth role, `agent`, is for [agent members](#agent-members). Better Auth does not define it,
+so it refuses to invite anyone as an agent or to give the role to anyone; only the agent members
+plugin does. Code that decides what a role may do asks `isAdminRole` (in `packages/protocol`)
+rather than comparing with `member`, so an agent can never be taken for an admin.
+
+An invitation is for one email address and lasts seven days. Its link is `/invite/:id`. When email
+is on and the admin has verified their own address, Track emails the link (see
+[Email](#email)). Otherwise, the admin copies the link and sends it themselves. Accepting requires
+being signed in with the invited address; Better Auth checks that.
+
+Where sign-up is open, which is the default, anyone can sign up with any address, so being signed
+in with the invited address proves nothing by itself. Where email is on, accepting also requires a verified address
+(`requireEmailVerificationOnInvitation`). An invitation then admits only whoever controls that
+inbox, and its id is no longer a secret worth stealing. The invite page offers to email a
+verification link that returns there. Sign-up sends one too, with the same return address.
+
+A server without email cannot verify anyone, so there the invitation id is what protects a
+workspace: whoever holds the link can join. Only admins see invitation ids. Better Auth hands
+them to any member through two endpoints, which would let a member pick up an admin invitation:
+
+- `list-invitations` is limited to admins by a `before` hook in
+  `apps/web/src/server/auth/config.ts`.
+- `get-full-organization`, which the app does not use, is disabled.
+
+The public invite page only describes pending invitations that have not expired.
+
+### Audit log
+
+Admins read who changed the workspace, and when, in Settings → Audit log. It lives in the
+workspace's Durable Object, in `audit_events` (`packages/sync-server/src/audit.ts`), and the
+actions it knows are listed in `packages/protocol/src/audit.ts`. Rows are only added.
+
+- **Changes the object makes** are recorded in the same transaction: `applyMutation` reads what a
+  followed mutation will change before it runs and records what changed after, so a refused or
+  idle mutation records nothing. That covers teams (name, key, cycles, automations, request form
+  and intake email), statuses, deleted labels, projects and issues, someone else's comment deleted,
+  and what an agent must propose. The RPCs for webhooks and GitHub connections record theirs.
+- **Changes made in D1**, to people, invitations, agents and the workspace itself, are reported by
+  the app through the object's `audit` RPC, which takes only those actions. Better Auth's
+  organization hooks are told whom a change was done to but not who did it, so the global after
+  hook in `apps/web/src/server/auth/config.ts` makes the event from the session and what the path
+  answered (`apps/web/src/server/auth/audit.ts`); a before hook reads the role or name being
+  replaced. The agent members plugin reports its own. The report goes after the response; one that
+  fails is logged and lost, since the change it describes is already made.
+- **What it keeps.** Ids for members, named from the member rows when the log is read, so someone
+  who deleted their account reads as "Deleted member". A label taken at the time for things that
+  can go: a team's or status's name, an issue's key but never its title, a webhook's host but
+  never the rest of its URL, which can be its secret, and the address an invitation went to.
+  `forgetPerson` clears the addresses of invitations to someone who deleted their account.
+- **Who reads it.** Admins only: `auditLog` checks `isAdminRole` itself, a page of 50 at a time,
+  the newest first. It is not synced, so it needs no protocol version.
+- **How long.** A year, pruned with the oplog's [compaction](#compaction). It goes with the
+  workspace when it is deleted, and is in its backups.
+
+### Who runs this server
+
+Sign-up is open on a new server, as it always was. The one who runs a server, its owner, can close
+it, so that only people they let in may make an account. Gateweave Cloud runs closed, with a link to
+a waitlist, while Gateweave ID, which every Gateweave product signs in through, keeps its own list.
+
+One row in `deployment` (`apps/web/src/server/auth/deployment.ts`) says who the owner is, whether
+sign-up is open, and whether the owner trusts the OpenID Connect provider. The row comes from the
+migration `0011_sign_up_holds.sql`, and the triggers there hold what it says.
+
+- **The owner is the first account.** On a server that has accounts when it upgrades, it is the
+  oldest of them, and sign-up stays open, so nobody finds anything changed. On a server with none, the
+  first account to be made becomes the owner, and D1 runs writes one at a time, so there is only ever
+  one. Agents are not people, and never own a server. Until the first account exists, whoever arrives
+  first is the owner, so a new server should be claimed as soon as it is up.
+- **Closed means an address needs a way in.** It is the first account of a server with none, an entry
+  on the owner's list, a pending invitation to any workspace (an admin's invitation lets the invited
+  address in, as it did before), or, if the owner turned on "Trust" for it, an account made through the
+  OpenID Connect provider, which keeps a list of its own. GitHub is never trusted this way. Nothing
+  else lets anyone in, whichever way they come: password, GitHub or the provider.
+- **The database refuses the rest, whatever makes the account.** The hook in `auth/config.ts` asks
+  first so that the answer has words, including at the sign-in page for someone coming back from
+  GitHub or the provider. The trigger `user_needs_a_way_in` holds the same rule, so a way of making
+  accounts added later that forgets to ask still cannot make one. A missing row counts as closed.
+  The trigger cannot see which sign-in made an account, so while the owner trusts the provider the
+  hook writes a pass for the one address into `sign_up_pass`, good for 60 seconds, just before an
+  account is made through the provider, and the trigger lets an insert through on trust only for an
+  address with an unexpired pass. The hook removes the pass once the account exists, and expired
+  ones go whenever a new one is written. GitHub and passwords get no pass, so both refuse them.
+- **Outside, every refused address looks like any other.** The words are the same, and an address that
+  has an account is asked about before Better Auth looks it up, so the refusal says nothing about who
+  has one. The sign-in page says the server takes accounts by invitation, and links to
+  `SIGN_UP_REQUEST_URL`, if it is an https address, as "Ask for access". An empty server is not
+  closed to its first account, so the page does not say so there.
+- **The list holds entries of two kinds,** an address in lowercase (`ada@example.com`) or a domain
+  with a leading `@` (`@example.com`), which covers addresses at exactly that domain and not at its
+  subdomains. A note of at most 200 characters is the owner's own. There are at most 5,000 entries,
+  which the endpoint and a trigger both hold. The list holds addresses of people who may have no
+  account, so it is personal data that does not go with any account: deleting someone's account
+  leaves their entry, and an owner who is asked to erase someone has to remove it too. An account made
+  through an entry stays when the entry goes.
+- **The owner has a section, "This server", on their account page,** and its paths under
+  `/deployment/` answer everyone else with a 404, as if they were not there. Every change wants a
+  sign-in from the last day, because each lets others in or out and would outlast a stolen cookie.
+  The page shows each entry's note, when it was added and whether an account with that address, or at
+  that domain, exists yet, and finds entries by searching, since it shows 200 at a time. The public demo
+  refuses these paths over HTTP like the rest.
+- **A closed server keeps its owner.** Their account cannot be deleted while sign-up is closed, which
+  would leave nobody to open it again, and the trigger `deployment_keeps_its_owner` holds it however a
+  request comes to try. Open, it can go, and the earliest account left that is a person takes over
+  (`created_at`, then `id`; the trigger `deployment_passes_to_next_owner`). If none is left, there
+  is no owner, and the next account to be made becomes it, as on an empty server. So a server is
+  never left without someone who can run it. To hand a server over on purpose, set
+  `deployment.owner_id` in D1.
+
+### Deleting an account
+
+People delete their own account on `/settings/account`, through
+`POST /api/auth/account/delete`
+(`apps/web/src/server/auth/delete-account.ts`). Better Auth's `/delete-user` stays off: it lets
+someone with a password through without it, and its hooks can only remove a member from a
+workspace, which leaves their name there. The demo refuses the path, since its visitors go after a
+day anyway.
+
+- **What it asks for.** A session from the last day, and the password if the account has one. An
+  account without one types its address in the page, which only guards against a slip. Better
+  Auth's `/unlink-account` is disabled, because it removes a password on a recent session alone,
+  which would let a stolen cookie get past that question. So are the other routes it offers any
+  session and the app has no use for, such as `/verify-password`, which takes guesses at a
+  password. The list is `disabledPaths` in `apps/web/src/server/auth/config.ts`. A test beside it
+  lists every route that answers, so a Better Auth upgrade that adds one fails until someone decides
+  whether it stays open.
+- **A workspace keeps an owner.** The only owner of a workspace is refused and told which, because
+  a workspace with no owner has nobody who can fix it. The plugin and this endpoint both count and
+  then act, so two owners leaving at once could each see the other still there. Two triggers on
+  `member` hold it in the database, however a row comes to change, and they let go of a workspace
+  that is being deleted. That needs the organization row to go first, so
+  `beforeDeleteOrganization` deletes it and its members follow by cascade.
+- **D1 goes in one batch.** It notes every workspace that has to forget the person in
+  `pending_erasure` (ids only), deletes the user, and takes invitations addressed to them.
+  Foreign keys take the sessions, sign-ins, memberships, OAuth clients and tokens, and the
+  invitations they sent. It is one transaction, so no account goes without that note, and a
+  trigger's refusal leaves everything in place.
+- **Each workspace then forgets them.** A gateway-only `forgetPerson` RPC
+  (`packages/sync-server/src/forget.ts`), in one transaction. It is not a mutation, because no
+  client asks for it and nothing is predicted.
+  - The member row stays, because the ids on what they did resolve to it, as "Deleted member" with
+    no address or picture, marked removed. `upsertMember` leaves such a row alone, so a push that
+    was already on its way cannot bring the name back.
+  - Their subscriptions, inbox, notification settings and intake following go, and the
+    [audit log](#audit-log) forgets the address they were invited at.
+  - Mentions of them are renamed in descriptions, comments, project descriptions and updates,
+    templates, proposals, the copies of proposals in other people's inboxes, and replies waiting
+    to reach a requester. The Markdown holds the name as written, so showing the current name
+    would not be enough. Each changed row goes out as an op, with its dates unchanged, because
+    nobody edited it.
+  - The log is rewritten in place, since it would otherwise hand the old rows to anyone catching
+    up: their `member` ops take the new row, ops holding a mention of them are renamed, and ops
+    private to them go. Other members never saw those, so they open no gap anyone can notice. The
+    newest op always stays, because the next version counts from it.
+  - Webhook deliveries, kept 7 days for settings to show, are rewritten too. A delivery still
+    waiting goes out renamed, and its signature is right, because it is made when sending. Each
+    is read again just before it goes, since a batch can wait behind slow receivers. One already
+    on its way goes as it was, like one that reached its receiver a moment earlier.
+  - The search index is merged, because FTS5 leaves deleted words readable in its pages until then.
+  - Their sockets close.
+- **It is asked until it has answered.** A `pending_erasure` row goes only once its workspace has
+  answered. The daily cron asks again for 20 of them, a number a Worker on the Free plan can reach,
+  those never tried again and the ones tried longest ago first, so a run of them that keep failing
+  does not keep the rest waiting. Asking twice writes nothing and sends no ops.
+- **Workspaces they left count too.** Each keeps their name on what they did there. A trigger notes
+  whoever leaves in `former_member` (ids only, agents left out), however they came to leave, and
+  the note goes with the account or the workspace. Workspaces someone left before v0.29 are not
+  noted, so their name stays in those until someone asks whoever runs the server.
+
+What stays, and the page says so before anyone confirms:
+
+- What they wrote, as the team's record, under "Deleted member", and their id on what they did.
+- Their name wherever someone typed it as plain text, which nothing can find.
+- Files they attached, which belong to the workspace, and issues assigned to them, as with anyone
+  removed.
+- Requests they filed through a public form or by email, which were never tied to an account.
+- Copies on other people's devices until those next sync. A device kept offline holds the old name
+  until it reconnects.
+- Point-in-time recovery, which Cloudflare provides and Track does not control: 30 days back for a
+  Durable Object, and for D1 30 days on Workers Paid or 7 on Workers Free. Restoring a state from
+  before the deletion brings the person back with it.
+
+### Changing a name or password
+
+People change both on `/settings/account`, through Better Auth's `/update-user` and
+`/change-password`, and what stands behind either may be a stolen cookie. The rules are in
+`apps/web/src/server/auth/account-changes.ts` and the hooks of `config.ts`. The demo refuses both.
+
+- **A rename takes a name and nothing else:** 1 to 100 characters once trimmed, which sign-up keeps
+  to as well. The route would otherwise set a picture too, whose address everyone in someone's
+  workspaces fetches. It allows ten a minute, because each rename is a write to every workspace
+  they are in, and every client there shows the new name at once, in mentions already written too.
+- **A provider's name is taken once.** GitHub's or an OpenID Connect provider's name fills in a new
+  account and is not read again, so a name changed here stays.
+- **A new password needs the current one,** at five tries a minute from one client address, and
+  sends the person an email, which may be how they first hear that someone else has it.
+- **Tries at a password are also held per person,** since a stolen cookie can be sent from many
+  addresses (`apps/web/src/server/auth/password-tries.ts`). This and deleting an account share an
+  allowance of 10 at once, refilling over an hour, within 30 that refill over a day. Only a request
+  with a session for that account spends it, so nobody can lock a person out with their address
+  alone, and signing in is not part of it. Whoever holds the cookie can spend it, but a password
+  reset asks for no session, and the account page can end every session with no password, including
+  the one a stolen cookie may be a copy of. When it runs out the person gets an email saying so and
+  what to do, at most once a day and only at an address they have verified, because anyone can sign
+  up with a stranger's. The refusal does not wait for it.
+- **It ends every session,** whatever the request asks, since whoever knew the old password may be
+  why it is changing and may be the one asking. Better Auth makes a new session for the browser that
+  asked. That browser's other tabs lose their sockets with the rest and reconnect with the new
+  cookie, after the probe in "Connecting". The new session keeps the `oidcSid` of the one it replaced,
+  because it came from the same sign-in at the provider, and a logout token still has to reach it.
+
+### Email
+
+Email goes out through Cloudflare Email Service, from the `EMAIL` binding. It is optional. Track
+sends nothing until `EMAIL_FROM` names a sender on a domain onboarded to Email Sending, and
+self-hosters can run without email. `apps/web/src/server/email/` holds the sender and the
+templates. Each message has both a plain-text and an HTML body. Every name in it is
+HTML-escaped and squeezed onto one short line.
+
+| Email          | Sent when                                                                                                        | Off without email     |
+| -------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------- |
+| Password reset | Someone asks on `/forgot-password`. The link works once, for an hour, and resetting ends every session           | No password reset     |
+| Invitation     | An admin with a verified address invites someone or presses Resend                                               | Admins share the link |
+| Verification   | Someone signs up, or asks on an invitation or the members page. The link works for 24 hours                      | Nobody is verified    |
+| Inbox digest   | News a person wants by email stays unread for 10 minutes; at most once an hour per workspace                     | The inbox alone       |
+| Request answer | A person accepts or declines a request filed through a form or by email with an address; replies become comments | Nobody is told        |
+
+Better Auth sends email after the response, through `waitUntil`. Reset requests therefore take
+the same time whether or not the account exists. Invitations put text chosen by a stranger,
+such as their name and their workspace name, in front of any address, sent from our domain. So
+only inviters who verified their own address trigger an email. Each person can send at most 100
+invitation emails a day, and invite-member requests are rate limited to 20 a minute. Whatever
+the kind, one address gets at most 5 emails at once and 10 a day; past that, email to it is
+dropped without telling the requester.
+
+Inbox digests go only to a verified address of someone who is still a member, checked in D1 when
+the digest is sent, and never from the public demo. Each carries `List-Unsubscribe` and
+`List-Unsubscribe-Post: List-Unsubscribe=One-Click` (RFC 8058) when the app is served over HTTPS,
+which Email Service requires. The link (`/api/unsubscribe/:token`, in
+`apps/web/src/server/unsubscribe.ts`) needs no session: its token names the workspace and the
+member and is an HMAC of both under `BETTER_AUTH_SECRET`. A POST, as mail clients send, turns that person's email off in that
+workspace; opening the link shows a page with a button, so link scanners change nothing.
+
+### Rate limits
+
+Better Auth limits each client address per path: 3 sign-in attempts per 10 seconds, 3 password
+reset requests a minute, and so on (`apps/web/src/server/rate-limit/`). Paths with a rule of
+their own are counted in a `RateLimiter` Durable Object, one per client address and path, so a
+limit holds across every isolate and location. Each such rule also gets an hourly allowance of
+20 times its burst, so a client that paces itself is held to 60 sign-in attempts an hour.
+Everything else, mostly session checks, keeps Better Auth's default of 100 per 10 seconds in
+the isolate's memory, so it never waits on a Durable Object. The email cap uses the same
+Durable Object, keyed by recipient. Keys are hashed before they become Durable Object names.
+
+Every Worker reaches another zone from one address, `2a06:98c0:3600::103`, whoever runs it, so
+counted by address they would all spend one allowance, and junk from any of them could stop a
+provider's logout from arriving. Better Auth therefore counts a request with that address and a
+`cf-worker` header by the zone it names, which Cloudflare sets and a sender cannot change. Anyone
+else who sends that header is counted by their own address as before. It is done before the
+handler sees the request (`countedByWhoSentIt`), because the handler counts first of all. So a
+session made from a Worker holds a made-up address, which nothing here shows anyone.
+
+Limits use the generic cell rate algorithm: a burst of `max`, then one every `window / max`
+seconds, with one timestamp of state per rule. If a `RateLimiter` cannot be reached, the
+isolate counts on its own rather than refuse or allow everyone.
+
+### The public demo
+
+Gateweave runs a public demo at https://track-demo.gateweave.com, as its own deployment: the
+`demo` environment in `wrangler.jsonc`
+(`pnpm --filter @gateweave/track-web deploy:demo`, with `db:migrate:demo` for its database).
+Publishing a release deploys it, after production. It is a separate Worker with its own D1
+database and Durable Objects, and it shares nothing with production. Self-hosters do not need
+it, and the code stays inert on any deployment where the `TRACK_DEMO` variable is not `"1"`: the
+server function, the cleanup and the sign-in changes all check it first. To try it locally, add `TRACK_DEMO=1` to `.dev.vars` and restart `pnpm dev`.
+
+A shared demo account would be vandalized within minutes, so each visitor gets a sandbox:
+
+- The login page offers one button. Pressing it calls the `startDemo` server function
+  (`src/server/demo/start.ts`), which limits each client network to 20 sandboxes an hour and 100
+  a day (an IPv4 address, or an IPv6 /64 as Better Auth counts it; generous because of
+  carrier-grade NAT), creates a visitor account with Better Auth's server API (a random address under
+  `visitors.example.com`, a password nobody sees), and signs the visitor in.
+- It then creates a workspace named "Acme" through the server API, so the organization hooks
+  sync membership as usual. The visitor owns it. Four sample people (Maya, Sam, Lena, Diego) are
+  members; they are users with no credentials, shared by every sandbox. The sample teams, labels,
+  issues and comments are written through the Durable Object's `mutate` RPC, each as the right
+  person, from the same steps `pnpm dev:seed` uses (`src/server/demo/sample.ts`).
+- In the demo, HTTP requests to sign up, sign in, reset or change a password or email, delete an
+  account, or change who may sign up are refused. Only the server creates accounts. Server-side `auth.api` calls
+  carry no `Request`, which is how the hook tells them apart. Email is off.
+- A Cron Trigger runs every 10 minutes (`src/server/demo/cleanup.ts`). It deletes visitors more
+  than a day old: for each of their workspaces it calls `destroy()` on the Durable Object, then
+  deletes the organization row, then the user (sessions, accounts and memberships cascade). The
+  sample people are never selected. Visitors are found by their address, so a failed run leaves
+  what it did not delete for the next one.
+
+Seeding a sandbox makes about 70 Durable Object calls in one request, so the demo needs a Workers
+Paid plan (1,000 subrequests per request).
+
+## Request flow and security
+
+The Durable Object has **no public route**. Only the Worker can reach it, through its binding.
+
+1. A request to `/api/sync/:slug/snapshot` or `/api/sync/:slug/socket` reaches the gateway
+   (`apps/web/src/server/sync.ts`) before TanStack Start sees it.
+2. The gateway checks the `Origin` header. WebSocket handshakes carry cookies cross-site, so the
+   origin must match.
+3. It loads the Better Auth session and resolves the slug to a membership in D1. Non-members get
+   the same `404` as a missing workspace, so slugs cannot be probed.
+4. It forwards the request to `WORKSPACE.getByName(workspaceId)`. A snapshot request becomes an
+   RPC call. A socket request is forwarded with the verified member's id and the session's id and
+   expiry in internal headers that the client cannot set, after an RPC call with the member's profile,
+   because Workers Logs records those headers and not RPC arguments. So the socket closes when the session
+   ends.
+
+The DO is keyed by workspace id, not slug, so renaming a workspace does not move its data.
+
+GitHub's webhook deliveries are the one way in without a session: `POST
+/api/github/:workspaceId/:connectionId` (`apps/web/src/server/github.ts`). That gateway checks
+only that the workspace exists in D1, so made-up ids never create an object, and passes the raw
+body on. The Durable Object checks the `X-Hub-Signature-256` signature against the connection's
+secret, which never leaves it, before it reads the body. See [GitHub](#github).
+
+`HEAD /api/sync/:slug/snapshot` runs the same checks without touching the DO. A browser cannot
+see the HTTP status of a refused WebSocket handshake, so the client uses this probe to tell
+"offline" apart from "signed out" or "no longer a member".
+
+Two more reads go through the same gateway and the same checks, for what replicas leave out of
+archived issues (see [Archive](#archive)): `GET /api/sync/:slug/issues/:id` (one issue whole) and
+`GET /api/sync/:slug/archive` (`?team=` for one team's; `?page=1`, then `?after=`, a page at a
+time). Each becomes an RPC call with the verified member. The DO checks again that the member is an active one, without writing, and
+refuses anyone else; a refusal is the gateway's `404` for a missing workspace. It answers only
+for its own live issues, so an id from another workspace is `404 Issue not found`. Like every
+answer of the sync gateway, refusals and errors carry `Cache-Control: no-store`, so a browser
+never answers a later try from one.
+
+Better Auth limits how often each client calls `/api/auth/*`. For example, it allows 3 sign-in
+attempts per 10 seconds and 3 password-reset requests per minute. It identifies the client by
+`CF-Connecting-IP`. Cloudflare sets that header and clients cannot. Counts are kept in memory,
+per isolate, so the limit slows guessing but is not a hard cap.
+
+Every answer gets `X-Content-Type-Options`, `Referrer-Policy` and, over HTTPS,
+`Strict-Transport-Security` (`apps/web/src/server/security-headers.ts`). A page also gets a
+Content-Security-Policy with a nonce made for that response, `X-Frame-Options` and
+`Cache-Control: private, no-store`:
+
+- Nothing can frame a page. A script runs only from Track's own address or with the nonce. A page
+  connects only to Track, and to the APIs of GitHub and Linear, which [an import](#imports) reads
+  from the browser.
+- A member's picture is the one thing a page shows from elsewhere, and only from GitHub or the
+  deployment's sign-in provider. Allowing every host would let a script that got in carry a
+  workspace out in an image's address. A picture from anywhere else shows the member's initials.
+- The request form and attached files keep stricter policies of their own.
+- The service worker keeps one page, the shell, with its headers and its nonce together, so a reload
+  without a connection still runs. That one nonce lasts until the next build's service worker, and
+  the shell holds nothing of anyone's.
+- Vite's dev server gets none of this, because its hot reload adds scripts without a nonce.
+
+Every browser test fails when a page's policy refuses anything (`apps/web/e2e/fixtures.ts`), since a
+blocked script can leave a page that looks right and does nothing.
+
+### Signing in through a provider
+
+With `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` set, Track is a client of an OpenID
+Connect provider, through Better Auth's `generic-oauth` plugin
+(`apps/web/src/server/auth/oidc-sign-in.ts`). What comes out of it is an account row and an
+ordinary session, so nothing past the sign-in page knows the difference. It is how Gateweave Cloud
+signs people in with [Gateweave ID](/track/ecosystem/#identity-and-workspaces), and how a self-hoster
+uses their own provider: one path, differing only by configuration.
+
+- **Discovery waits until someone needs it.** The plugin's `init` waits for the provider's discovery
+  document with no time limit, and every request to a new isolate waits for `init`, so a slow
+  provider would stop password sign-in and every session check. Track replaces `init` so that each
+  isolate starts as the plugin does after a failed discovery, which it retries, within 10 seconds,
+  for a request that names the provider. That sets a field of the plugin's that is not public, so an
+  upgrade that moves it fails the tests rather than the deployment. The cost is one wait for the
+  first person to use the button in each isolate.
+- **Linking is never assumed.** The provider is not in `trustedProviders`, so an existing account
+  links only when the provider says the address is verified and Track's account has verified it too.
+  Anything but a JSON `true` in `email_verified` counts as unverified, since some providers send text.
+- **Track keeps no tokens.** It signs people in and never acts for them at the provider, so the
+  account hook clears them all, and the ID token too, as soon as it has served its purpose. The same
+  goes for signing in with GitHub: the GitHub integration makes an exchange of its own. The client
+  authenticates with `client_secret_basic`, which every provider has to take.
+- **The provider can end sessions.** `POST /api/auth/backchannel-logout/oidc` takes a logout token,
+  checked against the provider's keys: issuer, audience, at most 5 minutes old, the logout event and
+  no nonce, which together keep an ID token from passing as one. A session row keeps the `sid` of
+  the ID token it came from (`session.oidc_sid`, never sent to the browser), and a token naming a
+  `sid` ends just those sessions, and only if they belong to the `sub` it may also name. A token
+  naming only a `sub` ends everything of that person's, which is the safe side of a provider that
+  cannot say which. The sessions end through Better Auth, so their sync sockets close as with any
+  other ended session. Once a token has arrived it is seen through with `waitUntil`, even if the
+  provider stops waiting. Keys that cannot be fetched at that moment get a 503 and end nothing: it
+  says nothing about the token, and a provider tries a 503 again where it takes a 400 as final.
+- **Signing out of Track stays in Track.** The provider's session is left alone, as other apps
+  signed in through it would expect, and `disableProviderLogout` keeps the plugin from sending
+  anyone there.
+
+### AI agents (MCP)
+
+`/mcp` is a [Model Context Protocol](https://modelcontextprotocol.io) server, so AI agents can
+work in Track as the person who connected them. Track is also the OAuth authorization server
+that agents sign in to, through Better Auth's MCP plugin:
+
+1. An agent calls `/mcp` without a token and gets a `401` pointing to the protected resource
+   metadata (`/.well-known/oauth-protected-resource/mcp`), which names Track's authorization
+   server.
+2. The agent registers itself (dynamic client registration) and sends the person to authorize,
+   with PKCE. They sign in if needed and approve it on `/oauth/consent`. Anyone can register a
+   client under any name, so the consent page also says where the grant will go, and consent is
+   never skipped.
+3. The agent gets an access token, a JWT bound to the `/mcp` URL with the `track` scope, and a
+   refresh token. The gateway (`apps/web/src/server/mcp/index.ts`) verifies the signature, the
+   audience and the scope (`protect.ts`). It reads Track's signing keys in-process rather than
+   from the JWKS URL, because a Worker cannot reliably fetch its own hostname. Session cookies are
+   never accepted there, so a web page cannot make a signed-in browser call it, and no Origin
+   check is needed.
+
+Each tool call resolves the workspace slug to the caller's membership in D1, as the sync gateway
+does, and then reads or mutates through the Durable Object's RPC (see
+[Server-side clients](#server-side-clients)). A workspace the caller does not belong to is
+reported as not found. The tools themselves live in `apps/web/src/server/mcp/tools.ts`. Agents
+read an issue's comments with `get_issue` and write one with `add_comment`, as the person. They
+mention people as the app does, with `[@Name](mention:<member id>)`, which the tools' descriptions
+spell out. An
+agent sets up a fresh workspace's teams with `create_team`, which only admins may use. It makes
+and changes projects with `create_project` and `update_project`, which go through the same
+mutations as the app, so the server's rules apply: an agent member cannot, and a lead must be a
+person. Statuses are named by key or by name, ignoring case; `get_workspace` lists each team's
+in order, and issues come back with `status` (the key) and `statusName`.
+
+Tokens must name one canonical URL, so the endpoint, and the authorization server, exist only
+when `BETTER_AUTH_URL` pins the base URL. Without it `/mcp` answers `404`.
+
+### Agent members
+
+An agent member is a member an admin creates for an AI agent that works on its own, such as one
+that triages new issues, rather than for a person. It is a Better Auth user with the `agent`
+role in one workspace, made by the agent members plugin (`apps/web/src/server/auth/agents.ts`),
+which also lists, renames and deletes agents and makes and revokes their keys, for admins only.
+Settings has an Agents page for it.
+
+- **It never signs in.** It has no password or account, and its address is `<id>@agents.invalid`,
+  a domain that can never resolve. The plugin refuses that domain wherever Better Auth takes an
+  address (sign-up, sign-in, password reset, verification, email change and invitations), and
+  refuses changing an agent's role or removing it through the members endpoints: deleting it from
+  its own settings also revokes its keys.
+- **It works through MCP with a key.** A key is `gwt_` and 43 random characters (256 bits). D1
+  keeps its SHA-256 hash and its first 12 characters, to tell keys apart in settings, and the time
+  it was last used, written at most every five minutes. An agent can have five keys, so one can be
+  replaced without a gap. The MCP gateway takes a `Bearer` key before trying OAuth, finds the
+  agent while it is still an agent member of the workspace the key was made for, and lets it
+  reach that workspace only, even should it come to belong to another.
+- **It acts as itself.** Its tool calls go through `mutate` with its own profile, so the same
+  validation applies, the oplog and activity name it, and people see its changes live. It can do
+  what members do and nothing only admins can. The app shows it with a robot for an avatar.
+  `get_workspace` names the caller as `you`, so an agent knows its member id: the assignee of the
+  issues assigned to it, which is how Gateweave Agents tells that an issue is its to work on.
+- **It proposes what an admin chooses.** An admin picks the kinds of change it only proposes
+  (see [Proposals](#proposals)); everything else it makes directly.
+- **It goes with its workspace.** Deleting an agent deletes its user, membership and keys; the
+  workspace keeps its profile, marked removed, for what it did. Deleting a workspace deletes its
+  agents too, as does the demo's cleanup.
+
+### Backups
+
+D1 can be backed up from outside the Worker, but a workspace's Durable Object can't: only its own
+code reads its SQLite. So the Worker exports a named entrypoint, `Backup`
+(`apps/web/src/server/backup.ts`), for a backup Worker such as Gateweave Backup's.
+
+- **No route.** A named entrypoint can't be reached from the internet. Only a Worker in the same
+  Cloudflare account with a service binding to it can call it, so that binding is the access, the
+  way the gateways' checks are for people and agents.
+- **`objects(cursor)`** lists the workspaces' ids from D1, 100 at a time. Deleted workspaces
+  aren't listed.
+- **`read(id, statements)`** runs the SELECTs of a SQLite dump in the workspace's object, after
+  checking in D1 that the workspace exists, so a backup never makes an empty object. For one that
+  doesn't, such as a workspace deleted since it was listed, it answers null. The object's
+  `backupRead` (`packages/sync-server/src/backup.ts`) takes only `SELECT` and `PRAGMA table_list`
+  or `table_info`, one statement each, and runs them together in one transaction that it always
+  rolls back. They see one moment, and nothing they run can change the workspace.
+- **Restoring** a workspace from a backup isn't built in. The backup's SQL restores into a SQLite
+  database, to read or to load by hand.
+
+## Sync protocol
+
+Defined in `packages/protocol`. The server is authoritative. Clients apply changes optimistically
+and reconcile against what the server broadcasts.
+
+### Versions and the oplog
+
+Every write appends one or more ops to the workspace's **oplog**. Each op gets the next workspace
+version, so versions are gapless and totally ordered. An op is either a full-row `put` or a
+`delete` of an entity: a `team`, `issue`, `label`, `project`, `comment`, `activity`, `proposal`,
+`member`, and so on (`ENTITY_NAMES`). A client's entire sync state is the highest version it has
+applied.
+
+Most entities are the whole workspace's. A member's `subscription` and `inbox` rows are theirs
+alone (`PRIVATE_ENTITIES`): their ops carry an **audience**, the member's id in the oplog's
+`audience` column, and reach no one else, whether in a snapshot, a catch-up or live. Every client's
+version still moves past them, so each `delta` names the range of versions it covers,
+`{ from, to, ops }`, which can be wider than the ops it carries. A client sets its version to `to`,
+and a delta whose `from` is beyond its version plus one means it missed something.
+
+### Connecting
+
+1. `GET /api/sync/:slug/snapshot` returns
+   `{ version, teams, issues, labels, projects, comments, activities, proposals, relations, views,
+   members, subscriptions, inbox }`,
+   leaving out the comments, activity and proposals of deleted issues, deleted projects, and
+   everyone else's subscriptions and inbox. Archived issues are slim, without their comments,
+   activity, proposals and pull requests (see [Archive](#archive)). It is served over HTTP so it can be compressed and
+   fetched in parallel with the socket.
+2. The client opens the socket and sends `hello { protocol, clientId, since: snapshot.version }`.
+3. The server streams any ops after `since` as `delta` messages, then `ready { version }`. From
+   then on the socket receives every new op live.
+
+If `since` is older than the compaction floor, or newer than the server (for example, after a
+local database wipe), the server replies `reset` and the client fetches a new snapshot. A
+protocol version mismatch closes the socket with code `4001` so the client can prompt a reload.
+An ended session closes it with `4401`: the client asks the gateway whether the browser's cookie
+still works (the `HEAD` probe), reconnects if it does, and asks for a sign-in if not.
+
+Beside the snapshot, a connected browser may ask over HTTP for what its replica leaves out of
+archived issues: `IssueDetails` (one issue, with its comments, history, open proposals and pull
+requests) and `ArchivedIssuesPage` (a page of archived issues with their comments and history),
+whose inputs are the zod schemas `issueDetailsRequest` and `archivedIssuesPageRequest` in
+`packages/protocol`; the client checks each page against `archivedIssuesPage` before it reads it.
+These are plain request and response, not sync: nothing in them reaches the replica or IndexedDB,
+and they need a connection. They are HTTP rather than socket messages because only the leader
+tab holds the socket, while any tab may open an archived issue or export, and because an
+export's answer can be large. The client asks for the archive in pages (`?page=1`, then
+`?after=`), by issue id: each holds up to `ARCHIVE_PAGE_SIZE` (200) issues with their comments
+and history, and ends early once it comes to `ARCHIVE_PAGE_BUDGET` (4 MiB) of JSON, but always
+holds one issue. Its `next` is the `?after=` of the page after, and null on the last; an answer
+without one is not a page, and the export fails rather than reading on. That keeps one answer
+well under the Durable Object's RPC limit and the Worker's memory, whatever the archive's size.
+
+v0.21.0 asks for the archive without paging and reads `ArchivedIssues`, every archived issue in
+one answer, without validating it. Its tabs can stay open on that build after a deploy, because
+`PROTOCOL_VERSION` stays at 25, so a request without `?page` or `?after` still gets exactly that
+answer (`archivedIssuesRequest`, `findArchivedIssues`), all of it and nothing more: a page would
+make that build save a short export without a word. When the archive is too large for one answer
+(about 8 MiB of text, measured in SQL before it is read), that request is a `413` instead, which
+that build shows as its error. This path stays for compatibility until a later protocol bump
+retires it. The issue read and paging are additions older clients never ask for.
+
+Clients keep the socket alive by sending the plain-text frame `ping`. The runtime answers `pong`
+without waking a hibernated Durable Object.
+
+### Mutations
+
+```jsonc
+{
+	"type": "mutate",
+	"id": "<uuid>",
+	"mutation": {
+		"name": "issue.update",
+		"args": {
+			/* … */
+		}
+	}
+}
+```
+
+- The server applies each mutation in its own SQLite transaction. A rejection rolls back every
+  write the mutation made.
+- The resulting ops go to **every** live socket, including the sender, as a `delta`; private ops
+  go only to their member's sockets. The sender then gets `ack { id, version }`. A client therefore learns the canonical result of its own
+  mutation the same way it learns about everyone else's.
+- A rejection is `reject { id, reason, message }` with reason `invalid`, `forbidden`,
+  `not_found` or `conflict`. The client drops the mutation and its optimistic effect.
+- Mutation ids are recorded, so resending a mutation after a reconnect is safe. A repeat returns
+  the original version without writing again.
+- A message that is not valid protocol closes the socket with `4400`. A mutation that is valid
+  protocol but has an invalid body is rejected by id, and the connection stays open.
+- **Many at once.** `SyncClient.mutateAll` queues a batch, as bulk edit sends it: the replica,
+  IndexedDB (one transaction) take it in one go, and the other tabs and the socket still get one
+  `mutation` or `mutate` message per mutation, so the server applies or refuses each
+  on its own. The replica rebuilds its visible state when it is read, not on every change, and
+  the client tells its subscribers once per animation frame. A burst of a thousand answers
+  replays the pending mutations and re-renders a few times, not a thousand.
+
+### Server-side clients
+
+Code that acts for a member on the server, such as an AI agent's tool call, does not keep a
+replica. It reads slices of the workspace over RPC (`directory`, `issues`, `issue`, `issueByKey`) and
+writes with `mutate(member, clientId, mutationId, mutation)`. That runs the same path as a socket
+mutation: the same validation, idempotency by mutation id, field-level conflict detection and
+broadcast to every live socket. It returns the equivalent of an `ack` or a `reject`. As with
+sockets, only a gateway calls it, after verifying the member. Today that is the MCP gateway,
+which gives each OAuth client, and each agent member, one stable `clientId` and every call a fresh
+mutation id.
+
+### Concurrent edits
+
+Issue updates use **field-level optimistic concurrency**. An update carries the `baseVersion` of
+the issue the client edited. Each field in the patch is applied unless _another client_ wrote
+that same field after `baseVersion`.
+
+- Two people editing different fields of the same issue both succeed.
+- A client coming back online with a stale edit to a field someone else has since changed is
+  rejected for that field instead of silently overwriting newer work.
+- A client's own rapid successive edits never conflict with each other, even when they are all
+  based on the same version because earlier acks have not arrived yet.
+
+If only some fields conflict, the rest are applied. The client sees the outcome in the broadcast
+row.
+
+Labels are kept out of the patch. An issue's `labelIds` change only through `issue.addLabel` and
+`issue.removeLabel`, which are set operations: adding a label that is already there, or removing
+one that is not, writes nothing. They never conflict, so two people labeling the same issue at the
+same time both get their label. Deleting a label (admins only) removes it from every issue that
+has it, one issue op each, before the label's own delete op.
+
+### Workflow statuses
+
+Each team has its own statuses (`WorkflowStatus` in `packages/protocol/src/statuses.ts`, the
+`statuses` table of the Durable Object), in an order its admins choose. Every status is in one of
+five fixed categories: backlog, unstarted, started, completed and canceled. What Track does with an
+issue's status follows the category, never the status itself, so a team's own statuses work
+everywhere. Completed and canceled close an issue: it is not overdue, blocks nothing and moves on
+with no cycle. Completed counts as done in the progress of cycles, projects and sub-issues, and
+canceled issues are left out of it.
+
+- **Keys never change.** An issue's `status` is the key of one of its team's statuses, made from
+  the name when the status is created (`statusKeyFor`: "Ready for QA" becomes `ready_for_qa`).
+  Renaming a status keeps its key, so issues, history, filters, saved views and webhooks that
+  refer to it stay right. A status's id is `${teamId}/${key}`, and mutations name it by team
+  and key.
+- **Every team starts with the same six**, the statuses Track had before teams had their own
+  (`DEFAULT_STATUSES`): Backlog, Todo, In Progress, In Review, Done and Canceled, under their old
+  keys. A migration gave them to every existing team, so older issues and integrations keep their
+  meaning. When a page shows issues of several teams, statuses that share a key share a column or
+  group, named as the first of those teams by key names it. Teams that add a status of the same
+  name get the same key, so they line up too.
+- **Admins change the workflow.** `status.create`, `status.update` (name, color, category and
+  order) and `status.delete` are for owners and admins (`isAdminRole`), under Settings, Teams;
+  the replica predicts them by the same rules. Names are unique in a team ignoring case, a team
+  has at most 30 statuses, and it keeps at least one completed status, for Track and GitHub to
+  close issues with. Statuses sort by category, then by a fractional `sortOrder` within it.
+- **Removing a status moves its issues.** `status.delete` names the status to move the team's
+  live issues to, with a history entry and a webhook for each, as the admin's change; nobody's
+  inbox hears of it. The status keeps its row with `removedAt`, so history and the inbox still
+  name it, and its key is never used again in the team. Nothing can be moved into it.
+- **A new issue without a status gets its team's first**, Backlog unless the team changed it.
+  `issue.create` and `issue.update` refuse a key that is not one of the team's live statuses.
+- **Names travel with the key.** MCP takes a status by key or name and lists each team's
+  statuses in `get_workspace`; webhooks carry `statusName` and `statusCategory`; inbox emails
+  name the status as its team does; an import matches a status by name in the team, then takes
+  the first of its category. An import of a Track export that keeps the file's teams first adds
+  each team's live statuses that the team here lacks by name and by key (`status.create`).
+
+Changing statuses is a breaking change to the protocol (version 16), so clients that predate it
+start from a fresh snapshot.
+
+### Archive
+
+A closed issue can be archived (`issue.archive`, `Issue.archivedAt`): it leaves the lists and
+boards of its team, project, cycle and saved views, and My issues. Search finds it by key and
+title, links and relations still name it, and it still counts in the progress of its project,
+cycle and parent, since it was done or canceled. The server keeps all of it; browsers keep only a
+slim row (below). Each team has an archive page
+(`/$workspace/team/$teamKey/archive`), linked from the team page once something is in it, with
+a way to restore each issue.
+
+- **Only a closed issue is archived.** `issue.archive` refuses an issue whose status is not of the
+  completed or canceled category, and asking for what the issue already is changes nothing. Any
+  member or agent may archive or restore, as any of them may close or reopen.
+- **Reopening restores it.** An `issue.update` that moves an archived issue to a status that does
+  not close it clears `archivedAt` in the same write, with a history entry of its own. So does
+  removing a status into an open one, or changing a closed status's category to an open one, for
+  every archived issue in it; like the change to the workflow, those reach nobody's inbox.
+- **History says it**, as `{ type: "archived", archived }`. Archiving and restoring within the
+  merge window leaves no trace, as for labels.
+- **Replicas keep an archived issue slim.** In snapshots and ops an archived issue is an
+  `ArchivedIssue`: its id, team, number, title, status, project, cycle, parent, estimate and
+  `archivedAt` (`ARCHIVED_ISSUE_FIELDS`, `toSyncedIssue`), and nothing else. Its description,
+  labels, comments, history, open proposals and the pull requests that link no other issue the
+  replica holds whole stay on the server. That keeps a large archive from weighing on every
+  browser's snapshot, IndexedDB and memory.
+  - The server decides it in one place: `ChangeSet.put` sends an archived issue slim, and turns a
+    put of a comment, history entry, proposal or pull request that belongs only to archived issues
+    into a `delete`, so a write to an archived issue never brings its details back by accident.
+    The snapshot leaves them out the same way.
+  - Archiving deletes what replicas hold of the issue, as ordinary ops (`syncArchive` in
+    `packages/sync-server/src/archive.ts`, called wherever `archivedAt` changes: archiving,
+    reopening, the workflow changes that restore, and automations). Restoring sends the whole issue
+    back, then its comments, history, open proposals and pull requests, as puts. A client that
+    catches up from before either ends where a snapshot would.
+  - From the slim rows, offline included: lists and boards (which leave archived issues out anyway),
+    the archive page (key, title, status, when archived), links and relations by key, the progress
+    of projects, cycles and parents (in issues and points, hence the estimate), and search by key
+    and title. Burn-ups draw an archived issue as it is now on every day, since its history is not
+    there; a completed cycle is judged by its last day, which is still right. Insights and label
+    counts leave archived issues out.
+  - **An archived issue's page asks for the rest on demand.** While the browser is connected,
+    `ArchivedIssueDetail` fetches the issue whole (`GET /api/sync/:slug/issues/:id`,
+    `useIssueDetails` in `apps/web/src/lib/archived.ts`) and shows its description, labels,
+    priority, assignee, dates, pull requests, proposals, comments and history, read-only, with
+    Restore as the way to edit. The answer lives in the component's state only: it is never put in
+    the replica or IndexedDB, and it is asked for again when the slim row changes or the
+    connection comes back. Offline the page shows the slim row and says the rest is on the server.
+  - **Exports fetch archived issues whole.** When the slice being exported has archived issues,
+    the app asks the server for them (`GET /api/sync/:slug/archive`) and exports them whole: the
+    CSV fills in their cells, and the JSON lists them apart in `archivedIssues`, with their
+    comments and history among the others. It asks for the archive's pages until the last
+    (`fetchArchivedIssues`), keeping the team, and keeps each issue once. It stops on an answer
+    that is not a page, on a `next` that repeats the cursor it asked with (it does not compare ids,
+    which JavaScript and SQLite order apart), and after 10,000 pages. The server's list
+    decides which issues are archived, so each issue is in the file once. An issue the replica
+    still holds archived that the list leaves out was restored (or archived again) on the server
+    between pages or before the replica heard: the export asks for it alone
+    (`fetchMissingArchived`) and exports it whole, with the active issues if it was restored. One
+    deleted since (`404 Issue not found`) is left out, as it is gone; `404 Workspace not found`
+    fails the export. More than 50 such issues means the archive is changing fast, and the export
+    stops and says to try again in a moment rather than make that many requests. When the archive
+    cannot be fetched, the export stops and says why: no connection, signed out, workspace not
+    found (or no longer a member), or an error on the server to try again after. It offers to export without them; a JSON export made
+    that way says in `notes` how many it left out. It never passes a slim row off as an issue.
+  - **The JSON import brings archived issues along**, archived: after their comments and
+    relations are in, each is archived (`issue.archive`) if the status it gets here closes it.
+    Exports made by version 0.20 hold archived issues slim; the import leaves those behind and
+    says so.
+  - The replica predicts archiving as the server will send it, slim and without the rows above.
+    It does not predict restoring, or any edit to an archived issue: it has no version or details
+    to work from, and the server sends the whole issue back.
+  - Lists, boards, calendars and saved views read `activeIssues`, the whole issues that are not
+    archived, kept as the same map while those rows do not change: a large archive costs them
+    nothing to filter, and an edit to an archived issue runs none of their selectors again. Links,
+    search and progress read `issues`, archived ones included, as `SyncedIssue`.
+- **Elsewhere.** Webhooks send an archive or restore as `issue.updated`, with `archivedAt` in
+  `updatedFrom`. Over MCP, `search_issues` takes `archived` (only archived issues, or none) and
+  every issue says whether it is archived; `update_issue` takes `archived` to archive or restore,
+  after the other changes, so one call can close an issue and archive it. Exports carry
+  `archivedAt`; the JSON import archives what was archived, and other imports bring issues in
+  unarchived.
+
+Archiving is a breaking change to the protocol (version 17), so clients that predate it start from
+a fresh snapshot. Slim archived issues are another (version 25): every client drops its cache and
+starts from a snapshot that holds them slim.
+
+### Team automations
+
+A team can have Track archive its closed issues, and cancel the ones nobody started, once no one
+has touched them for a number of months (`Team.archiveAfterMonths`, `Team.closeAfterMonths`: 1 to
+24, or null for off; a month is 30 days). Admins set them in the team settings, which say how many
+issues each rule would change on its first run, from the local copy (`apps/web/src/lib/automations.ts`).
+The workspace's alarm applies them (`packages/sync-server/src/automations.ts`).
+
+- **Untouched means `updatedAt`.** Any change to an issue starts its wait again, so closing an
+  issue makes it wait the archive months from then.
+- **Closing** takes issues in statuses of the backlog and unstarted categories into the team's first
+  canceled status. Started work is left alone, and a team without a canceled status closes nothing.
+  The status is stamped like any change to it, so an offline edit made before conflicts.
+- **Archiving** takes issues in completed and canceled statuses, as `issue.archive` would.
+- **They act as Track** (`SYSTEM_ACTOR_ID`), with a history entry for each change and an
+  `issue.updated` webhook, but nothing in anyone's inbox: no one asked for the change.
+- **About once a day.** The next run is kept in the `meta` table. A run changes at most 200 issues
+  and, when it used them all, has the next run a minute later. Turning a rule on or changing it
+  has the next alarm run them. A workspace where no team has one never wakes for them.
+- **Elsewhere.** `get_workspace` over MCP gives each team's `archiveAfterMonths` and
+  `closeAfterMonths`.
+
+Automations are a breaking change to the protocol (version 18), as the team entity gained them.
+
+### Intake
+
+Each team has an intake: requests that wait for a person to accept them into the team's workflow
+or decline them (`Issue.intake`). A request is an issue like any other, with the team's number,
+statuses, labels and history; only where it shows differs. It leaves the lists and boards of its
+team, project, cycle and saved views, and My issues, as an archived issue does, and waits on the
+team's intake page (`/$workspace/team/$teamKey/intake`), oldest first. Search finds it.
+
+- **Filing.** `issue.create` takes `intake: true`. The intake page files requests, and so does
+  the C shortcut while it is on screen; agents file them over MCP. Anyone who may create an issue
+  may file one, agent members included. People without an account use the team's request form
+  or email address (below).
+- **Accepting** (`issue.accept`) takes the request out of intake in its status, or in an open one
+  it names: a closed status is refused, since declining is how a request closes.
+- **Declining** (`issue.decline`) moves it to the team's first canceled status, after posting an
+  optional reply as a comment by the person declining, which the people following the request
+  hear of. A team with no canceled status cannot decline.
+- **People decide.** An agent member's `issue.accept` or `issue.decline` is never made: it
+  becomes a proposal (`{ type: "intake", accepted, status, reply }`), whatever an admin chose for
+  the agent, with the status it would accept into or the reply it drafted (see
+  [Proposals](#proposals)). An agent triages by working on requests through the ordinary
+  mutations and by proposing decisions; a person accepts or declines. Accepting the proposal
+  makes the decision as that person, through the same handlers, with the agent in the history's
+  `proposedBy`; a drafted reply is posted as the person, who made it theirs. Once a request leaves
+  intake, however it does, the decisions agents proposed on it are dismissed by whoever took it
+  out. Deciding on what is no longer a
+  request is a `conflict` ("Someone already decided on this request"), so whoever decides second
+  hears it, and a reply they wrote is not lost unseen. A retried mutation id is answered as
+  applied before that.
+- **A request is never closed.** Declining is how it closes, so `issue.create` refuses a request
+  in a closed status, and `issue.update` refuses to move one into a closed status (`invalid`),
+  whoever sends it, an accepted proposal included. GitHub leaves requests where they are. A change
+  to the workflow that makes a request's status closing, by changing its category or removing it
+  into a closed one, takes the request out of intake as declined, with a history entry and no
+  inbox news, as it restores archived issues. A team whose first status closes takes no requests
+  from its form or address.
+- **Decisions are stamped.** Accepting into another status and declining stamp the status like
+  any change to it, so an offline edit made before them conflicts.
+- **History says it**, as `{ type: "intake", accepted }`, with the status change as an entry of
+  its own. Both send `issue.updated` webhooks, with `intake` in `updatedFrom`.
+- **The people who follow it hear of it**, as an `intake` event in their inbox (a kind of its own
+  in notification settings, inbox only by default), in place of the status change it made. A
+  decline that a change to the workflow makes tells nobody, as the change itself does not.
+- **People can follow a team's intake** (`team.followIntake`, `Team.intakeFollowers`), each for
+  themselves, from its page. A new request, however it was filed, reaches them as a `request`
+  event (a kind of its own, inbox and email by default) and subscribes them to it, so they hear of
+  comments, replies and the decision. Nobody follows until they choose to, except that whoever
+  turns on a team's form or address starts out following, since a way in that tells nobody is one
+  nobody answers. A new link leaves alone someone who stopped. Someone who leaves the workspace
+  stops following. A follower whose settings turn this kind off is neither told nor subscribed.
+- **Whoever filed it through a form or by email is emailed the decision**, with the reply to a
+  decline, when they left an address (`packages/sync-server/src/requesters.ts`). The Durable
+  Object keeps the address and the workspace's id, which the gateway checked in D1, in a
+  `requesters` table that never reaches clients. A decision marks the row, and the alarm takes
+  every marked row in one transaction, unmarking it, and hands each to `sendRequesterNotice`,
+  which the app's Worker overrides (`apps/web/src/server/requester-email.ts`), as it does inbox
+  digests: each is emailed at most once, and a failure loses it rather than sending it twice. The
+  email names the team, the workspace and the request, links nowhere, and goes only where email
+  is on, never from the public demo, within the cap on emails to one address. Deleting the
+  request forgets the address. An email's sender can be forged, so a stranger could have a
+  decision sent to someone else's address; what it says is the team's, and it is one email per
+  request.
+- **The requester can reply.** Where teams take email (`INTAKE_EMAIL_DOMAIN`), the decision is
+  sent with a `Reply-To` of the request's own address: the workspace's id and a 26-letter key the
+  object makes when it first emails the decision, longer than a team's 16 so the two never read
+  as one another. A reply there becomes a comment on the request by Email, as the request was,
+  without the text it quotes and with its attachments kept as a request's are. Only the address
+  the decision went to may reply, and each request takes only so many replies. Before it reads
+  the message, the gateway checks the key's form and asks the object (`replyTarget`, which writes
+  nothing) whether a request has the key; once it has read it, it compares the sender with the
+  address the decision went to, all before it counts the reply or stores its attachments. Anything
+  else gets the refusal a missing address does, and costs no parsing or allowance. The people who follow the request hear of it in their inbox; a
+  stranger's text subscribes and mentions nobody.
+- **Out of the way of automations.** A request is not archived, by hand or by a team's
+  automations, and automations do not close it: it waits for a person.
+- **Elsewhere.** Over MCP, `create_issue` and `search_issues` take `intake`, every issue says
+  whether it is a request, and `triage_request` accepts or declines one; from an agent member it
+  comes back under `proposed`, as `accept` (with the status) or `decline` (with the reply). Exports
+  carry `intake`; imports bring issues in out of intake.
+
+#### Request forms
+
+An admin can turn on a team's public request form (`team.update` with `intakeForm`), whose link,
+`/request/:workspaceId/:formKey`, anyone can fill in without an account. The key is 128 random
+bits the Durable Object makes each time the form is turned on (`Team.intakeFormKey`), so turning
+it off, or asking for a new link, retires the old one. It is in every member's replica, so any
+member can share the link. The gateway (`apps/web/src/server/intake-form.ts`) runs before
+TanStack Start and serves the form as a small page of its own:
+
+- **Turnstile keeps bots out.** The page embeds Cloudflare Turnstile, and a submission files
+  nothing until `siteverify` passes its token. Without `TURNSTILE_SITE_KEY` and
+  `TURNSTILE_SECRET_KEY`, and on the public demo, every form answers 404, and the form's dialog
+  in the app says why.
+- **Each client network files at most 10 requests an hour and 30 a day**, across all forms,
+  counted in the `RateLimiter` Durable Object (per IPv6 /64), before Turnstile is asked.
+- **The workspace must exist in D1** before its Durable Object is reached, and a key no team has
+  gets the same 404 as a missing workspace.
+- **The form is the creator.** A request is filed as `INTAKE_FORM_ACTOR_ID` (`form`), shown as
+  "Request form", in the team's first status, with the title and description typed in, and the
+  address the person left, if any, at the end of the description. It mentions nobody, so a
+  stranger's text cannot bring people to it. Those who follow the team's intake hear of it, whose
+  title they see in their inbox and email, kept short and on one line. Webhooks hear of it,
+  with a `system` actor named "Request form".
+- **Nothing runs on the page but Turnstile.** It is served `no-store`, with a
+  Content-Security-Policy that allows only Turnstile's script and frame and posts only to itself,
+  cannot be framed, and escapes everything it shows. The service worker leaves `/request/` alone.
+
+#### Intake email
+
+An admin can also give a team an intake email address (`team.update` with `intakeEmail`):
+`<workspace id>.<key>@<INTAKE_EMAIL_DOMAIN>`, where the key is 80 random bits as 16 lowercase
+base32 characters (`Team.intakeEmailKey`), new each time the address is turned on. The address
+is lowercase, since mail systems may change its case, and the gateway finds the workspace by its
+id ignoring case. Teams usually forward their support address to it. Cloudflare Email Routing
+sends every address at the domain to the Worker's `email` handler, from one catch-all rule
+(`apps/web/src/server/intake-email.ts`):
+
+- **Mail to an address that leads nowhere is refused** (`setReject`), so its sender hears it went
+  nowhere: another domain or form, a workspace that does not exist, or a key no team has.
+- **Mail a machine sent on its own is dropped without a bounce**: `Auto-Submitted` other than
+  `no`, `Precedence` of bulk, junk, list or auto_reply, auto-reply headers and mailing lists. An
+  out-of-office reply to everyone who wrote would otherwise fill the intake.
+- **Limits.** Each sender files at most 10 requests an hour and 30 a day, and each team's address
+  takes at most 60 an hour and 300 a day, whoever sends them, in the `RateLimiter` Durable Object.
+  Mail over 10 MiB is refused, or over 1 MiB where there is no bucket for attached files.
+- **What is kept.** postal-mime parses the message. The subject is the title (or "Email from"
+  the sender), and the plain text, or the text of an HTML-only message, the description, cut at
+  20,000 characters and signed with the sender's address. Up to 10 attachments, each within the
+  file gateway's 25 MB, go into the bucket of attached files as members' uploads do, under the
+  workspace's prefix with a name cleaned by `attachmentName`, and the description links them, as
+  images where they are. They are served as any attachment: only to members, images inline,
+  everything else as a download. The description counts the attachments left out, and all of
+  them where there is no bucket. If the request cannot be filed after all, as when the address
+  was turned off a moment before, the files are deleted.
+- **The address is the creator** (`INTAKE_EMAIL_ACTOR_ID`, `email`, shown as "Email"), with the
+  same rules as the form: the team's first status, only its followers' inboxes, webhooks with a
+  `system` actor named "Email".
+
+Without `INTAKE_EMAIL_DOMAIN`, and on the public demo, every address is refused, and the dialog
+in the app says why. The address that mail came from hears of the decision (above).
+
+Intake is a breaking change to the protocol (version 20), as the issue and team entities gained
+it, and so are its inbox event (version 22) and agents' proposed decisions (version 23).
+
+### Issue templates
+
+A team keeps templates for the issues it files often (`IssueTemplate`, at most 50 a team): a
+name, unique in the team ignoring case, and the title, description, priority, assignee and labels
+a new issue starts with. Any member keeps them, under Settings, Templates, with `template.create`,
+`template.update` and `template.delete` (`packages/sync-server/src/templates.ts`).
+
+- **Using one is the client's business.** The create dialog's Template menu and the command
+  palette's "Create issue from …" fill in the draft (`apps/web/src/lib/templates.ts`), and the
+  person changes what they like before `issue.create` checks it like any other. A template with an
+  empty title or description leaves what was typed. The title is not trimmed, so "Bug: " keeps
+  its space for the rest of the title.
+- **What an issue cannot have is left out.** Deleting a label takes it off templates, as it does
+  issues. An assignee who has since left the workspace stays in the template but is not assigned.
+- **Elsewhere.** `get_workspace` over MCP lists each team's templates, and `create_issue` takes a
+  `template` by name: it fills in the description, priority, assignee and labels the call leaves
+  out.
+
+Templates are a breaking change to the protocol (version 19), as the snapshot gained them.
+
+### Recurring issues
+
+A template can also make its issue on its own, on a schedule (`IssueTemplate.repeat`): every 1 to
+99 days, weeks or months from a first day, at midnight in a time zone the schedule names. The
+template dialog sets it, starting from the team's cycle time zone or the browser's. The workspace's
+alarm makes the issues (`packages/sync-server/src/recurring.ts`).
+
+- **Days count from the first.** Day and week steps add up from `startsOn`; a month step keeps
+  its day of the month, or takes the last day of a shorter month and goes back to the day after
+  it (`nextRepeatDay` in `packages/protocol/src/repeat.ts`, which the replica predicts with).
+- **The server keeps the next day** in `nextOn`, which the snapshot carries for the app to show,
+  and the day it last made an issue, which it keeps to itself. Saving a schedule plans the next
+  day from today, after that last day, so changing a schedule never makes a second issue on a day
+  that has one. Changing the rest of the template leaves the plan alone.
+- **One issue for days missed.** If the alarm is held up past several days, the template makes one
+  issue and plans the next day from today.
+- **The issue is the template's, as `issue.create` would make it**: its title, description,
+  priority, labels and assignee, without labels deleted since or an assignee who has left, in the
+  team's first not-started status, so it is ready to pick up, after every other issue.
+- **Track creates it** (`SYSTEM_ACTOR_ID`). The assignee hears of it as of any issue assigned to
+  them, webhooks get `issue.created`, and the issue shows Track as its creator.
+- **A schedule needs a title**, which the server checks on create and update, so its issues never
+  come without one.
+- **The alarm** plans the next scheduled issue with the rest of its work. A run makes at most 50
+  issues and looks again a minute later when there are more. Saving a schedule wakes it, so a
+  schedule that starts today makes its first issue at once.
+- **Elsewhere.** `get_workspace` over MCP gives each template's `repeat` and `nextOn`.
+
+Schedules are a breaking change to the protocol (version 24), as the template entity gained them.
+
+### Insights
+
+Each team has an insights page (`/$workspace/team/$teamKey/insights`, `?weeks=4|12|26`),
+linked from the team page and the palette, worked out in the browser from the replica
+(`apps/web/src/lib/insights.ts`). Nothing is stored or computed on the server, so it costs the
+Durable Object nothing and works offline.
+
+- **Created and closed by week**, weeks starting on Monday, in the time zone of the team's
+  cycles; a team without cycles has none, so its weeks are in the viewer's own time zone, and two
+  people in different zones can see an issue in different weeks. Closing is
+  read from history: a status change from an open category into a closed one, so reopening and
+  closing again counts twice. An issue filed straight into a closed status (an import, a note
+  of done work) counts as closed when it was created. Archived issues count: archiving takes an
+  issue out of lists, not out of what the team did.
+- **Cycle time** is the median, over issues done in the range and still done, from the first
+  move into a started status to the completion that stands. An issue filed straight into a
+  started status started when it was created; one never marked started has none. History merges
+  one person's changes to a status within five minutes, so work started and finished that
+  quickly reads as one move and has no cycle time. Under an hour reads as "under an hour".
+- **Open issues by status, assignee and label**, as they are now.
+- **Filters.** A page can count only the issues with a label, or assigned to someone or to no
+  one (`?label=<id>&assignee=<id>|none`), all of the numbers above alike. The address keeps
+  them with the range, so a link shares the same view.
+- **Requests still in intake are left out** of every count: nobody has taken them on yet. Once
+  accepted, a request counts from when it was filed.
+
+Each project has one too (`/$workspace/project/$projectId/insights`), linked from the project
+page, with the same numbers over the issues in it now, from any team, each issue's history read
+with its own team's statuses. An issue moved out of the project takes its history with it. Open
+issues are counted by team instead of by status, since each team has its own. A project has no
+time zone, so its weeks are the viewer's.
+
+Over MCP, `get_insights` gives an agent the same numbers for a team or a project, to write a
+status summary or a project update from. It runs the same code on the server's reading of the
+Durable Object (`insightSource`: the scope's live issues and only their status changes), with
+keys, names and emails instead of ids. A team with cycles counts its weeks in their time zone;
+anything else in UTC, since an agent has no time zone of its own.
+
+### Projects
+
+A project groups issues from any team toward a goal. It has a name, a description, a status
+(planned, started, paused, completed or canceled), a lead and a target date (`YYYY-MM-DD`, checked
+to be a real day). An issue belongs to at most one project through its `projectId`.
+
+- `project.create` and `project.update` are open to any person; an agent member is refused.
+  `leadId` must be a person who is an active member, as an assignee must be a member, and not an
+  agent. Projects have no version: two people editing one concurrently, the last edit wins.
+- `project.delete` is for owners and admins, decided with `isAdminRole`. Like a label, the
+  project keeps its row on the server and leaves clients, and it takes itself off every issue
+  that has it: one issue op each, before the project's own delete op, so replicas update.
+  Deleting writes no history, as deleting a label does.
+- `issue.create` and `issue.update` refuse a `projectId` that is missing or deleted
+  (`not_found`). `projectId` is an ordinary field of the issue patch, with the same per-field
+  conflict detection as the status or the assignee.
+- Progress is not stored. The UI counts the issues in the project in a completed status, out of
+  all that are not canceled, from the local copy.
+- Changing an issue's project is recorded in its history, and is one of the kinds of change an
+  admin can have an agent propose (`project`).
+
+The Projects page (`/$workspace/projects`) lists them with their lead, target date and progress,
+and a project's page (`/$workspace/project/$projectId`) edits its fields above the project's
+issues, shown with the same list and board as a team's.
+
+### Project updates
+
+A project update (`ProjectUpdate`) says how a project is going: a health (`on_track`, `at_risk`
+or `off_track`) and a Markdown body, by its author. A project's updates are the history of how it
+went; the latest gives the project its health, which is not stored on the project.
+
+- `projectUpdate.create` is open to every member, agents included: an update changes nothing but
+  the record, as a comment does, so an agent can report on a project it cannot edit. Only the
+  author changes one (`projectUpdate.update`, a patch of `health` and `body`; the last edit
+  wins); the author or an admin deletes one (`projectUpdate.delete`).
+- Deleting a project deletes its updates, one delete op each, before the project's own.
+- The project's page shows the latest update under its details, with the earlier ones a click
+  away and a form to post one; the Projects page shows each project's latest health. A health
+  always comes with its icon and its words. Mentions in an update tell no one: the inbox is
+  about issues.
+- Webhooks send `project_update.created`, `project_update.updated` and
+  `project_update.deleted`, with the project (and its URL) and the update. A project belongs to
+  no team, so only a webhook for every team hears them. Deleting a project sends none for its
+  updates; see the webhook notes.
+- Over MCP, `post_project_update` posts one and `list_project_updates` reads them, the latest
+  first; `get_workspace` gives each project's `health`.
+- JSON exports carry every project's updates, and an import brings in those of the projects its
+  issues are in, as the importer's with the author named in the text. The sample workspace
+  (`pnpm dev:seed`, the demo) has a few.
+
+Project updates came with protocol version 21 and the Durable Object migration
+`0024_project_updates`.
+
+### Cycles
+
+A team can work in cycles: fixed runs of one to four weeks, back to back, in a time zone an admin
+picks (`Team.cycles`, `{ weeks, timeZone }`, or null). A `Cycle` belongs to one team and has a
+number (counted per team), an optional name, `startsOn` and `endsOn` (its first and last day,
+both included, as `YYYY-MM-DD` in the team's time zone) and `completedAt`. An issue is planned
+into at most one cycle of its own team through `cycleId`. The date helpers every side uses live in
+`packages/protocol/src/cycles.ts`; the schedule itself in `packages/sync-server/src/cycles.ts`.
+
+- The Durable Object owns the calendar; clients never create cycles. An admin turns cycles on
+  with `team.update` and `cycles: { weeks, timeZone, startsOn }` (`startsOn` is not stored). The
+  same mutation makes the first cycle and enough after it to keep `UPCOMING_CYCLES` (two) that
+  have not started.
+- Changing the settings never touches a cycle that has started. Cycles still to come are dated
+  anew from `startsOn`, keeping their ids, numbers and issues. While a cycle runs, `startsOn`
+  must come after its last day; with none running it may be in the past, but not so far that the
+  cycle would be over. At most a year ahead.
+- Turning cycles off (`cycles: null`) completes the running cycle today, takes its unfinished
+  issues out, and deletes the cycles still to come, taking their issues out too. Completed
+  cycles stay. These moves are the admin's, in history and in webhooks.
+- The alarm moves cycles on. At each midnight in a team's time zone on which one of its cycles
+  ends or starts, it completes every cycle whose last day is over, moves its unfinished issues
+  (in no completed or canceled status) to the next cycle, and makes cycles to keep two ahead. A workspace that
+  slept through whole cycles skips them, keeping the rhythm, rather than making cycles that would
+  complete at once. Track itself is the actor of these moves: `SYSTEM_ACTOR_ID` in history, an
+  actor of `type: "system"` in webhooks. A team update that changes cycles sets the alarm at once.
+- `issue.create` and `issue.update` accept only a cycle of the issue's team that has not
+  completed (`not_found` otherwise, `invalid` for another team's). An issue may keep the
+  completed cycle it is in. The cycle is never an agent's to propose, and changing it is
+  recorded in history like the project.
+- `cycle.update` names a cycle, or clears the name; any member may.
+- Progress and the burn-up are not stored. The UI counts the cycle's issues in a completed
+  status, out of all that are not canceled, and works the burn-up out day by day from issue history: when
+  each issue joined or left the cycle and how its status changed. A completed cycle is shown as
+  it stood just before it completed, since completing moves its unfinished issues out.
+
+A team's cycles are at `/$workspace/team/$teamKey/cycles` (current, upcoming, completed), and a
+cycle's page (`/$workspace/cycle/$cycleId`) shows its dates, progress and burn-up above its
+issues. Admins change the settings there or under Settings, Teams. Over MCP, `get_workspace`
+lists the open cycles, and `search_issues`, `create_issue` and `update_issue` take a cycle as
+`"current"`, `"next"` or its number.
+
+### Sub-issues
+
+An issue can be part of another, its parent (`parentId`), in any team of the workspace, so large
+work breaks down into pieces that different teams own. The parent is an ordinary field of the
+issue patch, with per-field conflict detection, and each change is recorded in the issue's
+history.
+
+- **No loops.** `issue.create` and `issue.update` refuse a parent that is the issue itself, or
+  is under it at any depth (`invalid`), and one that is missing or deleted (`not_found`). The
+  check walks up from the new parent inside the mutation's transaction, so two people making
+  issues each other's parents at the same moment cannot both succeed.
+- **Deleting a parent keeps its sub-issues**, as top-level issues: one issue op each, before the
+  parent's own delete op, and no history, as deleting a project does. So every issue's ancestors
+  are live.
+- **Never proposed.** Like dates and estimates, an agent member sets a parent directly.
+- **Progress is not stored.** The UI counts the sub-issues in a completed status, out of all that
+  are not canceled, from the local copy, as it does for projects.
+
+The issue page shows the parent above the title and lists sub-issues under the description, with
+a field that adds one in the parent's team. Lists and boards show a parent's progress. Agents set
+`parent` with `create_issue` and `update_issue`, read an issue's sub-issues with `get_issue`,
+and find them with `search_issues`.
+
+### Relations
+
+Issues in any teams can be related: one blocks another, is a duplicate of it, or is related to it.
+A relation is an entity of its own (`IssueRelation`), not a field of either issue, made with
+`relation.create` and removed with `relation.delete`. `blocks` and `duplicate` read from
+`issueId` to `relatedIssueId`; `related` has no direction. `relationFrom` and `relationOf` in
+`packages/protocol` turn a relation into what it is from one issue's side (`blocked_by`,
+`duplicated_by`, …) and back.
+
+- **One relation per pair of issues.** A new relation between two issues replaces the one they
+  have, so marking a related issue as a duplicate needs no removal first, and making the relation
+  they already have does nothing. The server finds the pair's relation inside the mutation's
+  transaction, and the client predicts the same.
+- **Both issues must be live**, and distinct. Deleting an issue removes its relations: one delete
+  op each, before the issue's own, and no history on the other issues. Relations leave no row
+  behind, unlike most entities: the history keeps the record.
+- **History on both sides.** Each issue gets an entry from its own side (`blocks` on one,
+  `blocked_by` on the other). A relation added and removed by the same person within the merge
+  window leaves nothing, as a label toggled back does.
+- **Open to every member, agents included, and never proposed.** No webhook events yet.
+- **"Blocked" is not stored.** Lists and boards mark an open issue that an open issue blocks,
+  computed from the local copy. An open issue marked as a duplicate offers "Close as duplicate",
+  which cancels it; marking it does not close it by itself.
+
+The issue page lists relations by kind under the sub-issues, with a menu that adds one (the kind,
+then the issue) and a button on each that removes it. Agents read relations with `get_issue`,
+and add and remove them with `link_issues` and `unlink_issues`.
+
+### Dates and estimates
+
+An issue can have a start date and a due date (`startDate`, `dueDate`: `YYYY-MM-DD`, checked to
+be a real day, like a project's target date) and an estimate (`estimate`: whole points from 0 to
+1000). They are ordinary fields of the issue patch, with per-field conflict detection, and each
+change is recorded in the issue's history.
+
+- A day is a day on the calendar, the same in every time zone, not an instant. "Overdue" is
+  decided in the viewer's time zone: an issue in no completed or canceled status, whose due date
+  is before today.
+- The server does not require the start to come before the due date. The issue page only keeps
+  them in order in the date pickers.
+- Teams pick their own scale. The UI offers 1, 2, 3, 5, 8, 13 and 21 points, and shows any other
+  value an agent set.
+- Dates and estimates are never proposed: an agent member sets them directly, as it can create
+  issues. They are planning, which people correct by editing, not a decision about the work.
+- Lists and boards show the due date (red once overdue) and the estimate, and a page of issues
+  filters to overdue issues, issues due within a week, or issues without a due date (`due` in
+  the URL). Agents set all three over MCP with `create_issue` and `update_issue`.
+
+### Comments and activity
+
+Comments are ordinary synced rows. Any member can comment. Only the author edits a comment, so
+there is a single writer and the last edit wins without any conflict check. The author or an
+admin can delete it.
+
+Activity, an issue's history, is written by the server as a side effect of issue mutations and
+never by clients. It cannot be forged, needs no prediction, and arrives in the same delta as the
+change it describes. Each entry is one person changing one field: status, priority, assignee,
+title, description, project, parent, start date, due date, estimate, or a label added or
+removed. To keep the history readable:
+
+- Changes by the same person to the same field within five minutes merge into their latest
+  entry, keeping the first `from` and the newest `to`. Putting a field back where it started
+  removes the entry.
+- The creator writing the title and description in the first five minutes, before there is any
+  other history, is part of creating the issue and is not recorded.
+- The creation itself is not stored. The UI shows it from the issue's `creatorId` and
+  `createdAt`, so issues older than activity still start their history correctly.
+
+Deleting an issue sends delete ops for its comments, activity and proposals ahead of the issue's
+own, so clients drop them together. Deleting a label records nothing, and entries about it read
+as "a deleted label".
+
+### Markdown and attached files
+
+Descriptions and comments are Markdown, GitHub's flavor (tables, task lists, strikethrough),
+rendered by react-markdown with remark-gfm in a chunk of its own that issue pages load. HTML in
+the text shows as text and links keep only safe protocols. Links to other sites open in a new tab
+with `noreferrer`. Only files attached in the workspace show as images: an image from anywhere
+else is a link, because loading it would tell its host who read the issue and when. Task lists
+show as written; ticking one is editing the text.
+
+Files live in R2, not in the Durable Object, under `<workspaceId>/<fileId>/<name>`, and the text
+links them by the app's path to them, `/api/files/<workspaceId>/<fileId>/<name>`. There is no
+table of files: the link is the reference, so a file's name and type travel with it, and a
+workspace's files are one prefix in the bucket.
+
+- **The browser makes the link first.** It picks the file's id (a random UUID), puts the link in
+  the text at the caret, and uploads behind it with `PUT`, so typing goes on while a large file
+  uploads. A refused upload says so and leaves the link to remove.
+- **Files wait for the connection, as mutations do.** Each file is kept in the browser's upload
+  outbox (`apps/web/src/lib/upload-outbox.ts`, an IndexedDB database of its own) before it is
+  sent, and leaves it once the gateway has it. Attached offline, or when the upload cannot get
+  through (no network, a 5xx, a 429, a session that ran out), the link goes in all the same and the file uploads later:
+  when the workspace opens, when the connection returns, and every 30 seconds while something
+  waits. Tabs take turns through a Web Lock, and a file the gateway already has from the same
+  person (409, from a retry or another tab) counts as uploaded. A refusal for good (too large, not
+  a member, or a link that holds someone else's file) drops the file and says so; for someone
+  else's file, the message stays until dismissed and offers to save the person's copy, since the
+  outbox's may be the only one. Until then the text shows it as waiting to upload, an image from the device's
+  copy. Leaving a workspace drops its waiting files, and signing out deletes the outbox. Each file
+  remembers who attached it and uploads only under their session, so someone else signing in on
+  the same browser after a session ran out never sends it.
+- **The file gateway** (`apps/web/src/server/files.ts`) runs before TanStack Start, as the sync
+  gateway does, so uploads stream to R2 unread. It takes the session, checks membership in D1 by
+  the workspace id in the path, and answers non-members with the same 404 as a missing file.
+  Uploads must come from the app's origin, name a length up to 25 MB, and use a name the browser
+  cleaned (`attachmentName` in `apps/web/src/lib/attachments.ts`), so the key has no path
+  tricks. An id in use is refused, so a file never changes under its link.
+- **An upload belongs to whoever stored it.** Members see a link before its file is up, so the
+  gateway stores a file with R2's conditional put (`If-None-Match: *`): of uploads to one id, only
+  the first is kept, however close together they come. The object records `uploadedBy`, and an
+  upload to an id in use gets 409 only from the person who stored it, and 412 from anyone else,
+  whose browser then reports the attachment as failed rather than attached.
+- **A file never runs as a page of the app.** Images (not SVG), audio, video and plain text are
+  served inline; everything else as `application/octet-stream` to download. Every response is
+  `nosniff`, sandboxed by its Content-Security-Policy and same-origin only. Files cache in the
+  browser for a year, privately: a link always means the same bytes.
+- **Deleting a workspace deletes its files**, after the response, a page of keys at a time.
+  A file stays when the text that linked it changes. The demo has no bucket and refuses uploads.
+- **A deployment may set a quota** per workspace, `ATTACHMENT_QUOTA_MB`
+  (`apps/web/src/server/file-quota.ts`). The workspace's Durable Object counts its files' bytes
+  (`packages/sync-server/src/storage.ts`): the gateway reserves a file's length there before
+  storing it, so uploads that arrive together cannot both take the last of the space, and gives
+  it back if storing fails. The count starts from a listing of the bucket the first time it is
+  needed. Without a quota nothing is counted, so each isolate drops a workspace's count the first
+  time it stores a file there, and a quota turned on again starts from the bucket. Past the quota
+  an upload gets 413, and an emailed request comes in without the files that do not fit.
+
+### Proposals
+
+People stay in control of agents: for each agent member, an admin chooses which kinds of change
+to an issue it only proposes (`agent.update`, kept in the member's `proposes` in the Durable
+Object). The kinds are the title, the description, the status, closing (a completed or canceled
+status, which `status` includes), the priority, the assignee, the project and labels.
+Creating issues, setting parents, dates and estimates, relating issues, commenting, and managing
+labels and projects are never proposed. An agent proposes nothing until an admin says so, except
+decisions on requests in intake, which it always proposes (see [Intake](#intake)).
+
+- **The server splits the agent's mutation.** `applyMutation` makes the fields its `proposes`
+  does not cover and turns the rest into proposals (`proposals.ts`), in the same transaction.
+  A new issue is made without the proposed status, priority, assignee, project or labels, and then
+  gets them as proposals. The agent cannot get around this: the split happens where the
+  mutation is applied, whatever sent it.
+- **One open proposal per agent and field.** Proposing a field again replaces the agent's open
+  proposal for it (each label is a field of its own). Proposing what the issue already has
+  withdraws it, since the agent's latest word is that nothing needs to change.
+- **People decide.** `proposal.accept` makes the change as the person accepting it, through the
+  same handlers as their own edit and against the issue as it is now, and the activity entry
+  notes the agent in `proposedBy` (it never merges with other entries). `proposal.dismiss`
+  leaves the issue alone. No agent decides on a proposal, its own included. A decided proposal
+  leaves clients but keeps its row, with who decided and when.
+- **The agent is told.** `mutate` answers with what it proposed, and the MCP tools return it
+  under `proposed`, so the model knows the change is waiting rather than made. `get_issue`
+  lists an issue's open proposals.
+
+The Proposals page (`/$workspace/proposals`) lists the workspace's open proposals grouped by
+issue, the most recently touched issue first, and the sidebar badges their count. Every open
+proposal is already in the replica, so it reads that and works offline; accepting and dismissing
+use the same mutations as the issue page. The agent filter lives in the URL (`?agent=<id>`).
+
+Only open proposals of live issues are in a snapshot. Webhooks report proposals (see
+[Webhooks](#webhooks)); an accepted one also sends the `issue.updated` of the person who
+accepted it.
+
+### Inbox and subscriptions
+
+Each person has an inbox: one item per issue with news for them. The rules live in
+`packages/sync-server/src/inbox.ts`. `notify` runs inside each mutation's transaction, after the
+handler, and reads the ops the mutation wrote, so the app, MCP and imports all follow the same
+rules and no client can skip them.
+
+- **Who is subscribed.** Filing an issue, commenting on it, being assigned it or being mentioned
+  in it subscribes a person. `issue.subscribe` subscribes or unsubscribes by hand, and an
+  assignment subscribes the assignee again even after they unsubscribed.
+- **Who hears what.** Subscribers hear of comments, status changes, agents' proposals and
+  decisions on requests ([Intake](#intake)). The new
+  assignee hears that they were assigned, and a subscribed former assignee that they were
+  unassigned. People mentioned hear of it (see [Mentions](#mentions)), and assignees hear on the
+  morning an issue is due (see [Due-date reminders](#due-date-reminders)). Nobody hears of their
+  own changes, and imported issues and comments (those with a `createdAt`) tell no one.
+- **One item per person and issue** (`privateId(issueId, memberId)`). It shows the latest event
+  and counts the events not yet read (`unread`). News takes an item out of the snoozed and
+  archived tabs, back into the inbox.
+- **`inbox.update`** marks up to 500 items (`MAX_INBOX_BATCH`) read or unread, archives them
+  (which also reads them) or snoozes them. Each names the `updatedAt` the person saw, and an item
+  with news since then is left alone, so nothing unseen is read or archived away.
+- **Agents have no inbox.** They hear of their work through [webhooks](#webhooks); they are
+  never subscribed and both mutations refuse them.
+- **Clean-up.** Deleting an issue deletes its subscriptions and items, and removing a member
+  deletes theirs.
+
+Subscriptions and items are [private](#versions-and-the-oplog) to their member. Migration `0013`
+subscribed the creators, assignees and commenters of existing issues when the inbox shipped.
+
+#### Mentions
+
+A mention is a Markdown link to a member: `[@Maya Chen](mention:<member id>)`
+(`packages/protocol/src/mentions.ts`). The text is the name when it was written, for whoever reads
+the Markdown as it is, such as an agent over MCP; the app shows the member's current name, so
+renaming someone breaks nothing. Typing `@` in a description or comment box offers the
+workspace's members (`apps/web/src/components/mention-menu.tsx`) and inserts the link.
+The renderer keeps the `mention:` scheme, which react-markdown would otherwise drop, and shows the
+link as a name rather than as a link.
+
+The server reads mentions from the text, so the app, MCP and imports follow the same rules:
+
+- `issue.create` and `comment.create` mention everyone in the description or body; an edit of
+  either mentions only those it adds. Mentions inside code are text.
+- Each person mentioned is subscribed (unless they unsubscribed before) and hears a `mention`
+  event, which names the comment or, for a description, none. They hear of a comment once, as a
+  mention. Someone the same write assigned hears that instead.
+- Mentions of agents, of people who are not members, and of oneself tell nobody. Someone who
+  turned mentions off is neither subscribed nor told by one; if they follow the issue, they hear
+  of a comment as any subscriber does.
+
+#### Due-date reminders
+
+On the day an open, assigned issue is due, from 09:00 (`REMINDER_HOUR`) in its team's time zone,
+which is the one its cycles follow or UTC, Track tells the assignee with a `due` event and the
+`system` actor (`packages/sync-server/src/reminders.ts`). The alarm sends them and plans the next
+one as it plans cycle boundaries; a write that sets a due date, or assigns, reopens or moves an
+issue that has one, has it plan again. `due_reminders` keeps, per issue, the date it last reminded
+of, so an issue reminds once per due date and again when the date moves. A day that passes without
+its reminder, as when the date is set after it, reminds nobody.
+
+The Inbox page (`/$workspace/inbox`) has Inbox, Snoozed and Archived tabs (`?tab=`). It reads the
+replica, so it works offline. An open issue reads its item while it is on screen. The sidebar
+shows the unread count, and so does the installed app's icon (the Badging API).
+
+#### Notification settings and email
+
+Each person chooses, per workspace, where each kind of news goes (`NOTIFICATION_KINDS` in
+`packages/protocol/src/notifications.ts`): nowhere, to the inbox, or to the inbox and email. By
+default being assigned, mentions, comments and due dates go to email too, and the rest to the
+inbox. Settings rows merge with the defaults, so a kind added later starts from its default for
+everyone. The choices are
+rows of `notification_settings` in the workspace's database, read by `notify` in the same
+transaction, so news a person turned off never reaches their inbox (they stay subscribed). They
+are not in the replica: Settings, Notifications reads and changes them over RPC, through the
+`notificationSettings` and `updateNotificationSettings` methods, for the signed-in member.
+
+Email is for news left unread (`packages/sync-server/src/notifications.ts`):
+
+- News of a kind the person wants by email gives its inbox item an `email_at`, ten minutes
+  (`EMAIL_DELAY_MS`) after the first such news since they last read it. Reading, archiving or
+  snoozing the item clears it. The column is never sent to clients.
+- The alarm takes each person's due items into one digest, at most once an hour per person and
+  workspace (`EMAIL_INTERVAL_MS`). Items are unmarked in the same transaction as they are taken
+  and the email is sent after it, so a failure loses that email rather than sending it twice.
+- `sync-server` sends no email itself. `WorkspaceDO` hands each digest to its
+  `sendInboxDigest`, which does nothing; the app's Worker exports a subclass
+  (`apps/web/src/server/workspace-do.ts`) that sends it as described under [Email](#email).
+- The digest links to the workspace through the link the sync gateway records on each socket
+  connection (`LINK_HEADER`), as the alarm has no request to take an origin from. Without one,
+  due items are dropped.
+
+#### Push notifications
+
+The same news reaches a person's devices as it happens, where they turned push on (TRK-126). It
+needs `PUSH_VAPID_KEY`, and is never on the public demo.
+
+- **Devices.** Settings, Notifications turns push on in the browser at hand
+  (`apps/web/src/lib/push-device.ts`): the browser subscribes with the server's public key, and
+  the app saves the subscription in D1's `push_subscription`, tied to the session it was saved in.
+  Signing out there, the session running out or the account going deletes the row (foreign keys
+  that cascade), and signing out also ends the browser's subscription, as a browser may be
+  shared. Each time Track starts, it saves the subscription again for the person who turned it
+  on, which ties it to their current session. Endpoints must be https addresses at a browser's
+  push service (`apps/web/src/lib/push-services.ts`), so a subscription can't make the server post
+  anywhere else. A person keeps at most 20 devices.
+- **What and when.** News a person wants by email also gives its inbox item a `push_at` of now,
+  which reading, archiving or snoozing it clears. The write wakes the alarm, which takes the
+  marked items in a transaction, a member at a time, and hands them to `WorkspaceDO`'s
+  `sendPush` after it, so news is pushed at most once. Email still follows after ten minutes if
+  the news is still unread.
+- **Sending** (`apps/web/src/server/push/`). The app's subclass checks D1 that the person is
+  still a member and which of their devices have a live session, then sends one message per
+  item, the newest five at most, with WebCrypto alone: encrypted for the browser (RFC 8291,
+  aes128gcm), signed with the server's key (VAPID, RFC 8292), kept a day by the push service
+  for a device that is off, with a `Topic` per issue so newer news replaces older. The message
+  holds the issue's key and title, one line on what happened as the email says it, and its
+  path; the push service sees only its size. A 404 or 410 deletes the device.
+- **On the device.** The service worker shows the notification, one per issue (`tag`), and a
+  click brings a Track window to the issue or opens one.
+
+### Search
+
+Each workspace's database has a full-text index of its live issues: an FTS5 table
+(`packages/sync-server/src/search.ts`, migrations `0003` and `0029`) with one row per issue, holding its key,
+title, description and the bodies of its comments. A write that changes any of them rebuilds that
+issue's row from the source tables in the same transaction, so the index cannot drift from the
+data; renaming a team's key rebuilds its issues' rows. Rows are addressed through
+`issue_search_docs`, whose `INTEGER PRIMARY KEY` stays stable where a text-keyed table's implicit
+rowid would not. The migration indexes what a workspace already holds when it first wakes after
+the deploy.
+
+An issue's row holds its comments only while they come to 1 MiB or less (`INLINE_COMMENT_BYTES`,
+counted in UTF-8 with a separator for each). A row is one value per column, and SQLite refuses a
+value past its length limit (`SQLITE_TOOBIG`, about 10 MB), so a long-lived issue with that much
+discussion could otherwise take no more comments. Past the limit, the issue's row keeps its key,
+title and description, and each live comment gets a row of its own in a second FTS5 table,
+`issue_comment_search`, addressed through `issue_comment_search_docs` (comment, issue) as above
+(migration `0029`). A comment's create, edit or delete rebuilds that comment's row and its issue's,
+so a comment on a busy issue costs about the same as one on a quiet issue; the issue moves between
+the two layouts, all its comments at once, as it crosses the limit either way, and a write that
+leaves the count of comment rows behind the live comments rebuilds them all. Migration `0029`
+moves the issues already past the limit and leaves every other row as it is.
+
+- **Matching is unchanged.** Every word must start a word in the issue's row or in any of its
+  comments, as if they were one row, so a query can take one word from the title and another from
+  a comment written years later.
+- **Ranking is unchanged for issues under the limit**, nearly all of them: their rows, and the
+  statistics bm25 draws on, are what they were. An issue past the limit that its own row matches
+  ranks among them as usual. One that matches only with its comments' help (`commentMatches`)
+  comes after the others, ranked among its kind by adding each word's best score, since bm25 adds
+  up each word's contribution. Its comments' scores come from their own table, whose word
+  frequencies differ, so they are not mixed in with the others'.
+
+Matching follows one set of rules, so that server-side clients and the browser find the same
+issues. Text is folded to lowercase without diacritics (NFKD, combining marks removed) and split
+into runs of letters and digits. An issue matches when every word of the query starts a word in
+one of its fields, so "auth" finds "authentication" and "resume" finds "Résumé". The server
+quotes each word as an FTS5 prefix query, so query syntax has no effect, and ranks matches with
+bm25: the key and title count most, then the description, then comments. MCP's `search_issues`
+uses it.
+
+The command palette searches the local replica instead (`apps/web/src/lib/search.ts`), so it
+works offline and answers as you type. It applies the same rules over the issues, teams and
+comments in memory, caching each row's words for as long as the row object lives, and ranks by
+fixed field weights in place of bm25. A query that spells out an issue's key, such as `ENG-12`,
+puts that issue first. The replica holds archived issues slim, so it finds them by key and title
+only; the server's index still holds them whole.
+
+### Filters and layouts
+
+A page of issues (a team, a project, My issues) filters and lays out the local replica in the
+browser, so both are instant and work offline; the server is not asked.
+
+- Filters are `IssueFilters` (`packages/protocol/src/filters.ts`): status, priority, assignee,
+  project, cycle, labels, team and due date. A cycle is an id or `"current"` or `"next"`, which
+  stand for each team's cycle in its own time zone, so a saved view of the current cycle moves
+  on with it. Values of one property are alternatives and properties add
+  up, so "Todo or In Progress, and Urgent" is `statuses: ["todo", "in_progress"], priorities: [1]`.
+  A status is a key, so it matches that status in every team that has it.
+  `null` among assignees or projects means none. A page offers only the filters that narrow it
+  (a team's page has no team filter).
+- They live in the URL (`status`, `priority`, `assignee`, `project`, `cycle`, `labels`, `team`,
+  `due`), so
+  a filtered page can be shared and survives a reload. Each key is parsed with the protocol's
+  schema, and a malformed one is dropped instead of failing the page. Ids that no longer resolve,
+  such as a deleted label, are dropped too, so an old link still shows issues.
+- An issue created on a filtered page takes each filter that has a single value (a status,
+  priority, assignee, project, cycle or team) and the labels filtered by, so it appears on the page it
+  was made from. A status its team does not have gives way to the team's first. The page registers these defaults with the workspace's actions, so the page's
+  button, the C shortcut and the command palette agree.
+- Display options are `IssueDisplay` (`packages/protocol/src/display.ts`), the other half of how
+  a page looks: what a list or board groups by (status, priority, assignee, project or nothing)
+  and orders by (manual, priority, due date, updated, created), which properties show on rows
+  and cards, and the table's columns and sort. They live in the URL like filters (`group`,
+  `order`, `props`, `columns`, `sort`, such as `dueDate.desc`), malformed values dropped, and
+  anything left out is the default: grouped by status, manual order, every property and column,
+  an unsorted table. Grouping and ordering are one memoized pass over the local replica
+  (`apps/web/src/lib/grouping.ts`). Dragging an issue into another group sets the grouped field
+  (status, priority, assignee or project); where it lands in the group counts only in manual
+  order, and without grouping a drag only reorders (manual order) or does nothing.
+- The layouts are a list, a board (one column per group, status by default), a calendar by due
+  date, a table and a timeline from start to due date. A page remembers its last layout in the
+  browser, and `view` in the URL overrides it. The table renders only the rows near the screen,
+  as a team can hold thousands.
+
+### Saved views
+
+A saved view (`SavedView` in `packages/protocol/src/domain.ts`) is filters, a layout and display
+options under a name, listed in the sidebar and opened at `/$workspace/view/$viewId`. Views are entities of
+the workspace, synced like the rest (`view.create`, `view.update`, `view.delete`), so they work
+offline and show up in other browsers at once.
+
+- A view shows issues from the whole workspace, so saving one from a team's page, a project's or
+  My issues keeps that scope as a filter.
+- On a view's page, changes to its filters, layout or display options stay in the page, not in
+  the URL, until they are saved into the view or as a new one; the view's link always opens the
+  view as saved.
+- `display` is null when every option is a default; the server and the client's prediction both
+  store only what differs, with lists in a fixed order (`displayToStore`), so equal options are
+  stored alike and "Unsaved changes" is a plain comparison. Views saved before it have none, and
+  look as they did.
+- A shared view (`ownerId` null) is the workspace's: its creator and admins may change or delete
+  it. A personal view is its owner's alone, and only they see it in the app. Personal views are
+  a way to keep the sidebar tidy, not a secret: like every entity, they are in each member's
+  replica.
+- The Durable Object caps a workspace at `MAX_VIEWS` views.
+
+### Webhooks
+
+A webhook posts each change to a URL, such as an agent's trigger, so that a service hears about
+new issues without holding a socket open. Admins manage them on Settings › Webhooks: a URL, the
+events it wants (`issue.created`, `issue.updated`, `issue.deleted`, `comment.created`,
+`comment.updated`, `comment.deleted`, `proposal.created`, `proposal.updated`,
+`proposal.accepted`, `proposal.dismissed`, `relation.created`, `relation.deleted`,
+`project_update.created`, `project_update.updated`, `project_update.deleted`), an optional
+team, and optionally the agent member it sets off. The payload types and input schemas are in
+`packages/protocol/src/webhooks.ts`; the rest is `packages/sync-server/src/webhooks.ts`.
+
+- **The workspace's Durable Object delivers them, from an outbox.** Mutation handlers add what
+  they did to the change set (an issue created, an issue's fields before and after, a comment),
+  and `applyMutation` turns those into one delivery row per matching webhook, in the same
+  transaction as the change. A delivery is therefore never lost and never sent for a write that
+  rolled back, and a retried mutation id queues nothing again. The write then sets the alarm,
+  which sends what is due outside any transaction: ten at a time, ten seconds each, claiming
+  rows first so that a restart mid-send retries them. Self-hosting needs no Queue or other
+  binding, and secrets never leave the object.
+- **Signed per [Standard Webhooks](https://www.standardwebhooks.com).** Each request carries
+  `webhook-id` (the delivery's id, the same on every retry), `webhook-timestamp` and
+  `webhook-signature` (`v1,` and an HMAC-SHA256 of `id.timestamp.body`, keyed by the `whsec_`
+  secret), so any Standard Webhooks library verifies it. The secret is shown once, when the
+  webhook is made or its secret replaced.
+- **Bodies are `{ type, timestamp, data }`.** `data` has the workspace's id and slug, the
+  workspace version after the change, the actor (a person or an agent), and the issue with its
+  key, URL and labels (`{ id, name }`, in the order of `labelIds`, with the names as of the
+  event), its assignee (`{ id, name }` or null, named as of the event, so a receiver can show who
+  `assigneeId` is), and its status's name and category (`statusName`, `statusCategory`), since
+  teams name their statuses. `issue.updated` adds `updatedFrom`, the changed fields' earlier values, so a receiver
+  can tell which labels an update added from `updatedFrom.labelIds`; an update that only
+  reorders the list is not sent. Comment events add the comment.
+- **Proposal events** add the proposal (`id`, `issueId`, `issueKey`, `agentId`, `change`,
+  `createdAt`, `updatedAt`) and belong to their issue's team. `proposal.created` is a new open
+  proposal and `proposal.updated` the agent proposing the same field again with another value;
+  their actor is the agent. `proposal.accepted` and `proposal.dismissed` also carry `decidedBy`
+  and `decidedAt`; the actor is the person who decided, or the agent when it withdrew a
+  proposal by proposing what the issue already has. So a webhook made for an agent hears when
+  people accept or dismiss its proposals, and skips the rest, which it caused. An accepted
+  proposal still sends the `issue.updated` of its change. Deleting an issue discards its open
+  proposals without a decision and sends no proposal event: `issue.deleted` covers it. New
+  webhooks do not subscribe to proposal events by default.
+- **Relation events** (`relation.created`, `relation.deleted`) carry `issue` and `relatedIssue`,
+  both with key, URL and labels, and the `relation` (`id`, `type`, `issueId`, `relatedIssueId`,
+  `creatorId`, `createdAt`). `issue` is the relation's `issueId` side: the blocker of a `blocks`
+  relation, the duplicate of a `duplicate` one. A webhook limited to a team hears of a relation
+  when either issue is in that team. Making another relation between the same two issues sends
+  `relation.deleted` for the old one, then `relation.created`; making the one they already
+  have sends nothing. Deleting an issue sends `relation.deleted` for each of its relations, with
+  the person who deleted it as the actor, before its own `issue.deleted`, so an issue that it
+  blocked is heard to be unblocked. New webhooks do not subscribe to relation events by default.
+- **Project update events** (`project_update.created`, `.updated`, `.deleted`) carry the
+  `project`, with its URL, and the `update` instead of an issue, and only a webhook for every
+  team hears them, since a project belongs to no team. Deleting a project deletes its updates
+  without a `project_update.deleted` for each: there is no event for the project itself, and a
+  receiver that keeps updates can drop a project's when it finds the project gone.
+- **Retries.** A delivery that gets no 2xx answer (a redirect counts as a failure) is retried
+  after 5 seconds, 5 minutes, 30 minutes, 2, 5 and 10 hours, then marked failed. Settings show
+  each webhook's latest deliveries, and finished ones are kept for seven days.
+- **No loops, and no self-calls.** A webhook made for an agent is not sent that agent's own
+  changes. URLs must be `https` (plain `http` only where the app itself runs on it, which is
+  local development) and cannot point at the app's own host, which a Worker cannot fetch.
+  A workspace has at most ten.
+- **Changing a webhook changes what it still had to send.** Pausing it drops what it had not
+  delivered. Changing its team, events or agent drops what it would no longer have been sent,
+  read from each delivery's payload (`json_extract`), and settings say why. A test goes
+  whatever it listens to. The rest goes to its URL and with its secret as they are when sent,
+  so a new URL takes even a delivery that was already waiting for a turn.
+- **Its own zone.** The Worker runs with `global_fetch_strictly_public`, so a webhook to another
+  host on Track's own zone goes in through Cloudflare, past that host's security settings and to
+  whatever Worker serves it, as anyone's request would, never straight to the origin.
+- **Links follow the slug.** Only the gateway knows the slug and the app's origin, so it passes
+  them with every webhook change, and the organization plugin's update hook passes a new slug.
+  Management is admin-only twice over: the gateway checks membership in D1, and the object
+  refuses a verified member who is not an admin. The public demo sends no webhooks.
+
+### GitHub
+
+A GitHub connection is a webhook on GitHub, on one repository or a whole organization, that tells
+a workspace of pull requests and pushes. Pull requests and commits that name an issue's key, such
+as `ENG-12`, are linked to it and move it along. An admin adds a connection on Settings › GitHub
+and pastes its payload URL and secret into GitHub, or installs the deployment's GitHub App, when
+it has one. The code is `packages/sync-server/src/github.ts`, with the gateways in
+`apps/web/src/server/github.ts` and `apps/web/src/server/github-app.ts`.
+
+- **A connection is an id and a secret in the workspace's Durable Object.** The secret is shown
+  once, when the connection is made or its secret replaced, and is never sent anywhere. A
+  workspace has at most `MAX_GITHUB_CONNECTIONS`. Settings show the event and repository of each
+  connection's latest delivery, so an admin can tell the webhook works.
+- **Deliveries are authenticated by their signature, inside the object.** The gateway passes the
+  headers and the raw body (at most 1 MiB, JSON only); the object answers 404 for an unknown
+  connection and 401 for a signature that does not match, before reading the body, and writes
+  nothing for either. Each delivery is applied once: its `X-GitHub-Delivery` id is recorded as
+  the applied mutation `github:<id>`, so GitHub redelivering it changes nothing.
+- **Linking.** Keys in a pull request's branch name, title and description link it to those
+  issues, matched case-insensitively against team keys and live issues. A key in the branch name,
+  or after a closing word (close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved),
+  makes the link a closing one. A pull request that names no issue of the workspace is not kept.
+  Pull requests are an entity of their own (`pullRequest`), in every member's replica, with the
+  ids of the issues they link and close; the snapshot leaves out those that only name deleted
+  issues. The issue page lists them, and MCP's `get_issue` returns them.
+- **A plain mention moves nothing.** A key in a description can be there for any reason, even to
+  say an issue is left out, so it only links. A pull request moves the issues its branch or title
+  names, and those a closing word names wherever it is.
+- **Automation only moves forward.** A draft pull request moves its issues to In Progress, an
+  open one to In Review, and a merged one moves the issues it closes to Done. A push to the
+  default branch moves the issues its commits close to Done (commits GitHub marks as not
+  `distinct`, already seen on another branch, are skipped). A team that has changed its statuses
+  gets the status of that key if it is still of the same category, and otherwise the first status
+  of the category in its order. An issue is never moved back to an earlier status in its team's
+  order, nor out of a completed or canceled status. Only a change of the pull request's state moves
+  issues (opened, reopened, ready for review, converted to draft, merged), or an edit that links
+  an issue anew or adds a closing word; new commits or other edits leave linked issues where people
+  put them.
+- **GitHub is the actor.** Changes are made as `GITHUB_ACTOR_ID` (`github`), shown as "GitHub".
+  History entries carry their `source`, the pull request (`acme/app#7`) or commit
+  (`acme/app@abc1234`) with its URL. The status's field stamp names the client `github`, so an
+  offline edit to the status made before GitHub's change conflicts instead of undoing it.
+  Subscribers' inboxes and webhooks hear of the change like any other, with a `system` actor
+  named GitHub in webhook payloads.
+- **The GitHub App** (TRK-58), when the deployment registers one (`GITHUB_APP_*`, see
+  `docs/self-hosting.md`). An admin sets out from settings with a state that names the workspace
+  and them, signed with `BETTER_AUTH_SECRET` and good for an hour, and GitHub sends them back to
+  `/api/github/app/setup` with the installation's id. Anyone can call that address with any id, so
+  nothing is connected there: the admin is sent on to authorize the app, with a second state that
+  also names the installation, and comes back to `/api/github/app/callback` with an OAuth code.
+  The installation is connected only when the same admin is signed in at both steps, is still an
+  admin, and the user token the code buys lists the installation, on an account the person
+  controls on GitHub. Being listed is not enough, since GitHub lists an organization's
+  installation for anyone who can read one of its repositories: for an organization,
+  `GET /user/memberships/orgs/{org}` must say they are an `active` `admin` (an organization
+  owner); for a user account, the account must be the person's own (`GET /user`). The account is
+  the one `/user/installations` gives for the installation. The token is not kept. It then becomes
+  a connection of the workspace, with no secret of its own (`installation_id` in
+  `github_connections`), and D1's `github_installation` says which workspace and connection have
+  it: one workspace at a time.
+  - **Claiming.** The workspace claims the installation in one statement after the object
+    connects it: an insert that, on conflict, takes over the row only where this workspace has it
+    already. When no row changes, another workspace has the installation: the page says so (409)
+    and the object's new connection is removed, so two workspaces connecting at once leave one
+    whole row and one connection.
+  - **Deliveries.** All installations' deliveries come to `/api/github/app`. The gateway reads
+    the installation's id from the body only to find the workspace; the Durable Object checks the
+    signature with the app's secret, which every installation shares, and then that the delivery
+    is about the connection's own installation. They are then applied like a webhook's.
+  - **Uninstalling.** GitHub's `installation` delivery with `deleted` removes the connection, and
+    the gateway forgets the installation. Deleting the connection in settings stops its
+    deliveries and forgets the installation at once, so another workspace can connect it; the app
+    stays installed on GitHub until someone uninstalls it there.
+  - Self-hosters without an app keep the webhook, since an app has to be registered per
+    deployment.
+- **Copy branch name.** The issue page copies a branch name such as `eng-12-fix-the-login-form`,
+  so a pull request from it links to the issue, and closes it when merged.
+- The public demo takes no deliveries, as it sends no webhooks.
+
+### Imports
+
+Issues come in from another tracker through the browser, as the same mutations people make. An
+importer only reads its source into a common shape in `apps/web/src/lib/import/`: a CSV file
+(Jira's export among them, with its repeated label and comment columns, its dates and its parents
+by issue id), Track's own JSON export, a GitHub repository (REST) or a Linear team (GraphQL). Both APIs allow requests from browsers, so
+the person's token or API key goes from their browser to GitHub or Linear and never reaches the
+Worker, and nothing stores it. Then `planImport` matches labels and projects by name, creating
+the missing ones, and people by email, then name. A status is matched by name among the team's
+statuses, and otherwise becomes the team's first status of the same category, which each
+importer reads from its source (Linear's state types, GitHub's open and closed, a CSV's words). It writes parents before their sub-issues and
+the oldest issues first, so numbers follow the source's order. Nothing on the server knows about
+imports, so validation, permissions and fan-out are the ordinary ones.
+
+- **A JSON export moves a workspace or a team** to another workspace, such as from a self-hosted
+  copy to Gateweave Cloud: issues with their comments, parents and relations, labels and
+  projects with their colors and details, and the updates of the projects its issues are in.
+  The import can keep the file's teams, matched by key or created, instead of putting everything
+  in one team; it then also adds each team's live statuses that the team here lacks. Otherwise
+  statuses are matched as above: the file names each issue's status and its category. History
+  stays behind, since activity belongs to the people who made it. Relations are sent last, once
+  both issues exist, and then the archived issues are archived (see [Archive](#archive)).
+- **Repeating an import is safe.** An imported issue's or comment's id is made from its id in
+  the source (`import-` and a SHA-256 prefix), and the plan skips ids the workspace already has.
+  Relations and project updates from a JSON export or a Linear team are made the same way.
+- **A Linear team brings its relations and projects.** Blocks, duplicate and related relations
+  between the team's issues come along ("similar" is Linear's guess and stays behind), as do the
+  team's projects with their description and document, status, lead, target date and updates.
+- **Jira's text becomes Markdown.** A Jira export keeps descriptions and comments in Jira's wiki
+  markup; `jira-markup.ts` turns headings, lists, code, tables, links and inline styles into
+  Markdown, and embedded attachments, which stay in Jira, into a note naming the file.
+  A run that stopped part way is finished by running it again.
+- **Original dates are an admin's to keep.** `issue.create`, `comment.create` and
+  `projectUpdate.create` take an optional `createdAt`, which only owners and admins may send, and
+  the server never lets it be later than the mutation. Everyone else's items are created now, as
+  before.
+- **Where the item came from stays in its text.** Imported issues and comments belong to the
+  importer, so a link to the source, an assignee with no matching member and a comment's or
+  project update's original author are noted in the Markdown.
+- **The importer keeps a window of mutations in flight**, about forty, because every pending
+  mutation is replayed on each change from the server. Closing the page stops the import; what
+  was sent still lands.
+
+### Compaction
+
+The alarm compacts the oplog every six hours. Ops are dropped only when they are both older than
+30 days **and** more than 10,000 versions behind the head. The highest dropped version becomes
+the floor, and clients behind it get `reset`. Recorded mutation ids are pruned on the same
+schedule, as are finished webhook deliveries and audit events older than a year. The same alarm sends webhooks, moves cycles on and
+runs teams' automations, so it also runs whenever a delivery is due, a team's cycle starts or ends,
+or automations are; when compaction is next due is kept in the `meta` table.
+
+## Client sync engine
+
+`packages/sync-client` keeps a replica of one workspace in the browser. Reads are synchronous
+and come from memory, so the UI never waits on the network.
+
+### Replica and rebasing
+
+The replica holds two things: the **confirmed** state, exactly as the server last reported it,
+and the **pending** mutations this browser has made that the server has not confirmed yet. What
+the UI sees is derived: the pending mutations replayed, in order, on top of the confirmed state.
+
+Every server delta updates the confirmed state, and every ack or reject removes a pending
+mutation. Either way the visible state is rebuilt. Server results therefore always win, a
+rejected mutation simply stops being replayed, and no undo logic is needed. Optimistic
+predictions mirror the server's rules closely enough to look right (a new issue gets the next
+number in its team); the server's row replaces the prediction as soon as it arrives.
+
+Tables are copy-on-write. A change to issues leaves the teams and members maps untouched, and
+unchanged rows keep their identity, so memoized selectors stay valid.
+
+### Storage
+
+The replica is stored in IndexedDB, one database per user and workspace (keyed by ids, so a
+renamed workspace keeps its cache). It holds the confirmed rows, the confirmed version and the
+pending mutations. A reload renders straight from storage and then catches up from the oplog,
+without downloading a snapshot. Pending mutations are written with strict durability, because
+until the server has them they exist nowhere else. The database version includes the protocol
+version, so a protocol change discards the old cache instead of misreading it. Signing out
+deletes every replica, and losing access deletes that workspace's: when the server reports that
+the user is no longer a member, or they leave, the app deletes the database, so a removed
+member's browser does not keep a copy.
+
+### One connection per browser
+
+When storage is shared, the tabs of a browser elect a **leader** with the Web Locks API. Only the
+leader opens a socket. It writes what the server sends to IndexedDB and then announces it to the
+other tabs over a `BroadcastChannel`. Followers apply the announcements to their own memory and
+send their mutations to the leader the same way. Every tab shows every tab's pending mutations,
+so an edit appears everywhere at once.
+
+Announcing only after the write commits keeps tabs consistent: a follower that misses an
+announcement, or sees a gap in versions, reloads from storage and is guaranteed to find at least
+what it was told about. When the leader closes, the lock passes to the next tab, which connects
+and resends any unacknowledged mutations. Mutation ids make that resend safe.
+
+The lock and the channel are named for the replica and the protocol version (`tabsName`). After an
+update, a tab still open on the old version leads only the tabs of its own version, which can show
+nothing but "Update available". It never holds up a tab on the new version, which would otherwise
+wait for a leader that writes the wrong storage and speaks the old messages.
+
+A leader keeps the lock for as long as its tab stays open, even once its session has ended, so two
+things keep it from standing in the way of the next sign-in. When a new tab asks a leader that was
+told it is signed out, the leader tries to connect again and tells every tab what it finds: a tab
+of this replica only exists for its own user, so the session it finds is theirs. It does this only
+when asked, because retrying on its own, on focus for instance, could connect one person's replica
+with another's session. And when another tab deletes the replica, as on signing out, the tab
+reloads. It could not go on leading from memory, because tabs opened after that read an empty
+database and would wait for it forever. It first asks the server, because the one case that needs
+no reload is someone still signed in who is no longer a member: their connection tells them, and a
+tab they are leaving from may be on its way out with something still to say.
+
+Where IndexedDB or Web Locks are unavailable, each tab keeps its replica in memory and connects
+on its own.
+
+### Connection lifecycle
+
+1. Without local data, the leader fetches a snapshot first. Otherwise it connects straight away.
+2. It sends `hello` with its confirmed version and applies the catch-up deltas. On `ready` it
+   sends every pending mutation in order.
+3. On `reset` it fetches a fresh snapshot and says `hello` again. Pending mutations survive.
+4. A lost connection is retried with exponential backoff and jitter. Coming back online or
+   returning to the tab retries immediately.
+5. A ping every 30 seconds detects connections that died silently.
+6. A protocol mismatch, an ended session and removal from the workspace are final: the client
+   stops and reports why, so the UI can ask for a reload or a sign-in, or explain.
+
+`mutate()` validates its input, applies it optimistically and returns a promise for the server
+result. The UI does not wait for it. Rejections also reach an `onReject` callback, so the app can
+report them in one place.
+
+The protocol refuses user text with a NUL character or a lone surrogate (`userText` in
+`packages/protocol/src/text.ts`): SQLite's `length` and `glob` stop at a NUL, and a lone surrogate
+is stored as three bytes that read back as U+FFFD, so the text would change silently. Text pasted
+into the app can carry either unseen, so `mutate()` cleans every string first (`cleanText`: NULs
+dropped, lone surrogates made U+FFFD). The request form and intake email clean what strangers send
+the same way before filing it, and the object still refuses whatever reaches it uncleaned, as it
+does for agents over MCP. Text stored before the check stays as it is.
+
+### Starting offline
+
+A service worker (`apps/web/service-worker/sw.ts`, built into `/sw.js`) lets the app start with
+no connection. When it installs, it caches the build's files and an app shell: what the server
+renders for `/_shell`. That is a workspace URL, whose route renders only in the browser, so the
+shell is the root layout and the build's scripts, with no data; `_shell` can never be a slug.
+Pages are always fetched from the network first. Only when that fails does the worker serve the
+shell, and the router then loads the route for the actual URL in the browser. The API, `/mcp`
+and `/.well-known` are left alone. Each build gets its own cache, and files named by their
+content are copied over from the previous one instead of downloaded again.
+
+The workspace route asks the server for the session and the membership before it renders. When
+the server cannot be reached, as opposed to refusing, it falls back to what the browser
+remembers: for each workspace opened while signed in, its id, name and the user's role, kept in
+`localStorage` (`apps/web/src/lib/offline.ts`). That reveals nothing the replica does not
+already hold, and the server checks the session and membership again as soon as the sync client
+reconnects. An installed app starts at `/`, which offline opens the workspace used last. Pages
+that need the server, such as member settings, say so. Signing out forgets all of it along with
+the replicas, and a refusal from the server forgets that workspace, so a shared device does not
+open someone else's workspace offline.
+
+### React
+
+`@gateweave/track-sync-client/react` provides `SyncProvider`, `useQuery(selector, isEqual)` and
+`useSyncStatus()`, built on `useSyncExternalStore`. A component re-renders only when its
+selection changes.
+
+## Testing
+
+`packages/sync-server` tests run inside `workerd` with `@cloudflare/vitest-plugin`. They exercise
+the real Durable Object and SQLite storage over real WebSockets.
+
+`packages/sync-client` tests run in Node against the same Durable Object, hosted by Wrangler's
+local runtime behind a stand-in for the gateway. The client reaches it through its real `fetch`
+and `WebSocket` transport. IndexedDB comes from `fake-indexeddb`, and Node's own
+`BroadcastChannel` and Web Locks run the multi-tab code unchanged.

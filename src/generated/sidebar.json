@@ -1,0 +1,143 @@
+[
+	{
+		"label": "Gateweave Track",
+		"items": [
+			{
+				"label": "Overview",
+				"slug": "track"
+			},
+			{
+				"label": "Self-hosting",
+				"slug": "track/self-hosting"
+			},
+			{
+				"label": "The Gateweave ecosystem",
+				"slug": "track/ecosystem"
+			},
+			{
+				"label": "Roadmap",
+				"slug": "track/roadmap"
+			},
+			{
+				"label": "Architecture",
+				"slug": "track/architecture"
+			},
+			{
+				"label": "Changelog",
+				"slug": "track/changelog"
+			}
+		]
+	},
+	{
+		"label": "Gateweave Agents",
+		"items": [
+			{
+				"label": "Overview",
+				"slug": "agents"
+			},
+			{
+				"label": "Self-hosting",
+				"slug": "agents/self-hosting"
+			},
+			{
+				"label": "Connecting GitHub",
+				"slug": "agents/github-app"
+			},
+			{
+				"label": "Triaging Track issues",
+				"slug": "agents/track-triage"
+			},
+			{
+				"label": "Working on Track issues",
+				"slug": "agents/track-work"
+			},
+			{
+				"label": "Docker cloud sandboxes",
+				"slug": "agents/docker-sandboxes"
+			},
+			{
+				"label": "Product spec",
+				"slug": "agents/spec"
+			},
+			{
+				"label": "Architecture",
+				"slug": "agents/architecture"
+			},
+			{
+				"label": "Changelog",
+				"slug": "agents/changelog"
+			}
+		]
+	},
+	{
+		"label": "Gateweave ID",
+		"items": [
+			{
+				"label": "Overview",
+				"slug": "id"
+			},
+			{
+				"label": "Connect an app",
+				"slug": "id/connect-an-app"
+			},
+			{
+				"label": "Recipes",
+				"items": [
+					{
+						"label": "Gitea",
+						"slug": "id/recipes/gitea"
+					},
+					{
+						"label": "Grafana",
+						"slug": "id/recipes/grafana"
+					},
+					{
+						"label": "Outline",
+						"slug": "id/recipes/outline"
+					}
+				]
+			},
+			{
+				"label": "Cloudflare Access",
+				"slug": "id/cloudflare-access"
+			},
+			{
+				"label": "Self-hosting",
+				"slug": "id/self-hosting"
+			},
+			{
+				"label": "OpenID conformance",
+				"slug": "id/conformance"
+			},
+			{
+				"label": "Architecture",
+				"slug": "id/architecture"
+			},
+			{
+				"label": "Changelog",
+				"slug": "id/changelog"
+			}
+		]
+	},
+	{
+		"label": "Gateweave Mail",
+		"items": [
+			{
+				"label": "Overview",
+				"slug": "mail"
+			},
+			{
+				"label": "Self-hosting",
+				"slug": "mail/self-hosting"
+			},
+			{
+				"label": "Architecture",
+				"slug": "mail/architecture"
+			},
+			{
+				"label": "Changelog",
+				"slug": "mail/changelog"
+			}
+		]
+	}
+]

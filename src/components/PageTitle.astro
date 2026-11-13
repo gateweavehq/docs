@@ -1,0 +1,33 @@
+---
+/**
+ * Starlight's title, and under it which product and version a copied page describes, with a link
+ * to the file it was copied from.
+ */
+import Default from "@astrojs/starlight/components/PageTitle.astro";
+
+const { source } = Astro.locals.starlightRoute.entry.data;
+---
+
+<Default />
+{
+	source && (
+		<p class="source">
+			{source.product} · {source.version === "main" ? "unreleased" : source.version} ·{" "}
+			<a href={source.url}>source on GitHub</a>
+		</p>
+	)
+}
+
+<style>
+	.source {
+		margin-top: 0.25rem;
+		font-size: var(--sl-text-sm);
+		color: var(--sl-color-gray-3);
+	}
+	.source a {
+		color: inherit;
+	}
+	.source a:hover {
+		color: var(--sl-color-white);
+	}
+</style>

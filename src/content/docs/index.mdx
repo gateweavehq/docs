@@ -1,0 +1,50 @@
+---
+title: Gateweave Docs
+description: How to use, run and build on Gateweave's open-source, Cloudflare-native business tools.
+template: splash
+editUrl: false
+next: false
+hero:
+  tagline: How to use, run and build on Gateweave's open-source business tools. Each one is a single Cloudflare Worker you can run on your own account, or use on Gateweave Cloud.
+  actions:
+    - text: Start with Track
+      link: /track/
+      icon: right-arrow
+    - text: Gateweave Cloud
+      link: https://gateweave.com
+      icon: external
+      variant: minimal
+---
+
+import { CardGrid, LinkCard } from "@astrojs/starlight/components";
+import products from "../../generated/sources.json";
+
+## Products
+
+<CardGrid>
+	{products.map((product) => (
+		<LinkCard
+			title={product.name}
+			description={`${product.summary} ${product.version === "main" ? "Not released yet." : `Version ${product.version}.`}`}
+			href={`/${product.key}/`}
+		/>
+	))}
+</CardGrid>
+
+## Where these pages come from
+
+Each product's pages are its own `README.md`, `docs/` and `CHANGELOG.md`, copied from [its
+repository](https://github.com/gateweavehq) at its latest release every day. Every page links to
+the file it came from, so a fix goes to the product's repository as a pull request.
+
+## For AI agents
+
+The same pages as plain text, for a model's context:
+
+- [`/llms.txt`](/llms.txt) lists what is here.
+- [`/llms-full.txt`](/llms-full.txt) has every page, and [`/llms-small.txt`](/llms-small.txt) a shorter version.
+- Each product's pages on their own are linked from `/llms.txt`.
+
+An agent can also work in the products, not only read about them: Track and Mail have an MCP server,
+and Agents' repository wikis answer an agent's questions over MCP. Their overviews say how to connect
+one.

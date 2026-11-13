@@ -1,0 +1,23 @@
+/* Gateweave's type and accent, as on gateweave.com and in the apps. */
+:root {
+	--sl-font: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+	--sl-color-accent-low: oklch(0.3 0.09 272);
+	--sl-color-accent: oklch(0.62 0.17 272);
+	--sl-color-accent-high: oklch(0.87 0.06 272);
+}
+
+:root[data-theme="light"] {
+	--sl-color-accent-low: oklch(0.93 0.035 268);
+	--sl-color-accent: oklch(0.546 0.215 268);
+	--sl-color-accent-high: oklch(0.36 0.15 268);
+}
+
+/* The READMEs centre their opening lines and images for GitHub; here they read as the page does. */
+.sl-markdown-content p[align="center"] {
+	text-align: start;
+}
+
+.sl-markdown-content picture img {
+	border-radius: 0.5rem;
+	border: 1px solid var(--sl-color-hairline);
+}

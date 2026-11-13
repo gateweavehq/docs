@@ -1,0 +1,14 @@
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "gateweave-docs",
+	"account_id": "1be8d97ee2222bbe1713d65f6136345c",
+	"compatibility_date": "2026-11-01",
+	// Every page is prerendered and served as a file; there is no Worker code.
+	"assets": {
+		"directory": "./dist",
+		"not_found_handling": "404-page",
+		"html_handling": "force-trailing-slash"
+	},
+	"routes": [{ "pattern": "docs.gateweave.com", "custom_domain": true }],
+	"observability": { "enabled": true, "logs": { "invocation_logs": false } }
+}

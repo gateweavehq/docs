@@ -1,0 +1,263 @@
+---
+title: "Gateweave Agents: product spec"
+editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/spec.md"
+source:
+  product: "Gateweave Agents"
+  version: "v0.22.0"
+  url: "https://github.com/gateweavehq/agents/blob/v0.22.0/docs/spec.md"
+---
+> **Status: agreed.** Phases 1 to 3 (the registry, the library and setups, and the runtime) are
+> built; phase 4 (agents in Gateweave products) is next. Decisions are recorded at the end.
+
+## The problem
+
+Teams now work with several AI agents at once: Claude Code, Codex, Gemini CLI, Cursor and agents
+they build themselves. Each one is configured separately, in each repository, in its own format:
+instructions (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`), skills, plugins, scripts, MCP servers and
+environment variables. Nobody can answer simple questions:
+
+- Which projects use which repositories, and which agents work in each one?
+- Which prompts, skills, plugins, scripts and MCP servers does each agent use? Are they the same
+  everywhere, or has every repository drifted?
+- What did the agents do, through which tools, and what did it cost?
+
+Setting up a new repository with a team's agent standards means copying files by hand. And teams
+that want their own multi-agent systems (a lead agent that delegates to specialists, reviewers
+that check their work) have to build the runtime, the messaging and the debugging tools
+themselves.
+
+## What Gateweave Agents is
+
+One product with two layers that share a data model:
+
+1. **Registry and setups.** An inventory of projects, repositories and the coding agents
+   configured in them, plus one library of prompts, skills, plugins, scripts, MCP servers and
+   environment sets. A **setup** bundles assets for one or more agents and applies them to a
+   repository in each agent's own format, through a pull request. Applying one takes a click; teams
+   can also compose their own. Drift between a repository and its setup is visible.
+2. **Runtime.** Define agents and teams of agents and run them on Cloudflare: hierarchies,
+   an explicit graph of who may talk to whom, tools from the library and MCP, and any model through
+   one gateway. Chat with an agent or a team, and debug every run step by step.
+
+It follows the Gateweave principles: Cloudflare-native, local-first and open source (AGPL-3.0),
+with a hosted version in Gateweave Cloud.
+
+## Concepts
+
+| Concept    | What it is                                                                                                                             |
+| ---------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Workspace  | The team, shared with every Gateweave product: one account, members and roles                                                          |
+| Project    | A product or initiative; groups repositories                                                                                           |
+| Repository | A GitHub repository (others later), with the agent configuration found in it                                                           |
+| Agent      | A configured agent: its runtime, model, instructions, tools, permissions and environment                                               |
+| Runtime    | Where an agent runs: an external coding agent (Claude Code, Codex, Gemini CLI, Cursor, GitHub Copilot, Devin) or the Gateweave runtime |
+| Asset      | A versioned item in the library: prompt, skill, plugin, script, MCP server or environment set                                          |
+| Setup      | A bundle of assets for one or more agents that can be applied to repositories                                                          |
+| Team       | A graph of agents with roles (lead, member, reviewer) and allowed communication; teams nest                                            |
+| Run        | One execution of an agent or team: messages, delegations, tool calls, tokens, cost and result                                          |
+| Trigger    | A signed webhook URL that starts a run of an agent or team for each event another service sends                                        |
+| Connection | An integration: the GitHub app, model providers, MCP servers                                                                           |
+
+Assets are versioned, and agents and setups pin versions, so a change to a shared skill is a
+reviewable update rather than a silent one.
+
+### Agents are members
+
+An agent in the Gateweave runtime is also a member of the workspace, with an `agent` role an admin
+creates and scopes. In other Gateweave products it acts through the same mutations people use, so
+validation, permissions and the audit trail apply unchanged (see Track's `docs/ecosystem.md`).
+A triage agent in Track is the first real job for this.
+
+### Teams and communication
+
+A team is a directed graph. Each edge says one agent may **delegate** to, **ask**, or **report**
+to another. Nothing else is allowed, which keeps large teams understandable and stops loops. A
+team can be a member of another team, which gives hierarchies: a lead agent delegates to team
+leads, who delegate to specialists. The team graph is the same picture in the editor, in the chat
+and in the debugger.
+
+## Pages
+
+| Page         | What it shows and does                                                                                                  |
+| ------------ | ----------------------------------------------------------------------------------------------------------------------- |
+| Overview     | Projects, active agents, recent runs, cost and anything that needs attention (drift, failures)                          |
+| Projects     | Each project with its repositories, the agents working in them and the setups applied                                   |
+| Repositories | Agent configuration found in each repository, drift from its setup, and "Apply setup"                                   |
+| Agents       | Every agent: runtime, model, instructions, tools, permissions, and where it is used                                     |
+| Teams        | A visual editor for team graphs: roles, edges (delegate, ask, report) and nesting                                       |
+| Library      | Prompts, skills, plugins and scripts: versions, diffs and where each is used                                            |
+| MCP          | Registered MCP servers, the tools they expose, their health, and which agents use them                                  |
+| Environment  | Variable sets per environment, secrets by reference, and which agents or repositories use them                          |
+| Setups       | Ready-made setups to apply in one click, and a builder for custom ones                                                  |
+| Chat         | Talk to an agent or a team; delegations and tool calls appear inline as they happen                                     |
+| Runs         | A trace of every run: messages, sub-agent spans, tool calls, inputs and outputs, timing, tokens and cost; replay a step |
+| Settings     | Workspace, members, model providers, the GitHub connection and billing                                                  |
+
+Debugging lives in Runs: a run opens as a timeline of spans, the way a distributed trace does.
+
+## Supported agents
+
+The registry reads and writes each agent's own files, so teams keep using the tools they have:
+
+- **Claude Code:** `CLAUDE.md`, `.claude/skills`, `.claude/settings.json`, plugins and `.mcp.json`.
+- **Codex** and other agents that read `AGENTS.md`.
+- **Gemini CLI:** `GEMINI.md` and its settings.
+- **Cursor:** `.cursor/rules`.
+- **GitHub Copilot:** `.github/copilot-instructions.md`, `.github/instructions`, prompt files,
+  custom agents and `.vscode/mcp.json`.
+- **Devin**, which Windsurf became: `.devin/rules` and Windsurf's `.windsurf/rules` and
+  `.windsurfrules`; setups write it `AGENTS.md`.
+
+Each format is a small adapter with tests, so adding an agent does not touch the core. Formats
+change often; each adapter tracks the vendor's current documentation.
+
+## Architecture
+
+The same shape as Track: one Worker per product and one Durable Object per workspace.
+
+- **Interface and API.** TanStack Start on Workers, the same stack as Track. Better Auth for
+  accounts; later a shared Gateweave identity Worker so one sign-in covers every product.
+- **Registry data** (projects, repositories, agents, assets, setups, teams) lives in a
+  per-workspace Durable Object with SQLite. Pages read it through server functions at first, and
+  it moves to Track's sync engine when realtime matters (see "Decisions").
+- **Runtime.** Each running agent is a Cloudflare Agents SDK agent (a Durable Object with its own
+  state, storage and scheduling). Team messages are RPC calls between those objects, checked
+  against the team graph. Long, multi-step jobs run as Workflows, so they survive restarts.
+- **Models** go through Cloudflare AI Gateway when the deployment names one: OpenAI, Anthropic
+  and Google behind one endpoint, with caching, rate limits, fallbacks and logs. Without it,
+  requests go to the provider directly. Workers AI models need no workspace key: a deployment
+  that sets a token for it offers them, and pays.
+- **Tools.** Remote MCP servers from the library, reached by a client opened for each turn;
+  scripts and code in Cloudflare Sandboxes; secrets sealed in the workspace's registry and never
+  copied into prompts (see "Decisions").
+- **Traces.** Every run records its events in its Durable Object. Cost and usage roll up into
+  Analytics Engine, and traces export over OpenTelemetry.
+- **GitHub app.** Reads repositories to find agent configuration, and opens pull requests to apply
+  setups. It asks for the narrowest permissions that allow this.
+- **CLI** (`@gateweave/agents`). Applies a setup locally, checks a repository for drift in CI, and
+  can report coding-agent sessions where the agent supports it (Claude Code exports OpenTelemetry,
+  for example).
+
+## Phases
+
+The registry comes first: it ships fast, is useful at once and needs little infrastructure. The
+runtime is designed alongside it, so the data model fits both.
+
+1. **Registry.** Connect GitHub, scan repositories for agent configuration, group them into
+   projects, and show the Overview, Projects, Repositories and Agents pages. This answers "which
+   repository uses which agents" on day one, with no setup.
+2. **Library and setups.** Versioned assets, ready-made and custom setups, applying them by pull
+   request, and drift detection in the app and the CLI.
+3. **Runtime.** Agents and teams in the Gateweave runtime, AI Gateway, MCP and environment pages,
+   Chat and Runs.
+4. **Agents in Gateweave products.** Agents as workspace members acting in Track, starting with
+   issue triage.
+5. **Cloud runners.** Coding agents in Sandboxes, started on a schedule or by an event, such as a
+   new issue labeled for an agent.
+
+## Decisions
+
+- **Repository layout** (AGT-1, 2026-10-28). This repository holds the product. Code it shares
+  with Track (auth, rate limiting, email, the Worker test harness, UI primitives) is copied in
+  and owned here, the way shadcn/ui components are, rather than published as packages. With two
+  consumers, a package would add releases and versioning to code that still changes every week.
+  Fixes to shared code, auth above all, are checked against both repositories.
+- **Sync comes later.** Registry data is written mostly by the server (GitHub scans and
+  webhooks), so optimistic local writes buy little in phase 1, and extracting Track's sync engine
+  now would churn Track right after its launch. When Agents needs realtime (chat and runs in phase
+  3), the engine is extracted from the Track monorepo as `@gateweave/sync` and published to npm.
+- **Single sign-on** across products comes with Gateweave ID, which Agents can sign people in
+  through as it can any OpenID Connect provider (see `docs/self-hosting.md`). Passwords keep working
+  beside it.
+- **Local port.** 4720, following the Gateweave 47xx convention (site 4700, Track 4710).
+- **Registry data model** (AGT-3, 2026-10-28). Content is addressed by Git blob ids, so files
+  shared across repositories and versions are stored once, binary files can be named by id
+  without being downloaded, and drift is a comparison of hashes. What a scan no longer finds is marked
+  removed, not deleted, so ids and history survive. Metadata read from files stays flat (text,
+  numbers, lists of text): the files hold the full configuration.
+- **GitHub connection** (AGT-4, 2026-10-28). A GitHub App, not an OAuth app: it asks for read
+  access to metadata and contents of the repositories each account chooses, nothing more, and
+  works without a person signed in. An installation links to one workspace, and only after the
+  OAuth web flow shows that the admin linking it can reach it on GitHub, because the setup
+  redirect's installation id can be forged. The client is a small module on `fetch` and WebCrypto
+  instead of Octokit, to keep Node polyfills out of the Worker.
+- **Scans run in the registry** (AGT-4, 2026-10-28). Each workspace's Durable Object queues its
+  own scans in SQLite and works through them with its alarm, so scans of one workspace never race
+  each other, need no extra infrastructure, and survive restarts. Blob texts come through GraphQL,
+  fifty per request, and texts already stored are not downloaded again, which keeps a scan within
+  the free plan's 50 subrequests per invocation.
+- **Models and their keys** (AGT-21, 2026-10-28). A deployment has at most one AI Gateway,
+  and model requests carry the workspace's own provider key. A gateway per
+  workspace with keys stored in it would not scale: an account has at most 20 gateways, and
+  stored keys belong to a gateway. So keys stay with the workspace, sealed in its registry with
+  AES-256-GCM under a key derived from the deployment's `SECRETS_KEY` and the workspace's id.
+  Secrets Store was set aside: it is in beta, and its secrets are bindings fixed at deploy time,
+  not values each workspace adds. Workers AI and AI Gateway's Unified Billing stay off unless a
+  deployment turns them on, so a self-hosted server never spends its owner's money on someone
+  else's workspace. Workers AI is that opt-in (AGT-36, 2026-10-29): `WORKERS_AI_TOKEN` and an
+  account, and off in Gateweave Cloud's production until Cloud meters it.
+- **Agents run by Gateweave live with the agents scans find** (AGT-22, 2026-10-28). They are rows
+  in the same `agents` table, so every page that lists agents shows them, with their definition
+  in a table of its own. Instructions come from the library, pinned to a version, rather than as
+  text typed into the agent: they are versioned, shared between agents and setups, and shown
+  wherever the library asset is.
+- **Conversations** (AGT-23, 2026-10-28). Each conversation is an Agents SDK `AIChatAgent`
+  Durable Object of its own, rather than one per agent or per workspace: storing messages,
+  streaming and resuming come with it, one conversation's load never slows another, and deleting
+  one is destroying its object. A conversation is private to the member who started it, like a
+  direct message, because it can hold anything; shared work comes with runs and teams. The
+  registry keeps the index and opens the key for each turn, so keys rest only there. AI Gateway
+  is reached by URL (`AI_GATEWAY_URL`) instead of the `ai` binding, which always calls
+  Cloudflare: local development, the tests and self-hosted servers work without a Cloudflare
+  login, and a deployment turns the gateway on with one setting.
+- **Runs and traces** (AGT-24, 2026-10-28). A run's summary lives in the registry and its trace
+  in the conversation's Durable Object. The summaries are what the Runs page and the Overview
+  list and sum across the workspace, and they outlive conversations so usage stays counted; the
+  trace is written step by step where the turn runs, without a call to the registry per step,
+  and goes with the conversation. Cost is estimated from a dated table of list prices rather
+  than read from AI Gateway, which a deployment may not use, and a model the table does not list
+  gets no estimate rather than a guess. Runs cut short by a restart are closed when their
+  conversation wakes, and after an hour by the registry for those that never wake.
+- **MCP servers** (AGT-30, 2026-10-28). A server is a library asset in Claude Code's `.mcp.json`
+  shape, so the same asset is a setup's MCP server for coding agents and an agent's tools in
+  Gateweave, versioned and pinned like the rest. Its headers only name variables of the agent's
+  environment set: the file holds no secret, so it can be shown, diffed and written into
+  repositories, and a token is stored once, sealed. A local command runs only in an agent's
+  sandbox, with its environment set's variables and none of its secrets (AGT-71, 2026-11-02).
+- **A client per turn** (AGT-31, 2026-10-28). The runtime connects to an agent's MCP servers with
+  `@ai-sdk/mcp` for each turn and closes them when it ends, rather than through the Agents SDK's
+  `addMcpServer`, which saves a connection's options, headers included, in the Durable Object's
+  SQLite and keeps it open: opened secrets stay in memory for the turn, and an edit to a server
+  or a secret applies from the next message. Connecting costs a round trip or two per turn. A
+  tool call's span keeps the sizes of its input and output, not the content, for the same reason
+  a trace keeps no message text.
+- **A team's edges are tools, and each call is a turn of its own** (AGT-34, 2026-10-28). A
+  conversation with a team is answered by its lead. Each turn gets one tool per edge its agent
+  can take, and taking one runs a turn of the other agent in a new conversation, reached by
+  Durable Object RPC. It is a run under the caller's run, with the caller's span pointing at it.
+  The registry checks each nested turn against the graphs and the limits as the turn begins, from
+  where it stored the calling run. The runtime only says which edge it takes, so a bug there
+  cannot reach an agent the graph does not allow. The Agents SDK's own agent tools
+  (`runAgentTool`) would put each called agent in a facet of the caller, with its messages and
+  trace in the caller's storage. A conversation of its own keeps every run's trace where the
+  Runs page already reads it, and needs no facets.
+- **Teams as graphs in the registry** (AGT-33, 2026-10-28). A team's members are agents run by
+  Gateweave or other teams, and its edges are `delegate`, `ask` or `report`; a team stands for its
+  lead. The registry saves a graph whole and refuses one where a team would contain itself, or
+  where `delegate` and `ask` edges would go in a circle once teams stand for their leads, in the
+  team and in every team above it. These are the edges that wait, so no turn can end up waiting
+  on itself. Reports may go in a circle; the runtime limits how deep turns go. The team page draws
+  the graph itself, top-down from the lead, rather than with a graph library: a team has a few
+  dozen members at most, and the drawing has to fit the app's look in both themes.
+- **The library matches by content** (AGT-12, 2026-10-28). A repository asset uses a library
+  asset when its hash equals one of the library asset's versions; no link is stored. There is
+  nothing to keep in step: a copy made by hand, a pull request from a setup and an edit in the
+  repository all show correctly after the next scan. Two library assets that share a version both
+  claim the repository assets that carry it, and the asset page lists both.
+- **No Docker cloud sandboxes for Gateweave Cloud** (AGT-55, 2026-11-02). Docker's cloud
+  sandboxes could run commands, files and engines as the runtime's sandbox ports ask, though not
+  the credentials our egress proxy adds on the way out, but Docker's terms license them for a
+  customer's internal use and bar offering them to third parties or in competition, and the API
+  is experimental. Gateweave Cloud keeps its own containers. A backend for self-hosters who bring
+  their own Docker token may follow once the API is generally available, on the conditions in
+  [docker-sandboxes.md](/agents/docker-sandboxes/).

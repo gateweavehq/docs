@@ -1,0 +1,57 @@
+name: Sync
+
+# Copies the products' docs again, every day and by hand after a release. When a page changed, it
+# commits to main and starts a deploy.
+on:
+  schedule:
+    - cron: "23 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm sync
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+      - name: Anything new?
+        id: changes
+        run: |
+          git add --all src/content/docs src/generated public
+          if git diff --cached --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            git diff --cached --stat
+          fi
+      - name: Check the new pages build
+        if: steps.changes.outputs.changed == 'true'
+        run: pnpm verify
+      - name: Commit and deploy
+        if: steps.changes.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          versions=$(node -e "for (const p of require('./src/generated/sources.json')) console.log('- ' + p.name + ': ' + p.version)")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -q -m "docs: sync from the products' repositories" -m "$versions"
+          git push origin HEAD:main
+          gh workflow run deploy.yml --ref main
