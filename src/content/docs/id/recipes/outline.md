@@ -3,8 +3,8 @@ title: "Sign in to Outline with Gateweave ID"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/recipes/outline.md"
 source:
   product: "Gateweave ID"
-  version: "v0.13.1"
-  url: "https://github.com/gateweavehq/id/blob/v0.13.1/docs/recipes/outline.md"
+  version: "v0.14.0"
+  url: "https://github.com/gateweavehq/id/blob/v0.14.0/docs/recipes/outline.md"
 ---
 Outline works once its app is set to send the secret in the body of the request, which is the one setting it
 needs changed.
