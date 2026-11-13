@@ -3,8 +3,8 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.35.1"
-  url: "https://github.com/gateweavehq/track/blob/v0.35.1/docs/architecture.md"
+  version: "v0.35.3"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.3/docs/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
 This document explains how the pieces fit together and why they are built the way they are.
@@ -632,8 +632,11 @@ aren't there yet.
   closed socket, and carry on from their version; a mutation they sent before applies once. A
   workspace is paused for the seconds this takes. Gateweave Cloud's backup runs six minutes before.
 - **When a move fails** before the seal, the old object thaws and the workspace stays where it
-  was, and the next day's run tries again. A freeze also lapses after ten minutes, or when the
-  object restarts, so a move that dies half way can't leave a workspace frozen. A move that dies
+  was, and the next day's run tries again. A freeze also lapses after ten minutes, so a move that
+  dies half way leaves a workspace frozen for ten minutes at most. It holds through a restart:
+  Cloudflare evicts an idle object, as the old one is while its rows are copied, and on waking it
+  must not take writes the copy has missed (TRK-132; Agents' registry restarted so on staging).
+  A move that dies
   after the seal leaves it out of reach until the next run, which finds it sealed and only notes
   the new place; its last two steps are tried five times first. An object never takes a move's
   rows while it holds a workspace of its own.
@@ -734,8 +737,11 @@ without waking a hibernated Durable Object.
   mutation the same way it learns about everyone else's.
 - A rejection is `reject { id, reason, message }` with reason `invalid`, `forbidden`,
   `not_found` or `conflict`. The client drops the mutation and its optimistic effect.
-- Mutation ids are recorded, so resending a mutation after a reconnect is safe. A repeat returns
-  the original version without writing again.
+- Mutation ids are recorded for 30 days (`MUTATION_ID_RETENTION_MS`), so resending a mutation
+  after a reconnect is safe. A repeat returns the original version without writing again. A
+  client never sends a mutation it has kept for more than 29 days: it cannot know whether an
+  earlier send landed, and the server may have forgotten the id. It drops it with the reason
+  `expired`, which only the client gives, and the app says the change was not saved.
 - A message that is not valid protocol closes the socket with `4400`. A mutation that is valid
   protocol but has an invalid body is rejected by id, and the connection stays open.
 - **Many at once.** `SyncClient.mutateAll` queues a batch, as bulk edit sends it: the replica,
@@ -1065,6 +1071,15 @@ sends every address at the domain to the Worker's `email` handler, from one catc
 - **The address is the creator** (`INTAKE_EMAIL_ACTOR_ID`, `email`, shown as "Email"), with the
   same rules as the form: the team's first status, only its followers' inboxes, webhooks with a
   `system` actor named "Email".
+- **A mail is filed once.** Email Routing delivers at least once: a handler that fails gets the
+  sender a `421` and the mail comes back, and one cancelled after about five minutes runs again.
+  A delivery's raw bytes differ each time, so the gateway identifies a mail by a SHA-256 of its
+  sender's `Message-ID`, `From` and `Date` with the address it came to. The object files a request
+  or a reply with that id once (`email-deliveries.ts`, kept as an applied mutation `email:<id>`
+  for as long as those are), and the gateway asks first, so a mail filed already is taken with
+  nothing counted against a limit or stored again. Its attachments go under file ids made from
+  the same id, so a retry after a partial failure finds the files stored before instead of
+  storing and counting them twice. Mail without a `Message-ID` gets no id and is filed each time.
 
 Without `INTAKE_EMAIL_DOMAIN`, and on the public demo, every address is refused, and the dialog
 in the app says why. The address that mail came from hears of the decision (above).
@@ -1872,8 +1887,9 @@ imports, so validation, permissions and fan-out are the ordinary ones.
 
 The alarm compacts the oplog every six hours. Ops are dropped only when they are both older than
 30 days **and** more than 10,000 versions behind the head. The highest dropped version becomes
-the floor, and clients behind it get `reset`. Recorded mutation ids are pruned on the same
-schedule, as are finished webhook deliveries and audit events older than a year. The same alarm sends webhooks, moves cycles on and
+the floor, and clients behind it get `reset`. Recorded mutation ids older than 30 days are pruned
+on the same schedule (which is why a client does not resend older mutations), as are finished
+webhook deliveries and audit events older than a year. The same alarm sends webhooks, moves cycles on and
 runs teams' automations, so it also runs whenever a delivery is due, a team's cycle starts or ends,
 or automations are; when compaction is next due is kept in the `meta` table.
 

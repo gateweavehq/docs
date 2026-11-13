@@ -3,8 +3,8 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.35.1"
-  url: "https://github.com/gateweavehq/track/blob/v0.35.1/docs/self-hosting.md"
+  version: "v0.35.3"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.3/docs/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
 list of workspaces, a Durable Object for each workspace, and an R2 bucket for attached files.
@@ -110,6 +110,14 @@ on its own:
   made before move there in the daily run at 03:23 UTC, three at a time, each paused for a few
   seconds while it is copied. The copy each leaves behind is kept until the workspace is deleted.
   Unsetting it later moves nothing back. Rate limits are counted there too.
+
+If your team works far from the database, the Worker can run near it instead of near each
+visitor, so the queries a page makes one after another don't each cross an ocean. Find where the
+database answers with `pnpm wrangler d1 execute DB --remote --command "select 1" --json`, whose
+`served_by_colo` is an airport code, then set `"placement": { "region": "…" }` in
+`wrangler.jsonc` to a cloud region near it. Gateweave Cloud's databases answer from Warsaw, so it
+uses `gcp:europe-central2`. Static files are still served from near each visitor. See
+[Cloudflare's placement docs](https://developers.cloudflare.com/workers/configuration/placement/).
 
 ## Settings
 
