@@ -3,8 +3,8 @@ title: "Agents architecture"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.22.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.22.0/docs/architecture.md"
+  version: "v0.22.1"
+  url: "https://github.com/gateweavehq/agents/blob/v0.22.1/docs/architecture.md"
 ---
 How Gateweave Agents is built today. [spec.md](/agents/spec/) describes where it is going; this file
 changes with the code.

@@ -3,8 +3,8 @@ title: "Gateweave Agents: product spec"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/spec.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.22.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.22.0/docs/spec.md"
+  version: "v0.22.1"
+  url: "https://github.com/gateweavehq/agents/blob/v0.22.1/docs/spec.md"
 ---
 > **Status: agreed.** Phases 1 to 3 (the registry, the library and setups, and the runtime) are
 > built; phase 4 (agents in Gateweave products) is next. Decisions are recorded at the end.

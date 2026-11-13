@@ -4,8 +4,8 @@ description: "An open-source, realtime issue tracker that runs on one Cloudflare
 editUrl: "https://github.com/gateweavehq/track/edit/main/README.md"
 source:
   product: "Gateweave Track"
-  version: "v0.34.0"
-  url: "https://github.com/gateweavehq/track/blob/v0.34.0/README.md"
+  version: "v0.34.1"
+  url: "https://github.com/gateweavehq/track/blob/v0.34.1/README.md"
 ---
 <p align="center">
   <a href="https://track-demo.gateweave.com"><strong>Try the demo</strong></a> ·
@@ -187,17 +187,17 @@ each release changed.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.34.0/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.34.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.34.0/AGENTS.md). Report security issues privately, as described in
-[SECURITY.md](https://github.com/gateweavehq/track/blob/v0.34.0/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.34.1/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.34.1/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.34.1/AGENTS.md). Report security issues privately, as described in
+[SECURITY.md](https://github.com/gateweavehq/track/blob/v0.34.1/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.34.0/LICENSE). You can
+Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.34.1/LICENSE). You can
 self-host, use and modify Track freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.34.0/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.34.1/CLA.md).

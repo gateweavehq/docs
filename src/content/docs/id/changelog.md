@@ -3,8 +3,8 @@ title: "ID changelog"
 editUrl: "https://github.com/gateweavehq/id/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave ID"
-  version: "v0.13.0"
-  url: "https://github.com/gateweavehq/id/blob/v0.13.0/CHANGELOG.md"
+  version: "v0.13.1"
+  url: "https://github.com/gateweavehq/id/blob/v0.13.1/CHANGELOG.md"
 ---
 Notable changes to Gateweave ID, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -12,6 +12,27 @@ Notable changes to Gateweave ID, newest first. The format follows
 
 Each version's [GitHub release](https://github.com/gateweavehq/id/releases) carries the same notes.
 Publishing a release deploys it to Gateweave Cloud.
+
+## [0.13.1] - 2026-11-13
+
+Gateweave Cloud's ID now keeps its data in the EU. Nothing changes for a server you run yourself:
+there is no migration in this release, and the signing algorithm doesn't change.
+
+### Gateweave Cloud
+
+- **Data in the EU.** id.gateweave.com's database and its queue of logouts moved to ones created
+  with Cloudflare's `eu` jurisdiction, which guarantees where they run and store data. The old
+  database was in Eastern North America. Accounts, sessions, passkeys, apps and signing keys were
+  copied over, including what was written while the release deployed. Staging moved first.
+  ([#112](https://github.com/gateweavehq/id/pull/112), [#113](https://github.com/gateweavehq/id/pull/113))
+
+### If you run your own
+
+- **Nothing to do for this release.** The top level of `wrangler.jsonc`, which is what you deploy,
+  is as it was. Only the `cloud` and `staging` environments changed. A D1 database stays where it was
+  made; the self-hosting guide says how to choose before your first deploy.
+- **AGENTS.md says what the Worker's cron and `LOGOUTS` queue do.**
+  ([#111](https://github.com/gateweavehq/id/pull/111))
 
 ## [0.13.0] - 2026-11-11
 
