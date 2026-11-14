@@ -4,14 +4,14 @@
 		"name": "Gateweave Track",
 		"summary": "A realtime issue tracker on one Cloudflare Worker, with a local copy that works offline and AI agents as members.",
 		"repo": "gateweavehq/track",
-		"version": "v0.36.0"
+		"version": "v0.37.0"
 	},
 	{
 		"key": "agents",
 		"name": "Gateweave Agents",
 		"summary": "See which coding agents work in which repositories, share their setups, run your own agents and keep a wiki of each repository.",
 		"repo": "gateweavehq/agents",
-		"version": "v0.24.0"
+		"version": "v0.25.0"
 	},
 	{
 		"key": "id",

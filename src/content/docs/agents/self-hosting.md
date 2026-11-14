@@ -3,8 +3,8 @@ title: "Self-hosting Agents"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.24.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.24.0/docs/self-hosting.md"
+  version: "v0.25.0"
+  url: "https://github.com/gateweavehq/agents/blob/v0.25.0/docs/self-hosting.md"
 ---
 Agents runs on your own Cloudflare account as one Worker. It uses:
 
