@@ -3,12 +3,12 @@ title: "The OpenID conformance suite"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/conformance.md"
 source:
   product: "Gateweave ID"
-  version: "v0.14.0"
-  url: "https://github.com/gateweavehq/id/blob/v0.14.0/docs/conformance.md"
+  version: "v0.14.1"
+  url: "https://github.com/gateweavehq/id/blob/v0.14.1/docs/conformance.md"
 ---
 `pnpm test:conformance` runs the [OpenID Foundation's conformance suite](https://gitlab.com/openid/conformance-suite)
 against a local build of ID, plays the person in a browser, and compares what the suite says of every test
-with [`apps/web/conformance/expected.ts`](https://github.com/gateweavehq/id/blob/v0.14.0/apps/web/conformance/expected.ts). Any difference fails the run,
+with [`apps/web/conformance/expected.ts`](https://github.com/gateweavehq/id/blob/v0.14.1/apps/web/conformance/expected.ts). Any difference fails the run,
 a better result included, so that file and this page stay true.
 
 ID is not certified. Certification is a separate step with the Foundation, which may carry a fee and has not
@@ -77,7 +77,7 @@ build this script has already made.
 
 ## In CI
 
-[`conformance.yml`](https://github.com/gateweavehq/id/blob/v0.14.0/.github/workflows/conformance.yml) runs it on pull requests and pushes to `main` that
+[`conformance.yml`](https://github.com/gateweavehq/id/blob/v0.14.1/.github/workflows/conformance.yml) runs it on pull requests and pushes to `main` that
 touch the app's code, the lockfile or the suite's own files, and once a week for anything else. An upgrade of
 Better Auth is what it is most likely to catch, which is why the lockfile is on that list. It is not a required
 check and it has no part in deploying.
@@ -103,7 +103,7 @@ to a test that differs. Tests are never run twice: a run says what the suite sai
 
 The suite fails an issuer on plain http, and the provider turns any issuer that is not on this machine to
 https. So a run's build has the address `https://id.localhost:4734` (`ID_E2E_URL` in `vite.config.ts`), and
-the `id` service in [`docker-compose.yml`](https://github.com/gateweavehq/id/blob/v0.14.0/apps/web/conformance/docker-compose.yml) puts https in front of
+the `id` service in [`docker-compose.yml`](https://github.com/gateweavehq/id/blob/v0.14.1/apps/web/conformance/docker-compose.yml) puts https in front of
 the usual preview on port 4732. It uses the certificate in the suite's own nginx image. The suite's containers
 find `id.localhost` as that service, and a browser takes anything under `.localhost` for this machine, so both
 use the same address, as the issuer requires.

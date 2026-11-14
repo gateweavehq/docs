@@ -3,8 +3,8 @@ title: "Track changelog"
 editUrl: "https://github.com/gateweavehq/track/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Track"
-  version: "v0.35.3"
-  url: "https://github.com/gateweavehq/track/blob/v0.35.3/CHANGELOG.md"
+  version: "v0.35.4"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.4/CHANGELOG.md"
 ---
 Notable changes to Gateweave Track, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,24 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.35.4] - 2026-11-14
+
+Track reads email with postal-mime 4.2.1, a security release of the parser. There is no migration
+in this release.
+
+### Security
+
+- **Parsing a crafted email could take a long time.** Track parses mail from anyone sent to a
+  team's intake address, and requesters' replies. In postal-mime before 4.2.1, a deeply nested
+  multipart message made boundary matching cost the nesting depth times the message size. The
+  parser also read an address's domain with whitespace beside a dot differently from RFC 5322;
+  Track already treats an intake email's sender as unproven, so that changed no decision here.
+  ([#295])
+
+### If you run your own
+
+- **Nothing to do** beyond updating.
 
 ## [0.35.3] - 2026-11-13
 
@@ -1603,6 +1621,7 @@ The first pre-release.
 - An MCP server at `/mcp`: AI agents sign in with your approval, then search, read, create and
   update issues. ([#15])
 
+[0.35.4]: https://github.com/gateweavehq/track/releases/tag/v0.35.4
 [0.35.3]: https://github.com/gateweavehq/track/releases/tag/v0.35.3
 [0.35.2]: https://github.com/gateweavehq/track/releases/tag/v0.35.2
 [0.35.1]: https://github.com/gateweavehq/track/releases/tag/v0.35.1
@@ -1682,6 +1701,7 @@ The first pre-release.
 [0.1.0-alpha.2]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.2
 [0.1.0-alpha.1]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.1
 [#286]: https://github.com/gateweavehq/track/pull/286
+[#295]: https://github.com/gateweavehq/track/pull/295
 [#294]: https://github.com/gateweavehq/track/pull/294
 [#293]: https://github.com/gateweavehq/track/pull/293
 [#292]: https://github.com/gateweavehq/track/pull/292

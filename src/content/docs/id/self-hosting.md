@@ -3,8 +3,8 @@ title: "Self-hosting ID"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave ID"
-  version: "v0.14.0"
-  url: "https://github.com/gateweavehq/id/blob/v0.14.0/docs/self-hosting.md"
+  version: "v0.14.1"
+  url: "https://github.com/gateweavehq/id/blob/v0.14.1/docs/self-hosting.md"
 ---
 Gateweave ID runs on your own Cloudflare account as one Worker, with a D1 database for accounts, a Durable
 Object for rate limits and a Queue for logouts an app missed.
@@ -95,6 +95,13 @@ Cloudflare can keep data inside the EU, the US or FedRAMP data centers. Each par
 - **The logout queue**: `pnpm wrangler queues create gateweave-id-logouts --jurisdiction eu`, before the first deploy.
 - **Rate limits**: set `DURABLE_OBJECT_JURISDICTION` to `eu`. Their counts, kept under hashed addresses, start again
   there.
+
+If the people who sign in are far from the database, the Worker can run near it instead of near each of them, so the
+queries a sign-in makes one after another don't each cross an ocean. Find where the database answers with
+`pnpm wrangler d1 execute DB --remote --command "select 1" --json`, whose `served_by_colo` is an airport code, then set
+`"placement": { "region": "…" }` in `wrangler.jsonc` to a cloud region near it. Gateweave Cloud's databases answer from
+Frankfurt, so it uses `aws:eu-central-1`. Static files are still served from near each visitor. See
+[Cloudflare's placement docs](https://developers.cloudflare.com/workers/configuration/placement/).
 
 ## Claim your server
 

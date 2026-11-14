@@ -3,8 +3,8 @@ title: "The Gateweave ecosystem"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/ecosystem.md"
 source:
   product: "Gateweave Track"
-  version: "v0.35.3"
-  url: "https://github.com/gateweavehq/track/blob/v0.35.3/docs/ecosystem.md"
+  version: "v0.35.4"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.4/docs/ecosystem.md"
 ---
 > **Status: draft proposal.** This describes where the product family could go and the
 > architecture that would let it get there. Nothing here is built yet except Track itself.

@@ -3,8 +3,8 @@ title: "Track roadmap"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/roadmap.md"
 source:
   product: "Gateweave Track"
-  version: "v0.35.3"
-  url: "https://github.com/gateweavehq/track/blob/v0.35.3/docs/roadmap.md"
+  version: "v0.35.4"
+  url: "https://github.com/gateweavehq/track/blob/v0.35.4/docs/roadmap.md"
 ---
 Where Gateweave Track is going, in order. Dates are deliberately absent; each phase ships when its
 "done when" holds. For the wider Gateweave product family, see [ecosystem.md](/track/ecosystem/).

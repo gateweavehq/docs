@@ -3,8 +3,8 @@ title: "Self-hosting Agents"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.23.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.23.0/docs/self-hosting.md"
+  version: "v0.24.0"
+  url: "https://github.com/gateweavehq/agents/blob/v0.24.0/docs/self-hosting.md"
 ---
 Agents runs on your own Cloudflare account as one Worker. It uses:
 
@@ -137,6 +137,14 @@ on its own:
   for containers that a Durable Object starts. A turn's repository and commands may run outside
   the jurisdiction.
 
+If your team works far from the database, the Worker can run near it instead of near each
+visitor, so the queries a page makes one after another don't each cross an ocean. Find where the
+database answers with `pnpm wrangler d1 execute DB --remote --command "select 1" --json`, whose
+`served_by_colo` is an airport code, then set `"placement": { "region": "…" }` in
+`wrangler.jsonc` to a cloud region near it. Gateweave Cloud's databases answer from Frankfurt, so
+it uses `aws:eu-central-1`. Static files are still served from near each visitor. See
+[Cloudflare's placement docs](https://developers.cloudflare.com/workers/configuration/placement/).
+
 ## Settings
 
 Everything except `BETTER_AUTH_SECRET` is optional. Set them in the Cloudflare dashboard (Workers &
@@ -180,6 +188,10 @@ after updating.
 | `SANDBOX_ALERT_EMAIL`         | Who hears when sandboxes have spent 80% and then all of the monthly budget. Needs email.                                                                           |
 | `INVITATION_CONTACT`          | Where a workspace asks for an invitation to Workers AI or sandboxes: an email address or an https URL. Settings > Models links to it. Keep an address as a secret. |
 | `DURABLE_OBJECT_JURISDICTION` | Keeps workspaces in a jurisdiction, such as `eu`. See [above](#keeping-data-in-one-jurisdiction).                                                                  |
+
+Leave `AGENTS_DEMO` unset. It turns a deployment into Gateweave's public demo, where anyone gets a
+sandbox of made-up data that is deleted after a day, agents answer from a script, and nobody can
+sign up or sign in (see "The public demo" in [architecture.md](/agents/architecture/#the-public-demo)).
 
 ### Your own domain
 
