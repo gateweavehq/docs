@@ -3,8 +3,8 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.37.0"
-  url: "https://github.com/gateweavehq/track/blob/v0.37.0/docs/architecture.md"
+  version: "v0.39.2"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.2/docs/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
 This document explains how the pieces fit together and why they are built the way they are.
@@ -415,6 +415,26 @@ A shared demo account would be vandalized within minutes, so each visitor gets a
   members; they are users with no credentials, shared by every sandbox. The sample teams, labels,
   issues and comments are written through the Durable Object's `mutate` RPC, each as the right
   person, from the same steps `pnpm dev:seed` uses (`src/server/demo/sample.ts`).
+- The sample also has an [agent member](#agent-members), Coder, and one issue that shows an
+  agent's work from start to finish (`AGENT` and `AGENT_EXAMPLE` in `sample-data.ts`). No agent
+  can run in the demo, which has no model, sends no webhooks and has nothing for an agent to work
+  in, so this is sample data and the issue's description says so first, with a link to a
+  recording of a real run. Each sandbox gets its own Coder, since an agent belongs to one
+  workspace: a user under `agents.invalid` with the `agent` role, as the agent members plugin
+  makes one, but with no key, so nothing can act as it. (The visitor is an admin of their own
+  sandbox and can give it a key in Settings, as for an agent they make themselves.) The issue's
+  author assigns it to Coder; Coder's two comments and two status changes are written as Coder;
+  and its last change, to Done, is a real [proposal](#proposals) that the visitor can accept or
+  dismiss, because an admin's `agent.update` first has Coder propose closing. Two things in the
+  steps are there for the history. The author adds the issue to a project between Coder's two
+  status changes, since one member's changes to a field within five minutes are otherwise joined
+  into one entry. And the example is written in two halves, either side of the steps that wait
+  for a cycle, which the demo sends in separate calls: steps of one call can share a time, and
+  an issue's timeline lists changes before comments of the same moment. The welcome card points
+  to the issue by its key (`AGENT_EXAMPLE_ISSUE_KEY` in `src/lib/demo-links.ts`). `pnpm dev:seed`
+  seeds the same agent and issue where `/mcp` is on: it makes the agent as an admin does, sends
+  the agent's steps as tool calls with its key, and revokes the key when it is done. Where
+  `/mcp` is off, an agent has no way in, and the seed leaves both out.
 - In the demo, HTTP requests to sign up, sign in, reset or change a password or email, delete an
   account, or change who may sign up are refused. Only the server creates accounts. Server-side `auth.api` calls
   carry no `Request`, which is how the hook tells them apart. Email is off.
@@ -422,10 +442,43 @@ A shared demo account would be vandalized within minutes, so each visitor gets a
   than a day old: for each of their workspaces it calls `destroy()` on the Durable Object, then
   deletes the organization row, then the user (sessions, accounts and memberships cascade). The
   sample people are never selected. Visitors are found by their address, so a failed run leaves
-  what it did not delete for the next one.
+  what it did not delete for the next one. Agents left without a workspace go last: the sandbox's
+  Coder, and any the visitor made.
 
 Seeding a sandbox makes about 70 Durable Object calls in one request, so the demo needs a Workers
 Paid plan (1,000 subrequests per request).
+
+### Feature flags
+
+A feature can be merged before it is ready for everyone and turned on for some workspaces first.
+`apps/web/src/lib/flags.ts` lists every flag with its default, and that list is the only place a
+key lives: the server asks its flag store for those keys and no others.
+
+- **The store is optional.** It is a [Cloudflare Flagship](https://developers.cloudflare.com/flagship/)
+  app, bound as `FLAGS` (`flagship` in `wrangler.jsonc`). Only Gateweave's `staging` environment
+  has one. A deployment without the binding, which is every self-hosted copy unless it adds one,
+  asks nothing and serves each flag's default, so a flag's default must be what a server that has
+  never heard of flags should do.
+- **Decided per workspace, on the server.** `getWorkspace` evaluates the list when a workspace
+  opens (`src/server/flags/`) and returns only the flags that differ from their default, as
+  `flags`. Everyone in a workspace gets the same answer: the workspace's id is the targeting key,
+  which is what a percentage rollout is counted by.
+- **Only that id leaves the server.** Flagship keeps the context of evaluations for about a
+  month, readable by anyone who may read the account's analytics. So the context is the
+  workspace's id and nothing else: no person, name, address or slug.
+- **The device remembers.** The answer travels with the workspace's details into what the browser
+  keeps for an offline start (`src/lib/offline.ts`), so a workspace opened without a connection
+  shows what it showed last. Pages read it with `useFlag(key)`.
+- **A failing store changes nothing.** A flag that cannot be evaluated is its default, and the
+  workspace opens.
+- **It is not a switch for emergencies.** A change in Flagship took about 45 seconds to reach a
+  Worker when measured, and a tab picks it up the next time it loads the workspace.
+
+A flag is meant to go. Once its feature is on for everyone, delete the key from the list and the
+checks around it, and keep the feature. To try one locally, add the `flagship` binding to the top
+level of `wrangler.jsonc` for the moment (not in a commit) and turn the flag on in the local
+store, which starts empty:
+`pnpm wrangler flagship flags create <app id> <key> --default on --local`.
 
 ## Request flow and security
 
@@ -612,6 +665,139 @@ Settings has an Agents page for it.
 - **It goes with its workspace.** Deleting an agent deletes its user, membership and keys; the
   workspace keeps its profile, marked removed, for what it did. Deleting a workspace deletes its
   agents too, as does the demo's cleanup.
+
+### Connecting an agent in one step
+
+Setting up an agent by hand takes seven steps across two products and two secrets copied between
+tabs. Another server, such as Gateweave Agents, can instead send an admin's browser to Track and
+have both made at once. The asking server fetches the two secrets itself, so neither is ever in a
+page, an address or a clipboard. The code is `apps/web/src/server/connect.ts`; the page is
+`routes/connect.agent.tsx` with its server functions in `lib/connect.ts`; the checks on a request
+are `lib/connect-request.ts`. The setting `CONNECT_ORIGINS` (see `docs/self-hosting.md`) is the
+only configuration. The manual way, under Settings, stays.
+
+1. **The asking server** makes a random `verifier` and keeps it, then sends the browser to
+   `/connect/agent?purpose=work|triage&name=…&webhook=<url>&events=<comma list>&return=<url>&state=…&challenge=<base64url SHA-256 of the verifier>`.
+2. **The page** sends someone who is signed out to sign in and back to the same address, query
+   included. It refuses, with a plain page and no redirect, when `webhook` or `return` is not https
+   (http only where Track itself is on http, as for webhooks), has a user name or password, or
+   when the two are not on one origin; when either is Track's own address; when `events` holds
+   one Track does not send; when `purpose`, `state` (1 to 200 URL-safe characters), `challenge`
+   (43) or `name` (over 80 characters) are malformed or a name is given twice; on a server with no
+   webhooks (the demo); and for someone who is an owner or admin of no workspace. Otherwise it
+   shows the asking origin in large type, a warning unless `CONNECT_ORIGINS` lists it, and in
+   words what Allow makes: an agent member (name editable), a webhook to that address for those
+   events, for one team or all, and what an agent member can and cannot do. The workspaces on offer
+   are those where D1 says the person is an owner or admin (`isAdminRole`), and the teams are read
+   from the workspace's directory through the gateway after the same check, as ids, keys and names
+   only. Allow and Cancel are a server function call followed by a navigation, because the
+   Content-Security-Policy's `form-action 'self'` would block a form that redirects away. The
+   router reads the query raw, as the server function does: parsing it as JSON would turn a state
+   such as `1e5` into another string.
+3. **Allow** (`approveAgentConnection`) is a change like any other. It needs the same origin
+   (Start's CSRF check, and the function's own, which also wants an `Origin`), a session, and an
+   owner or admin in D1, and it checks every parameter again from the query: nothing the page sent
+   back is trusted but the choices of workspace, team and name, which are validated too. It counts
+   against a limit of 10 an hour per person. It makes the agent through Better Auth's
+   `createAgent`, with the person's own headers, so the plugin's checks and its 50 agents apply
+   and the membership reaches the workspace's object before it returns. It then makes the webhook
+   through the workspace's `createWebhook`, as the person, "for" that agent, so the limit of 10
+   webhooks, the URL checks and the audit event are the manual ones. If the webhook cannot be made
+   (or the code below cannot be kept), the agent is deleted again, as the person, and the page says
+   why. If the object had not heard of the agent, its membership is pushed once more first.
+4. **The one-time code** is 32 random bytes, base64url. For 60 seconds a row in `verification`
+   holds, under the identifier `track-connect:` plus the SHA-256 of the code (never the code): the
+   challenge in the clear, and the rest sealed with AES-256-GCM: the agent's key, the webhook's
+   secret, the ids and names the exchange returns, the return origin and the undo token. The key
+   is HKDF-SHA-256 of `BETTER_AUTH_SECRET`, salted with the code, under its own purpose string
+   (`track-connect-code-v1`), and the row's identifier and that string are the cipher's additional
+   data. A copy of the table without the code opens nothing, and the code without the table's
+   secret opens nothing. The page answers `return?code=<code>&state=<state>`, added to any query
+   the return address has. Cancel answers `return?error=denied&state=<state>` and makes nothing.
+   The audit log has what it has for an agent and a webhook, and an `agent.connected` event naming
+   the asking origin. The row also holds, in the clear, the workspace id, the agent's id and the
+   asking origin. They are not secret; they are what lets a code that is never used be taken back
+   without opening the seal (see below). The key, the secret and the undo token stay sealed, and
+   the challenge and the identifier stay bound into the seal's additional data. The code's own
+   minute is `goodUntil` in the row, and the row's `expiresAt` is three days later
+   (`ROW_KEPT_MS`): Better Auth deletes every `verification` row past its `expiresAt` whenever it
+   looks one up, a sign-in for one, so a row that ran out with its code would usually be gone
+   before anyone could take back what it was made for. A row written by v0.39.0 has no such ids
+   and no `goodUntil`: its `expiresAt` is its minute, it goes with the general prune, and nothing
+   is taken back for it.
+5. **`POST /api/connect/exchange`** takes `{ code, verifier }` and no session; cookies are never
+   read. It deletes the row by its identifier, returning it, **before** looking at anything else:
+   the delete is what decides, so of two exchanges at once exactly one gets a row, and a code
+   that fails any check below is spent all the same. It then checks the code's minute is not over, that
+   `base64url(SHA-256(verifier))` equals the challenge, in constant time, and that the seal opens.
+   Answers `{ agentKey, webhookSecret, agent: { id, memberId, name }, workspace: { id, slug, name }, webhook: { id }, undo }`.
+   Every way of failing, including a body of the wrong shape, is the same `400 {"error":"invalid_code"}`.
+   A body of the wrong shape is refused before the delete: it spends nothing and takes nothing back.
+   A code that is spent and then fails (late, a wrong verifier, a seal that does not open) leaves
+   the asking server with no undo token, which comes only in a good answer, so the exchange takes
+   back what the row was made for, the way undo does (below), before it answers; the answer is
+   the same. If that fails, it is logged, without secrets, the answer is still the same, and it
+   is tried again later (below).
+   Someone holding a stolen code but not the verifier could already spend it by exchanging it;
+   they now also cause this cleanup: the same denial as before, with less left behind.
+6. **`POST /api/connect/undo`** takes `{ undo }`, a token the exchange returned: the workspace,
+   agent and webhook ids and an expiry ten minutes on, signed with HMAC-SHA-256 under a key derived
+   from `BETTER_AUTH_SECRET` with its own purpose string (`track-connect-undo-v1`). It deletes the
+   webhook first, only while it still belongs to that agent, then the agent. It is safe to call
+   twice and answers `200 {"ok":true}` whether or not they were still there; a forged, altered or
+   late token is `400 {"error":"invalid_undo"}` and does nothing. The removals are audit events
+   by Track itself.
+7. **Codes never traded.** A code whose tab was closed, or whose asking server was down, expires
+   and would leave its agent and webhook behind. So rows of this kind past their time are swept:
+   each is deleted with `DELETE ... RETURNING` (so a sweep and a late exchange cannot both act on
+   one row) and what its readable ids name is taken back with the same function undo uses (the
+   webhooks that name the agent, then the agent, then the membership sync), with an
+   `agent.deleted` audit event by Track itself that names the asking origin and the reason. A
+   sweep acts only on ids read from a row it just deleted, so it never touches an agent whose
+   code was traded (its row is gone) or one made by hand. Which rows are due is read from
+   `sweepAt` inside the row (`json_extract`), at first the code's own minute, never from
+   `expiresAt`. It runs on every Allow, for up to 5 rows so that Allow stays fast, and on the
+   Worker's daily run, before the general prune of expired `verification` rows. When taking back
+   fails, which a workspace's object being restarted is enough for, the row goes back in with
+   only the ids, `goodUntil: 0` so that no code opens it, and a `sweepAt` an hour on; it is tried
+   three times in all, then left to the log. That row's identifier is `track-connect:retry.` and
+   a random id, which no code hashes to, so an asking server that exchanges again cannot spend
+   the tries in seconds. The table is Better Auth's as well, and not every value in it is JSON:
+   the sweep reads `sweepAt` only from a value that is (`json_valid`), and compares the prefix
+   exactly. An agent that someone took over by hand in the meantime is left alone: the row names the key
+   the connection made, and only while that is the agent's one key, never used, is the agent
+   taken back. After a rollback to v0.39.0, which
+   judges a code by `expiresAt`, delete the `track-connect:` rows: a row this version wrote
+   would otherwise be good there for three days instead of a minute (it still needs the code
+   and its verifier).
+
+Both routes count calls per client address in a `RateLimiter` Durable Object (20 at once,
+refilling over an hour, within 100 a day, shared by the two), by the zone a Worker comes from
+(`countedByWhoSentIt`, as in [Rate limits](#rate-limits)); over it they answer `429` with
+`Retry-After`. Responses carry `cache-control: no-store`.
+
+**Threat model.** The code is a bearer secret for 60 seconds, but it opens nothing without the
+verifier, which only the server that started the flow holds and never sends through the browser:
+a code read from a log, a referrer or the address bar is of no use to anyone else. The webhook and
+the return address must be one origin so that what the admin approves, the secrets and the
+deliveries alike, goes only to the origin they were shown, and Track's own origin is refused so a
+page cannot point the flow back at itself. The weak point is the one every consent page has: an
+admin approving an address they should not trust, hence the origin in large type and the warning
+for those not in `CONNECT_ORIGINS`. Someone who controls the asking origin and gets an admin to
+click Allow gets exactly what Allow says: an agent member's key in that one workspace, which reads
+the workspace and changes issues as a member (never manages it, see [Agent members](#agent-members)),
+and the webhook's secret, with the issues of the chosen team or all of them. They get nothing
+without that click: not a session, not the person's access, not any other workspace, and not a
+second agent, as each approval is one click. They can also ask for any name and any events, which
+the person sees and edits. Someone who does not control it but sees an address with a code in it
+cannot use it, and one who guesses has 2^256 to try against a limit of 20 an hour and a minute's
+life. A connection can be undone from Track at any time in the workspace's settings, and by the
+asking server for ten minutes with the token it was given.
+
+Two limits are worth knowing. An admin who closes the tab after Allow leaves an agent member and a
+webhook whose secrets are lost once the code's minute is up: both are visible in Settings and can
+be removed there. And every caller that arrives from one Worker zone shares the exchange's rate
+limit, since that zone is the address it is counted by.
 
 ### Backups
 

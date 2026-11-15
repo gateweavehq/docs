@@ -4,8 +4,8 @@ description: "One sign-in for your team's apps, on one Cloudflare Worker. An Ope
 editUrl: "https://github.com/gateweavehq/id/edit/main/README.md"
 source:
   product: "Gateweave ID"
-  version: "v0.14.1"
-  url: "https://github.com/gateweavehq/id/blob/v0.14.1/README.md"
+  version: "v0.15.0"
+  url: "https://github.com/gateweavehq/id/blob/v0.15.0/README.md"
 ---
 <p align="center">
   <a href="https://gateweave.com/id"><strong>See what it does</strong></a> ·
@@ -51,6 +51,8 @@ that run on Cloudflare, next to [Gateweave Track](https://github.com/gateweavehq
 - **Workspaces.** People can make workspaces, invite each other and
   [connect their own apps](/id/connect-an-app/), which only that workspace's members can use. Groups
   decide who in a workspace may sign in to which app, and an app can ask for them as a `groups` claim.
+  A workspace can require two-factor sign-in, and its apps then only admit people who signed in with a
+  passkey, or with a password and a code.
   These apps do not hear about a sign-out yet. One of them can be
   [Cloudflare Access](/id/cloudflare-access/), which puts an internal app behind ID through a tunnel,
   with no server of your own to run. There are guides for [Grafana](/id/recipes/grafana/),
@@ -84,7 +86,7 @@ with the callback URL `http://localhost:4730/api/auth/callback/github`, then unc
 `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.dev.vars`.
 
 `pnpm verify` runs everything CI does: lint, types, tests and a build. See
-[CONTRIBUTING.md](https://github.com/gateweavehq/id/blob/v0.14.1/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/id/blob/v0.14.1/AGENTS.md) for how the code is organized and
+[CONTRIBUTING.md](https://github.com/gateweavehq/id/blob/v0.15.0/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/id/blob/v0.15.0/AGENTS.md) for how the code is organized and
 what must never break.
 
 ## Running your own
@@ -97,6 +99,6 @@ soon as it is up.
 
 ## License
 
-[AGPL-3.0](https://github.com/gateweavehq/id/blob/v0.14.1/LICENSE). Contributors sign a [CLA](https://github.com/gateweavehq/id/blob/v0.14.1/CLA.md) once, which covers every Gateweave project.
-Third-party code is listed in [THIRD_PARTY_NOTICES.md](https://github.com/gateweavehq/id/blob/v0.14.1/THIRD_PARTY_NOTICES.md). Report security
-problems as [SECURITY.md](https://github.com/gateweavehq/id/blob/v0.14.1/SECURITY.md) describes.
+[AGPL-3.0](https://github.com/gateweavehq/id/blob/v0.15.0/LICENSE). Contributors sign a [CLA](https://github.com/gateweavehq/id/blob/v0.15.0/CLA.md) once, which covers every Gateweave project.
+Third-party code is listed in [THIRD_PARTY_NOTICES.md](https://github.com/gateweavehq/id/blob/v0.15.0/THIRD_PARTY_NOTICES.md). Report security
+problems as [SECURITY.md](https://github.com/gateweavehq/id/blob/v0.15.0/SECURITY.md) describes.

@@ -3,8 +3,8 @@ title: "Working on Gateweave Track issues"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/track-work.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.25.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.25.0/docs/track-work.md"
+  version: "v0.27.0"
+  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/docs/track-work.md"
 ---
 An agent run by Gateweave can take the issues you assign to it in a
 [Gateweave Track](https://github.com/gateweavehq/track) workspace. It joins the workspace as an
@@ -22,8 +22,7 @@ change to its pull request: it makes the change, pushes it to the same pull requ
 back. Each issue has one conversation in Agents, so it remembers what was said and done, and works
 on the same branch.
 
-Setting it up takes three steps across the two products. You need to be an owner or admin in both,
-and the Agents workspace needs:
+You need to be an owner or admin in both products, and the Agents workspace needs:
 
 - **sandboxes**, which Gateweave Cloud offers to the workspaces it invites, and a self-hosted server
   once its operator turns them on;
@@ -31,13 +30,38 @@ and the Agents workspace needs:
 - **a model provider key** for the engine you choose (**Settings → Model providers**): Anthropic's
   for Claude Code, OpenAI's for Codex, any of Anthropic's, OpenAI's or Google's for OpenCode.
 
-## 1. In Track: an agent member and its key
+## Connect Track
+
+1. Open **Agents** in your Gateweave Agents workspace. Under **Ready-made**, choose **Set up** next to
+   **Work on Track issues**.
+2. Choose the **repository** where it works and opens pull requests, then the engine, provider and
+   model. Providers the workspace can use come first, and the model is picked from the provider's
+   list (**Other…** lets you type one). Under **Another Track**, change the address if you run your
+   own Track; on Gateweave Cloud it is `https://track.gateweave.com`.
+3. Choose **Connect Track**. Your browser goes to Track, which says which address is asking and
+   what it will make: an agent member and a webhook for the issue events. Choose the workspace and
+   the team, and choose **Allow**.
+4. You come back to the agent's page in Agents, with a message that Track is connected. Assign the
+   agent an issue.
+
+No key or secret is typed, shown or copied: Track hands them to Agents directly, for a one-time code
+that works for a minute, once, and Agents seals them. If anything fails after Track made the agent
+member and the webhook, Agents asks Track to remove them again, and says if it could not. Choose
+**Cancel** in Track, or leave, and nothing is made.
+
+If your Track is older than this (it has no **Connect an agent** page), or cannot be reached from
+your browser, choose **Set it up by hand** in the dialog and follow the steps below, three across
+the two products.
+
+## By hand
+
+### 1. In Track: an agent member and its key
 
 1. Open **Settings → Agents** in your Track workspace and create an agent, named for instance
    "Coder". It shows in Track as a member you can assign issues to.
 2. Copy the key Track shows. It starts with `gwt_`, and Track shows it once.
 
-## 2. In Agents: the ready-made agent
+### 2. In Agents: the ready-made agent
 
 1. Open **Agents** in your Gateweave Agents workspace. Under **Ready-made**, choose **Set up**
    next to **Work on Track issues**.
@@ -51,7 +75,7 @@ and the Agents workspace needs:
    key is, so a wrong address or key is reported at once and nothing is made.
 4. Copy the URL it shows, and leave the dialog open.
 
-## 3. In Track: the webhook
+### 3. In Track: the webhook
 
 1. Open **Settings → Webhooks** and choose **Add webhook**.
 2. Paste the URL. Under **Events**, choose **Issue created**, **Issue changed** and **Comment
@@ -108,7 +132,7 @@ comments continue the work, open the agent's page, edit its trigger under **Trig
 `comment.created` to **Events**, tick **One conversation per issue**, and make the prompt fit any
 event, such as `Track sent {{type}} for the issue {{data.issue.key}}. It is assigned to you: work
 on it as your instructions say.` Then add **Comment added** to the webhook's events in Track, and
-bring the `Track issue work` instructions up to date from [the current ones](https://github.com/gateweavehq/agents/blob/v0.25.0/apps/web/src/server/track-work.md).
+bring the `Track issue work` instructions up to date from [the current ones](https://github.com/gateweavehq/agents/blob/v0.27.0/apps/web/src/server/track-work.md).
 
 ## When it does not work
 

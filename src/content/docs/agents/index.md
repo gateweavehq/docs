@@ -1,18 +1,34 @@
 ---
 title: "Gateweave Agents"
-description: "See which coding agents work where, keep what they read in one place, and run your own teams of agents. Open source, on Cloudflare, with no server to run."
+description: "Assign an issue to an AI agent and get a pull request back. Open source, on your own Cloudflare account, with your own model key. No server to run, and every run shows what it did and what it cost."
 editUrl: "https://github.com/gateweavehq/agents/edit/main/README.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.25.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.25.0/README.md"
+  version: "v0.27.0"
+  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/README.md"
 ---
 <p align="center">
+  <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><strong>Watch a real run (45 s)</strong></a> ·
   <a href="https://agents-demo.gateweave.com"><strong>Try the demo</strong></a> ·
   <a href="https://gateweave.com/agents"><strong>See what it does</strong></a> ·
   <a href="#self-hosting"><strong>Deploy your own</strong></a> ·
-  <a href="https://github.com/gateweavehq/agents/tree/v0.25.0/setups">Ready-made setups</a>
+  <a href="https://github.com/gateweavehq/agents/tree/v0.27.0/setups">Ready-made setups</a>
 </p>
+
+<p align="center">
+  <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><img src="/agents/images/issue-to-pull-request.jpg" width="880" alt="An issue in Gateweave Track assigned to the agent Coder 2. The agent commented that it was on it, moved the issue to In Progress, opened pull request 308 and said so on the issue. The caption reads: 3 min 45 s after assigning, its pull request is open."></a>
+</p>
+
+<p align="center">
+  One real run on Gateweave Cloud, not staged: an issue in
+  <a href="https://github.com/gateweavehq/track">Gateweave Track</a> is assigned to an agent, which answers
+  26 seconds later and has <a href="https://github.com/gateweavehq/track/pull/308">its pull request</a> open
+  after 3 minutes 45 seconds, for about 11 cents on an open model.
+  <a href="https://gateweave.com/watch/issue-to-pull-request.mp4">Watch it</a> (45 s, no sound).
+</p>
+
+Beyond that, it shows which coding agents work where in your repositories, keeps what they read in
+one place, and runs your own teams of agents:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/agents/images/tour-dark.gif">
@@ -45,8 +61,8 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   which repositories carry each one and which are behind.
 - **Apply it.** Setups pin those assets for a set of coding agents, preview the files they write, apply
   them to a repository by pull request and show where a repository has drifted from them since.
-  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.25.0/setups), are added to a workspace in one click,
-  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.25.0/packages/cli) applies a setup to a working tree and checks it in CI.
+  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.27.0/setups), are added to a workspace in one click,
+  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.27.0/packages/cli) applies a setup to a working tree and checks it in CI.
 - **Read about the code.** A model writes a wiki of each repository, private ones included, with the
   workspace's own key: numbered pages that cite the lines they explain, steered by `.devin/wiki.json`
   as DeepWiki is. AI agents read it and ask it questions over MCP with DeepWiki's tools, signing in with
@@ -59,6 +75,11 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   and estimated cost, the runs a team's agents led to nested inside it. A run can be replayed from any
   model request with the agent as it is now, and its trace sent to the workspace's own OpenTelemetry
   endpoint.
+- **Let them remember.** Agents note facts, decisions and preferences in the workspace's
+  [memory](/agents/memory/) and recall them by keyword in later runs, each with who or what wrote it.
+  What an agent notes for the whole workspace or a repository, or in a run a trigger started, waits
+  for an owner or admin before any agent recalls it, and people read, edit and delete all of it on
+  one page.
 - **Let them start on their own.** Triggers start an agent's runs from another service's signed webhooks
   or on a schedule, if wanted only for issues with a label or a given assignee, and can keep one
   conversation per issue.
@@ -67,7 +88,8 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   [triage Gateweave Track issues](/agents/track-triage/) and
   [work on the ones assigned to them](/agents/track-work/), from a comment on the issue to a pull request,
   and go on in the same conversation and pull request when someone comments on the issue, such as to
-  answer the agent's question or ask for a change.
+  answer the agent's question or ask for a change. Choose **Connect Track**, approve in Track, and
+  come back connected: no key or secret is copied by hand.
 
 ## Tech stack
 
@@ -143,10 +165,10 @@ setting, your own domain, email, sandboxes and their limits, and updating.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.25.0/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.25.0/AGENTS.md). Run `pnpm verify` before you
+Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.27.0/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.27.0/AGENTS.md). Run `pnpm verify` before you
 open a pull request.
 
 ## License
 
-[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.25.0/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.25.0/CLA.md), which covers every Gateweave
+[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.27.0/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.27.0/CLA.md), which covers every Gateweave
 project.

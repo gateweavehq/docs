@@ -3,8 +3,8 @@ title: "ID architecture"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/architecture.md"
 source:
   product: "Gateweave ID"
-  version: "v0.14.1"
-  url: "https://github.com/gateweavehq/id/blob/v0.14.1/docs/architecture.md"
+  version: "v0.15.0"
+  url: "https://github.com/gateweavehq/id/blob/v0.15.0/docs/architecture.md"
 ---
 Gateweave ID is an OpenID Connect provider that runs entirely on Cloudflare, with no server to run.
 It is in the space of Pocket ID and authentik. People hold one account, and any app that supports
@@ -246,7 +246,9 @@ to everything else a person uses, so ID differs in these places:
   sign in. ID's is one conditional `DELETE`, so that removing two passkeys at once cannot get past the
   rule. Another passkey counts, a password counts, and so does GitHub on a deployment that still has it.
 - **Adding and removing need a recent sign-in,** so that someone at an unlocked computer cannot make
-  themselves a way back in or take away the owner's.
+  themselves a way back in or take away the owner's. Removing one, and adding one to an account that
+  already has a second factor, also need a session that showed two: see "Adding a second factor" and
+  "Taking a second factor away". Renaming one needs neither.
 - **Names have a limit, and each step has a rate limit of its own.** The plugin has neither.
 
 A passkey is a way to sign in like any other: someone whose only one is a passkey is not sent to choose a
@@ -277,6 +279,8 @@ Better Auth's two-factor plugin does the TOTP. ID differs from what it does by d
   For the same reason a reset by email leaves two-factor on, and the next sign-in asks.
 - **The key is shown once.** The plugin's `get-totp-uri` would show it again to anyone with the password
   and a session, and that is a second authenticator the person never hears of.
+- **Turning it off and replacing the recovery codes take a session that showed two factors,** on top of the
+  password the plugin asks for: see "Taking a second factor away".
 
 Recovery codes are encrypted, not hashed as you might expect. The plugin compares them after decrypting,
 and the authenticator key beside them has to be readable and guards the same thing, so hashing them would
@@ -295,7 +299,9 @@ session get a back-channel logout, and the page says they will ask the person to
 recovery codes does not.
 
 **Someone who has lost their authenticator** has a recovery code, then a passkey or GitHub if they added
-one. Someone with none of those needs whoever runs the deployment, on purpose:
+one. A recovery code or a passkey also lets them turn two-factor off and set it up again. GitHub signs them
+in to ID and no more than that: its session showed one factor, and does not turn two-factor off. Someone
+with no recovery code and no passkey needs whoever runs the deployment, on purpose:
 
 ```sh
 pnpm --filter @gateweave/id-web two-factor:remove --env cloud --email someone@example.com
@@ -304,9 +310,23 @@ pnpm --filter @gateweave/id-web two-factor:remove --env cloud --email someone@ex
 Whoever runs it has to be sure who is asking, which ID cannot help with, and the person's activity says it
 was done for them. Their sessions stay, since they lost a device and nobody said someone else has it.
 
+**Someone who has lost their only passkey,** and has no authenticator, is in the same place: removing a
+passkey takes a session that showed two factors, and they have none to show. `passkeys:remove` takes the
+same arguments and removes every passkey they have, since whoever runs it cannot tell one from another.
+Their activity says so in one line, their sessions stay, and with no second factor left they add a new
+passkey from an ordinary sign-in. It asks the same care: this is what stands between a stolen password and
+the account. "An ordinary sign-in" means they still have another way in: a password, GitHub or a code
+by email. The script makes none. Someone whose passkey was their only way in has to get one first, which
+is not this script's work: whoever runs the server checks which ways of signing in it offers them before
+removing the passkeys, and leaves the passkeys alone if there is none.
+
+```sh
+pnpm --filter @gateweave/id-web passkeys:remove --env cloud --email someone@example.com
+```
+
 **Apps cannot be told how someone signed in.** The provider strips `amr` from custom claims and always sends
-`acr: "0"`, so no app can require a second factor through its tokens. A rule that does has to live in ID's
-own check at authorization.
+`acr: "0"`, so no app can require a second factor through its tokens. A rule that does lives in ID's own
+check at authorization: see "A workspace that requires two-factor sign-in".
 
 ## Workspaces
 
@@ -328,6 +348,7 @@ granted by name, so a role this build has not heard of has none.
 | See the workspace and its members, and leave | Yes    | Yes              | Yes    |
 | Rename, invite, see and withdraw invitations | Yes    | Yes              | No     |
 | Add and change apps, make and manage groups  | Yes    | Yes              | No     |
+| Require two-factor sign-in for its apps      | Yes    | Yes              | No     |
 | Change a role, remove someone                | Anyone | Anyone but owner | No     |
 | Make someone an owner                        | Yes    | No               | No     |
 | Delete the workspace                         | Yes    | No               | No     |
@@ -442,6 +463,128 @@ on them would let any workspace's admin receive a member's address silently. The
 the workspace that owns it and the host it sends people back to, from the app's own row, and says that
 nobody has checked who runs it. Asked about an app they cannot use, it tells a person nothing.
 
+### A workspace that requires two-factor sign-in
+
+An owner or admin can say that their workspace's apps only admit people who signed in with a second factor.
+It is off unless someone turns it on, and a workspace that has not is asked nothing new. It is a fourth
+rule, after the three above, and it stands beside `maySignIn` rather than inside it (`signedInAsAsked`,
+in `who-may-sign-in.ts`), because the answer is different: someone it refuses does belong, and is told what
+to do about it, where someone who does not belong is told nothing.
+
+- **The session remembers how it was made.** `session.sign_in_method` holds the audit log's word for it:
+  `password`, `totp`, `recovery_code`, `passkey`, `github`, `code`, `invitation` or `claim`. A database
+  hook writes it as the row is made, from the path that made it (`session-method.ts`). It takes no input, so
+  `/update-session` cannot set it.
+- **What counts as two factors:** a passkey, since user verification is required of every one; a code from an
+  authenticator; and a recovery code. Those last two are only ever taken after the right password. A recovery
+  code counts because it is what ID already takes in place of the authenticator's code, and works once:
+  refusing it would let someone who lost their phone into their account and keep them out of their apps.
+- **GitHub does not count by itself.** GitHub has its own second factor, and ID cannot see whether the person
+  turned it on or was asked. Someone who came in through GitHub passes once they sign in here with a passkey,
+  or with a password and a code. The pages say so. A provider is recorded by its own name, and one named
+  like a way of signing in that counts as two is recorded as nothing, so that it could never pass for it.
+- **Nothing counts as one factor.** A session made before the column has no method, and neither does one
+  from a path nobody has decided about. Those are refused, so the person signs in again. Letting them through
+  would undo the rule for as long as a session can be kept alive.
+- **Sessions that replace one.** Confirming an authenticator to turn two-factor on makes the new session
+  `totp`: the password was asked for and a code was shown. Changing a password keeps what the session it
+  replaces had. Turning two-factor off makes a `totp` or `recovery_code` session `password`, and leaves a
+  passkey's alone. A passkey removed later does not change the session it made.
+- **Where it runs:** wherever the check above does. At authorization, in `postLogin.shouldRedirect`, by the
+  session asking. At every token, in `customTokenResponseFields`, by the session behind the code or the
+  refresh token, which the provider does not pass by itself (see "A patched dependency"). So a code handed
+  out a moment before the rule was turned on buys nothing, and neither does a refresh token from a sign-in
+  with one factor. It fails closed: a workspace it cannot read, or no session to go by, refuses.
+- **A refresh lasts as long as the session behind it, where the rule is on.** A session that has ended
+  cannot say how it was made, and the provider clears it from the token. So in a workspace with the rule on,
+  signing out of ID, or a session running out after its seven days, ends what `offline_access` gave, and the
+  app sends the person back to sign in. Off, a refresh token outlives the session as before. Keeping the
+  method on the token itself would lift this, and is not done.
+- **What is already held is not taken away.** Turning the rule on deletes nothing: an access token from
+  before it runs out within the hour, and a refresh token from a sign-in with one factor, or from a session
+  that does not say how it was made, is refused the next time it is used. One from a sign-in with two
+  factors goes on working while that session lasts, since it already meets the rule.
+- **The workspace always says yes or no.** `organization.require_two_factor` is `NOT NULL` and defaults to
+  false, and the check takes anything but a plain false as asking.
+- **The page.** The provider knows one page for a refusal, `/no-access`. That page sends a member who lacks
+  only the second factor on to `/second-factor`, which names the workspace and the app, says what counts
+  and that GitHub alone does not, and leads to the account page to add a passkey or turn two-factor on.
+  Someone who already has one is offered "Sign in again", which asks the provider for the app's request
+  with `prompt=login`, so nobody is signed out to do it. Someone outside the workspace still sees
+  `/no-access`, and asking `/second-factor` about an app they cannot use gets them the same. So does a
+  member asking about a workspace that has not turned the rule on, or the page would say that it asks.
+- **Turning it on or off** is `/workspaces/require-two-factor` (`workspace-two-factor.ts`), the only thing
+  that writes `organization.require_two_factor`: the column takes no input, and the gate's bodies are strict.
+  It wants a recent sign-in, since on it can end everyone's access and off lets a password alone back in.
+  **And the admin's own session has to pass the rule, in both directions.** Otherwise an admin would be
+  turned away from their own apps the moment it was on, and whoever held a cookie the rule refuses could
+  take the rule away. The workspace's page says so before anyone presses anything.
+- **Apps with no workspace are not asked about.** Nobody could ask on their behalf, and the products check
+  their own membership.
+
+### Adding a second factor
+
+The rule goes by how a session was made, so whoever can add a passkey or an authenticator to an account can
+pass it. What may be added, and from where, is decided in `another-factor.ts` and held to in hooks on the
+plugins' own endpoints, not only on the account page.
+
+- **Someone who already has a second factor adds another only from a session that showed two.** Once
+  two-factor sign-in is on, or the account has a passkey, a session that is not `passkey`, `totp` or
+  `recovery_code` is refused with 403 at both steps of adding a passkey
+  (`/passkey/generate-register-options`, `/passkey/verify-registration`), at `/two-factor/enable`, and at
+  confirming an authenticator (`/two-factor/verify-totp` with a session, while two-factor is still off).
+  Without this, one factor would be enough to make the other: whoever held only a member's GitHub account
+  could sign in with it, add a passkey of their own and sign in with that, and whoever held only the
+  password of someone whose second factor is a passkey could turn two-factor on with it. Both steps of a
+  passkey are checked so that what a session with two factors began, one without cannot finish. The account
+  page says so in place of the button.
+- **A first second factor is taken on trust.** Someone with neither adds one from a session with one factor:
+  there is nothing else they could show, and nobody could otherwise ever meet the rule. So **the rule does
+  not mean that one stolen factor is never enough.** It means that every sign-in an app gets used two. For an
+  account that has no second factor yet, whoever holds its password or its GitHub account can enrol their
+  own and pass. A workspace that needs more has to see its members enrolled before it relies on the rule.
+
+### Taking a second factor away
+
+An account with no second factor takes its next one on trust, so whoever can remove a person's second factor
+can then enrol their own. Taking one away is therefore held to the same rule as adding one, in the same
+hooks.
+
+- **A session that showed one factor takes no second factor away.** Removing a passkey
+  (`/account/remove-passkey`), turning two-factor off (`/two-factor/disable`) and replacing the recovery
+  codes (`/two-factor/generate-backup-codes`) are refused with 403 unless the session is `passkey`, `totp`
+  or `recovery_code`. This is on top of what each already asks: a recent sign-in and another way in for a
+  passkey, the password for the other two. Without it, whoever held only the password or the GitHub account
+  of someone whose second factor is a passkey could remove the passkey and add their own. And a device
+  signed in with the password before two-factor was turned on, or GitHub's session with the password
+  typed in, could turn it off or hand itself new recovery codes.
+- **Any passkey, not only the last.** A person with two passkeys is not asked less. Renaming one takes
+  nothing away, and needs no more than a session.
+- **Only what is there.** Someone with two-factor off who asks to turn it off gets the plugin's own answer,
+  and someone with no passkey who names one gets the 404 a missing passkey gets.
+- **Nothing else removes one.** The passkey plugin's own `/passkey/delete-passkey` and the two-factor
+  plugin's `/two-factor/get-totp-uri` are closed. A password reset signs nobody in, leaves two-factor on
+  and touches no passkey. Deleting the account takes them with it, and leaves nothing to sign in to.
+- **The account page says so in place of each control,** as it does for adding.
+
+**Someone who has lost their second factor** can still sign in to ID with what is left. What they lose is
+the workspace's apps and, as an owner or admin, changing the rule, since both want a session with two
+factors. Nobody can turn the rule off to let themselves in, and that is the point of asking the admin's own
+session. The ways back, in the order to try them:
+
+- **A recovery code,** after the password. That is a session with two factors: it reaches the apps, may
+  change the rule, may add or remove a passkey, and may turn two-factor off. To move to a new
+  authenticator, turn it off and on again: with no second factor left, the new one is a first.
+- **Another second factor they still have,** such as a passkey on another device, or the authenticator
+  for someone who lost a passkey. From that session they remove what they lost and add its replacement.
+- **Nothing left but a password or GitHub:** whoever runs the deployment, who has to be sure who is asking.
+  `two-factor:remove` turns two-factor off for someone with no authenticator and no recovery codes, and
+  `passkeys:remove` removes the passkeys of someone who lost the only one ("Two-factor sign-in" above).
+  What is left then signs them in, and they set up a second factor again, as a first one.
+
+So losing one's only second factor costs a request to the operator, where it used to cost nothing. That is
+the price of the rule meaning anything once a person has enrolled.
+
 ## Signing in to an app
 
 An app sends someone to the authorization endpoint, and the provider decides where they go next. Each
@@ -467,7 +610,8 @@ and `lib/search.ts`:
 |              | with a way to sign in, it tells the provider they are done.                         |
 | `/consent`   | The app sent `prompt=consent`. Workspace apps will always come here.                |
 | `/no-access` | The check above refused them. They can use another account, or go back to the app,  |
-|              | which gets `access_denied`.                                                         |
+|              | which gets `access_denied`. A member who lacks only the second factor their         |
+|              | workspace asks for goes on from here to `/second-factor`.                           |
 
 The check does not depend on any of this. A page that sends the wrong thing gets a bad signature, and
 a person who skips a page runs into the same checks at the next one.
@@ -728,9 +872,9 @@ both sides of a crossing.
 
 ## A patched dependency
 
-`patches/` changes two things in how `@better-auth/oauth-provider` sends back-channel logouts. pnpm stops an
-install when a patch no longer has its version, so an upgrade has to look at both again: drop what upstream
-has fixed, and move the rest.
+`patches/` changes two things in how `@better-auth/oauth-provider` sends back-channel logouts, and one in
+what it tells the token hook. pnpm stops an install when a patch no longer has its version, so an upgrade
+has to look at each again: drop what upstream has fixed, and move the rest.
 
 - **`redirect: "error"`, which Workers refuse outright,** so every logout failed with only a warning in the
   log. It is `"manual"` now. The provider treats anything but 200 or 204 as a failure, so a redirect still
@@ -743,6 +887,10 @@ has fixed, and move the rest.
   signed out counts as a success (section 2.7). An app down for longer than that is handed on (below).
 - **`backchannelLogoutUndelivered`,** an option of ours, which the provider calls when all three tries of
   a logout failed that way, with the app's client id, the `sub` and the session's id.
+- **`sessionId` for `customTokenResponseFields`.** The hook is told the code's session and nothing of a
+  refresh token's, and a workspace that requires two-factor sign-in goes by the session behind either. One
+  line passes what the provider already has. Without it the hook gets no session, which refuses everyone
+  in such a workspace and nobody else, and `test/require-two-factor.test.ts` fails.
 
 ## Logouts an app missed
 
@@ -818,19 +966,21 @@ holds it, in D1.
   wrong code, against the account it was for. `two_factor_asked` is a right password with a code still
   owed, which is not someone signing in, though someone who did not enter it will want to know.
 - **Apps:** `app_sign_in` when an app exchanges a code, the moment it learns who someone is, `refused`
-  by the check at authorization or on refresh, `consent_granted`, `consent_denied`, `consent_revoked` when
+  by the check at authorization or on refresh (its detail ends in `+two_factor` when a second factor was
+  all the person lacked), `consent_granted`, `consent_denied`, `consent_revoked` when
   someone takes an app back, and `token_revoked` when an app revokes a token. That last one names no person: an app's server is asking, and tokens are
   stored hashed.
 - **A wrong password from a session:** `password_refused`, since the person would want to know that someone with
   their session is guessing. The allowance per person bounds how many of these there can be.
 - **Changes to an account:** `password_changed` (`first`, `changed`, `reset` or `removed`), `passkey_added`,
-  `passkey_removed`, `two_factor_enabled`, `two_factor_disabled` (`operator` when `two-factor:remove` did
-  it), `recovery_codes_replaced`, `provider_linked`, `provider_unlinked`, and `sessions_revoked` for
+  `passkey_removed` (`operator`, once, when `passkeys:remove` did it), `two_factor_enabled`,
+  `two_factor_disabled` (`operator` when `two-factor:remove` did it), `recovery_codes_replaced`, `provider_linked`, `provider_unlinked`, and `sessions_revoked` for
   someone ending a session elsewhere.
 - **Workspaces:** `workspace_created`, `workspace_renamed`, `workspace_deleted`, `member_invited`,
   `invitation_canceled`, `invitation_accepted`, `invitation_declined`, `member_role_changed`,
   `member_removed`, `member_left`, `group_created`, `group_renamed`, `group_deleted`, `group_member_added`,
-  `group_member_removed` and `app_groups_changed`.
+  `group_member_removed`, `app_groups_changed`, and `workspace_two_factor_changed` when an admin turns
+  the rule on two-factor sign-in on or off, with which in `detail`.
 - **The deployment:** `app_added`, from `apps:add`. Who ran it is between them and Cloudflare. The owner's
   changes to it are `deployment_sign_up_changed`, `deployment_invitation_created`,
   `deployment_invitation_canceled`, `deployment_allow_added` and `deployment_allow_removed`; the last two
@@ -969,8 +1119,17 @@ provider and an app added through the workspace form at its defaults, as
 12 sign-ins it fetched the keys each time and never called userinfo, so what it knows comes from the ID token. That
 was through Cloudflare's API, not its dashboard.
 
+`apps/web/test/require-two-factor.test.ts` holds a workspace that requires two-factor sign-in: what each way of
+signing in leaves on the session, a password alone refused at authorization and on refresh and admitted after
+a code, a passkey and a recovery code admitted and GitHub alone refused, a session with no method refused, and
+an admin who could not pass the rule unable to turn it on or off. It also holds "Adding a second factor":
+someone with an authenticator and only a GitHub sign-in refused a passkey, someone with a passkey and only a
+password refused another and an authenticator, and a first one taken from someone who has none. It reads the
+pages over HTTP. No browser has driven them, and none of it has run on a deployed Worker.
+
 Still unproven:
 
+- A workspace that requires two-factor sign-in, in a browser and on a deployed Worker.
 - A real passkey, from Windows Hello or a phone, rather than a virtual authenticator.
 - An invitation email sent by a deployed Worker.
 - A workspace's app that someone runs, rather than one a script plays.

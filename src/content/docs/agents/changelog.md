@@ -3,8 +3,8 @@ title: "Agents changelog"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.25.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.25.0/CHANGELOG.md"
+  version: "v0.27.0"
+  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/CHANGELOG.md"
 ---
 Notable changes to Gateweave Agents, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,102 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/agents/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.27.0] - 2026-11-15
+
+Agents can keep notes between runs. A workspace has a memory that its people can read and
+correct, and an agent with the Memory switch on can add to it and look things up. This release has
+two migrations, in each workspace's own registry, which apply themselves.
+
+### Added
+
+- **Memory.** A workspace keeps short notes: facts, decisions and preferences, each with who or
+  what wrote it, in which run, and when. An agent on the Gateweave engine with the new Memory
+  switch on gets three tools: `remember`, `recall` (by keyword, in any language) and `forget`
+  (only what it wrote itself). The switch is off for every existing agent. The new Memory page
+  lists the notes with search and filters; every member can read them, and owners and admins can
+  add, edit and delete them. ([#239](https://github.com/gateweavehq/agents/pull/239))
+- **Notes from outside wait for a person.** An agent reads what outsiders wrote: an issue, a
+  web page, a trigger's event. So what it notes is used at once only when a person's chat
+  message started the run and the agent filed the note as its own or as about that person (the
+  note's scope, which the agent chooses; what the text says is not judged). Anything it files
+  under the workspace or a repository, and anything from a run a trigger started, waits
+  on the Memory page until an owner or admin approves or dismisses it, and no agent recalls it
+  before that. Recalled notes are handed to the model as notes with their source, never as
+  instructions. ([#239](https://github.com/gateweavehq/agents/pull/239))
+
+### Changed
+
+- **The README opens with what it does for you**: assign an issue to an agent, get a pull
+  request back, with a frame of one real run that links to its recording.
+  ([#238](https://github.com/gateweavehq/agents/pull/238))
+
+### If you run your own
+
+- **Nothing to do** beyond updating. The registry's migrations (`0039` and `0040`, the notes and
+  their search index) apply themselves when a workspace is next used. Notes are text in the
+  workspace's own storage: no vector index and no new binding. What an agent notes in a chat is
+  readable by every member of the workspace, which the agent form and the Memory page say.
+  Deleting an account removes the notes filed as about that person and those agents wrote in
+  that person's runs. It does not remove a note someone else wrote about the workspace that
+  happens to name them: an owner or admin deletes those on the Memory page. The audit log keeps
+  the first 80 characters of a note from when it was added and from each edit, except for notes
+  filed as about a person, of which it keeps no text.
+
+## [0.26.0] - 2026-11-15
+
+Gateweave Track is connected in one step: choose what the agent is, approve it in Track, and it
+is ready. No key or secret is copied by hand. This release has one migration, in each
+workspace's own registry, which applies itself.
+
+### Added
+
+- **Connect Track in one step.** "Triage Track issues" and "Work on Track issues" used to take
+  seven steps across the two products, with an agent's key and a webhook's secret copied between
+  tabs. Now you choose the model (and, for work, the repository and the engine), press Connect
+  Track, and approve in Track, where you pick the workspace and the team. Track makes the agent
+  member and its webhook and hands their key and secret to this server alone, so neither is ever
+  shown, typed or in an address. The agent, its Track tools and its trigger are then made
+  together. Saying no in Track makes nothing. If anything fails after Track has made its part,
+  this server asks Track to take it back, and when it cannot, it says exactly what may be left
+  there and where to remove it. Only an owner or admin can connect, the approval is good for ten
+  minutes and for the person who started it, and the audit log records the connection. It needs
+  Gateweave Track 0.39.0 or later; for an older Track, "Set it up by hand" is the way it was.
+  ([#236](https://github.com/gateweavehq/agents/pull/236))
+
+### If you run your own
+
+- **Nothing to do** beyond updating. The registry's migration (`0038`, an empty table for
+  connections waiting to be approved) applies itself when a workspace is next used. The dialog
+  starts with Gateweave Cloud's Track; for a Track you run, open "Another Track" and give its
+  address.
+
+## [0.25.1] - 2026-11-14
+
+A run that a trigger started is readable: the event it came from is a card, not a wall of JSON.
+There is no migration in this release.
+
+### Fixed
+
+- **A trigger's message is shown as an event.** A run started by a webhook or a schedule used to
+  open with the trigger's prompt as if a person had written it: the whole event on one line, a
+  code fence as plain characters, and long values running out of the bubble and off the page. It
+  is now a card that says what was sent and by whom, with the issue as a link for a Gateweave
+  Track event, and the event itself formatted in a closed section that scrolls. What the agent is
+  told has not changed. Conversations from before this release are shown the same way.
+  ([#233](https://github.com/gateweavehq/agents/pull/233))
+- **Tool calls say what they acted on:** `read_file docs/roadmap.md`, not `read_file` six times.
+  An argument that looks like a credential is never shown. A command shows only its program and,
+  for a build tool or git, the one known word after it (`pnpm check`, `git status`), never what
+  it was given: no pattern can tell a password from any other word.
+  ([#233](https://github.com/gateweavehq/agents/pull/233),
+  [#235](https://github.com/gateweavehq/agents/pull/235))
+- **Links in messages** open only `http` and `https` addresses, and nothing in a message can
+  widen the page. ([#233](https://github.com/gateweavehq/agents/pull/233))
+
+### If you run your own
+
+- **Nothing to do.**
 
 ## [0.25.0] - 2026-11-14
 

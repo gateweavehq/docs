@@ -64,6 +64,10 @@
 				"slug": "agents/architecture"
 			},
 			{
+				"label": "Memory",
+				"slug": "agents/memory"
+			},
+			{
 				"label": "Changelog",
 				"slug": "agents/changelog"
 			}

@@ -3,8 +3,8 @@ title: "Track changelog"
 editUrl: "https://github.com/gateweavehq/track/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Track"
-  version: "v0.37.0"
-  url: "https://github.com/gateweavehq/track/blob/v0.37.0/CHANGELOG.md"
+  version: "v0.39.2"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.2/CHANGELOG.md"
 ---
 Notable changes to Gateweave Track, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,114 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.39.2] - 2026-11-15
+
+The public demo shows what an agent member's work looks like. There is no migration in this
+release, and nothing changes outside the demo.
+
+### Changed
+
+- **The demo has an agent member and one issue that shows its work.** A sandbox now comes with
+  an agent member, Coder, and a sample issue it was assigned: its two comments, the status it
+  moved, and one change it proposed, which the visitor can accept or dismiss. No agent runs in
+  the demo, and the issue says so itself and links the recording of a real run. The welcome card
+  points to it. ([#314])
+- **The README links the questions page and GitHub Discussions.** ([#313])
+
+### If you run your own
+
+- **Nothing to do.** Your copy is not a demo unless you set `TRACK_DEMO`, and `pnpm dev:seed`
+  adds the same example only where `/mcp` is on.
+
+## [0.39.1] - 2026-11-15
+
+A connection to an agent that was started and not finished no longer leaves an agent member and
+a webhook behind. There is no migration in this release.
+
+### Fixed
+
+- **An unfinished agent connection is taken back.** Allowing a connection on `/connect/agent`
+  makes the agent member and its webhook at once, and the asking server then fetches their key
+  and secret with a one-time code. When that never happened (the tab was closed, the server was
+  down) or the code was refused, both stayed in the workspace for an admin to find and remove.
+  Track now removes them itself: at once when a code is refused, and otherwise when the next
+  connection is approved or on the daily run. An agent that someone has taken over by hand in
+  the meantime, by giving it another key or using its key, is left alone. The audit log says
+  why an agent went. ([#310])
+
+### Changed
+
+- **The README opens with an agent taking an issue**: the tagline says that agents are members,
+  and a frame of one real run links to its 45-second recording. ([#309], [#311])
+- **The roadmap lists connecting an agent in one step under Done.** That line was written by
+  the agent in the recording. ([#308])
+
+### If you run your own
+
+- **Nothing to do** beyond updating. If you ever go back to v0.39.0 after running this version,
+  delete the rows of `verification` whose identifier starts with `track-connect:` first: this
+  version keeps them for three days, and v0.39.0 would read that as how long a code is good
+  for. A connection that was unfinished at that moment then keeps its agent member and webhook:
+  remove those under Settings, Agents and Settings, Webhooks.
+
+## [0.39.0] - 2026-11-15
+
+Another server, such as Gateweave Agents, can add an agent to a workspace in one step: an owner
+or admin approves it on a page in Track, and no key or secret is copied by hand. There is no
+migration in this release.
+
+### Added
+
+- **Connect an agent in one step.** Setting up an agent by hand took seven steps across two
+  products, with a key and a webhook secret copied between tabs. A server can now send an owner
+  or admin to Track's new page at `/connect/agent`, which shows in large type which address is
+  asking and, in words, what Allow makes: an agent member and a webhook to that address, for one
+  team or all. Allow makes both or neither, and Cancel makes nothing. The asking server then
+  fetches the key and the secret itself, for a one-time code that is good for a minute and a
+  proof that it is the server that started, so neither is ever in a page, an address or a
+  clipboard. It can also take back what was made if its own setup fails. Only an owner or admin
+  can allow, the audit log records who asked, and the manual way under Settings stays.
+  ([#306])
+
+### Changed
+
+- **The roadmap lists feature flags under Done.** ([#305])
+
+### If you run your own
+
+- **Nothing to do** beyond updating: no migration, and the page works without any setting. To
+  have it show your own Agents server as known rather than with a warning, set `CONNECT_ORIGINS`
+  to its origin, such as `https://agents.example.com`; see "Connecting agents from another server" in
+  `docs/self-hosting.md`. A workspace whose address is `connect` cannot be made any more.
+
+## [0.38.0] - 2026-11-14
+
+A server can turn a feature on for some workspaces before everyone gets it. Nothing changes
+unless a server sets that up: without it, every feature behind a flag stays as it is. There is no
+migration in this release.
+
+### Added
+
+- **Feature flags, for a server that wants them.** A feature can now be merged before it is ready
+  for everyone. `apps/web/src/lib/flags.ts` lists each flag with its default, and a server with
+  a [Cloudflare Flagship](https://developers.cloudflare.com/flagship/) app bound as `FLAGS`
+  decides them per workspace when the workspace opens. The answer is kept with what the browser
+  remembers of the workspace, so opening it without a connection shows what it showed last. Only
+  the workspace's id is sent to the flag store, and a store that fails leaves each flag at its
+  default. ([#302])
+- **A count beside "My issues"**, the first feature behind a flag (`my-issues-count`, off by
+  default): how many open issues are assigned to you, in the sidebar. ([#302])
+
+### Changed
+
+- **The ecosystem document links Gateweave Guard's repository**, which is public now. ([#303])
+
+### If you run your own
+
+- **Nothing to do** beyond updating: no migration and no new setting. Your copy asks no outside
+  service about flags and serves each default. To turn a flag on early for your own workspaces,
+  see Feature flags in `docs/self-hosting.md`.
 
 ## [0.37.0] - 2026-11-14
 
@@ -1667,6 +1775,10 @@ The first pre-release.
 - An MCP server at `/mcp`: AI agents sign in with your approval, then search, read, create and
   update issues. ([#15])
 
+[0.39.2]: https://github.com/gateweavehq/track/releases/tag/v0.39.2
+[0.39.1]: https://github.com/gateweavehq/track/releases/tag/v0.39.1
+[0.39.0]: https://github.com/gateweavehq/track/releases/tag/v0.39.0
+[0.38.0]: https://github.com/gateweavehq/track/releases/tag/v0.38.0
 [0.37.0]: https://github.com/gateweavehq/track/releases/tag/v0.37.0
 [0.36.0]: https://github.com/gateweavehq/track/releases/tag/v0.36.0
 [0.35.4]: https://github.com/gateweavehq/track/releases/tag/v0.35.4
@@ -1751,6 +1863,16 @@ The first pre-release.
 [#286]: https://github.com/gateweavehq/track/pull/286
 [#297]: https://github.com/gateweavehq/track/pull/297
 [#300]: https://github.com/gateweavehq/track/pull/300
+[#302]: https://github.com/gateweavehq/track/pull/302
+[#303]: https://github.com/gateweavehq/track/pull/303
+[#305]: https://github.com/gateweavehq/track/pull/305
+[#306]: https://github.com/gateweavehq/track/pull/306
+[#308]: https://github.com/gateweavehq/track/pull/308
+[#309]: https://github.com/gateweavehq/track/pull/309
+[#310]: https://github.com/gateweavehq/track/pull/310
+[#311]: https://github.com/gateweavehq/track/pull/311
+[#313]: https://github.com/gateweavehq/track/pull/313
+[#314]: https://github.com/gateweavehq/track/pull/314
 [#295]: https://github.com/gateweavehq/track/pull/295
 [#294]: https://github.com/gateweavehq/track/pull/294
 [#293]: https://github.com/gateweavehq/track/pull/293

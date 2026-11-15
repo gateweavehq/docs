@@ -3,8 +3,8 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.37.0"
-  url: "https://github.com/gateweavehq/track/blob/v0.37.0/docs/self-hosting.md"
+  version: "v0.39.2"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.2/docs/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
 list of workspaces, a Durable Object for each workspace, and an R2 bucket for attached files.
@@ -153,6 +153,7 @@ updating. A site key missing there means the request forms were not open.
 | `PRIVACY_POLICY_URL`          | The address of your privacy policy.                                           |
 | `TERMS_URL`                   | The address of your terms.                                                    |
 | `SIGN_UP_REQUEST_URL`         | Where to ask for an account, shown while sign-up is closed. See below.        |
+| `CONNECT_ORIGINS`             | Origins shown as known when an agent is connected. See below.                 |
 | `DURABLE_OBJECT_JURISDICTION` | Keeps workspaces in a jurisdiction, such as `eu`. See above.                  |
 
 ### Your legal pages
@@ -222,6 +223,18 @@ as `Authorization: Bearer <key>`. It needs nothing else to be set up.
 Webhooks need no setup either: each workspace's Durable Object sends them itself, with no Queue
 or other binding. Admins add them under Settings, Webhooks. They must use `https`, except when
 the app itself runs on plain `http`, and cannot point at the app's own host.
+
+### Connecting agents from another server
+
+A server such as Gateweave Agents can send an admin to `/connect/agent` on your Track to make an
+agent member and its webhook in one step, instead of the admin copying a key and a secret by hand.
+Nothing needs setting up for that, and nothing changes while no one does it: the page asks the
+admin to approve, shows the address that is asking, and refuses to make anything for anyone who is
+not an owner or admin. Set `CONNECT_ORIGINS` to a comma-separated list of origins, such as
+`https://agents.example.com`, to have the page show those as known. Any other address is still
+allowed, with the line "Allow this only if you run or trust this address." The page works on an
+`https` Track, and on `http` only for local development. See "Connecting an agent in one step" in
+`docs/architecture.md` for what it makes and what it protects.
 
 ### GitHub pull requests and commits
 
@@ -398,6 +411,23 @@ with a service binding:
 ```
 
 Your D1 database is backed up by binding it directly.
+
+### Feature flags
+
+Nothing to set up. Some features are merged behind a flag before they are ready for everyone, and
+your copy serves each flag's default, which is what the release notes describe. It asks no
+outside service about them.
+
+If you want to turn one on early for your own workspaces, bind a
+[Cloudflare Flagship](https://developers.cloudflare.com/flagship/) app as `FLAGS` and make the
+flag there under the key listed in `apps/web/src/lib/flags.ts`:
+
+```jsonc
+"flagship": [{ "binding": "FLAGS", "app_id": "<your app's id>" }]
+```
+
+The only thing sent to it is each workspace's id. See Feature flags in
+[architecture.md](/track/architecture/#feature-flags).
 
 ## When someone deletes their account
 

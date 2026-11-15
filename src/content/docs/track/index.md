@@ -1,16 +1,18 @@
 ---
 title: "Gateweave Track"
-description: "An open-source, realtime issue tracker that runs on one Cloudflare Worker. No server to patch, no Postgres to back up. It opens at once and keeps working offline."
+description: "An open-source, realtime issue tracker that runs on one Cloudflare Worker. No server to patch, no Postgres to back up. It opens at once and keeps working offline. AI agents are members of the team: assign one an issue and a pull request comes back."
 editUrl: "https://github.com/gateweavehq/track/edit/main/README.md"
 source:
   product: "Gateweave Track"
-  version: "v0.37.0"
-  url: "https://github.com/gateweavehq/track/blob/v0.37.0/README.md"
+  version: "v0.39.2"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.2/README.md"
 ---
 <p align="center">
   <a href="https://track-demo.gateweave.com"><strong>Try the demo</strong></a> ·
+  <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><strong>Watch an agent take an issue (45 s)</strong></a> ·
   <a href="#deploying"><strong>Deploy your own</strong></a> ·
-  <a href="https://gateweave.com/blog/one-cloudflare-worker">What it measures and costs</a>
+  <a href="https://gateweave.com/blog/one-cloudflare-worker">What it measures and costs</a> ·
+  <a href="https://gateweave.com/questions">Questions people ask</a>
 </p>
 
 <picture>
@@ -25,6 +27,17 @@ source:
 
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/gateweavehq/track"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare"></a>
+</p>
+
+<p align="center">
+  <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><img src="/track/images/issue-to-pull-request.jpg" width="880" alt="An issue assigned to the agent Coder 2. The agent commented that it was on it, moved the issue to In Progress, opened pull request 308 and said so on the issue. The caption reads: 3 min 45 s after assigning, its pull request is open."></a>
+</p>
+
+<p align="center">
+  One real run, not staged: an issue assigned to an agent run by
+  <a href="https://github.com/gateweavehq/agents">Gateweave Agents</a>, answered 26 seconds later, with
+  <a href="https://github.com/gateweavehq/track/pull/308">its pull request</a> open after 3 minutes 45 seconds.
+  <a href="https://gateweave.com/watch/issue-to-pull-request.mp4">Watch it</a> (45 s, no sound).
 </p>
 
 Track keeps every workspace in its own Durable Object, so edits reach everyone instantly, the
@@ -134,6 +147,12 @@ claude mcp add --transport http track https://track.gateweave.com/mcp \
 To have it react to new issues, add a webhook under Settings, Webhooks that points at its
 trigger and names it as the agent, so its own changes are not sent back to it.
 
+[Gateweave Agents](https://github.com/gateweavehq/agents) does both for you, from Track 0.39.0 and
+Agents 0.26.0 on: press Connect Track there, approve it on a page in Track, and the agent member
+and its webhook are made together, with no key or secret to copy. Assign an issue to that agent and it works on it in a sandbox and opens a
+pull request. [Watch one real run, 45 seconds](https://gateweave.com/watch/issue-to-pull-request.mp4):
+an issue assigned, answered 26 seconds later, and a pull request open after 3 minutes 45 seconds.
+
 ## Scripts
 
 | Command          | What it does                                             |
@@ -187,17 +206,17 @@ each release changed.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.37.0/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.37.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.37.0/AGENTS.md). Report security issues privately, as described in
-[SECURITY.md](https://github.com/gateweavehq/track/blob/v0.37.0/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.39.2/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.39.2/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.39.2/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
+Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.39.2/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.37.0/LICENSE). You can
+Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.39.2/LICENSE). You can
 self-host, use and modify Track freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.37.0/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.39.2/CLA.md).

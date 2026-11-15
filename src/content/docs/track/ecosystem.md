@@ -3,8 +3,8 @@ title: "The Gateweave ecosystem"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/ecosystem.md"
 source:
   product: "Gateweave Track"
-  version: "v0.37.0"
-  url: "https://github.com/gateweavehq/track/blob/v0.37.0/docs/ecosystem.md"
+  version: "v0.39.2"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.2/docs/ecosystem.md"
 ---
 > **Status: draft proposal.** This describes where the product family could go and the
 > architecture that would let it get there. Nothing here is built yet except Track itself.
@@ -36,7 +36,7 @@ Every product follows the same principles as Track:
 | **Track**  | Issues, projects and planning for product teams                   | Early access                                                               |
 | **Agents** | Coding agents' setups, and agents and teams that run on their own | Early access ([gateweavehq/agents](https://github.com/gateweavehq/agents)) |
 | **ID**     | Single sign-on, passkeys and access to internal apps              | Early access ([gateweavehq/id](https://github.com/gateweavehq/id))         |
-| **Guard**  | Security in one place for teams on Cloudflare; it only reads      | Early access on Gateweave Cloud; its code will be published                |
+| **Guard**  | Security in one place for teams on Cloudflare; it only reads      | Early access ([gateweavehq/guard](https://github.com/gateweavehq/guard))   |
 | **Mail**   | Mailboxes for people and agents, aliases and transactional email  | Next, being designed; email-to-issue and inbox email ship in Track         |
 | **CRM**    | Contacts, companies and deals                                     | Proposed                                                                   |
 | **ERP**    | Invoicing, inventory and orders, one module at a time             | Later                                                                      |
