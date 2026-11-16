@@ -3,8 +3,8 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.39.2"
-  url: "https://github.com/gateweavehq/track/blob/v0.39.2/docs/architecture.md"
+  version: "v0.39.6"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.6/docs/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
 This document explains how the pieces fit together and why they are built the way they are.
@@ -113,6 +113,111 @@ what it noted in the background (`waitUntil`): one D1 lookup of each user's work
 opened with them. A password reset that ends ten sessions costs the same as one. A socket whose
 session has run out is closed the next time it sends or would be sent anything, which also covers
 a report that failed. Both close with `4401`.
+
+### When a query of D1 fails
+
+Everything in the Worker that asks D1 asks through `createDb` (`apps/web/src/server/db/index.ts`):
+Better Auth and its plugins, the sync, MCP and file gateways, the pages' server functions, intake,
+connecting an agent, the unsubscribe link, the `Backup` entrypoint and the daily run. It does two
+things to the database Drizzle makes. A workspace's own storage is not part of this: the Durable
+Object uses Drizzle's synchronous SQLite driver inside the object, which has no network between a
+query and its answer and does not make the error described below. What the object's alarm asks
+of D1 is: the inbox and requester emails and push read people and their settings through this
+same database, between the object's transactions and never inside one.
+
+- **A read that fails for a moment is sent again**, up to three times in all
+  (`apps/web/src/server/db/retry-reads.ts`), before a page or a session check is told. D1 can fail
+  so, and so can the local runtime under load, where one failed read of a session makes a
+  signed-in person's page a 500. Only a single `select` is sent again, on the database or on a
+  session of it (`withSession`): a write may have happened although its answer was lost, and a
+  batch, or a text with a second statement after a `;`, may hold writes. A `delete … returning`
+  is a write too, although it answers with rows, so the delete that decides who gets a
+  connection's one-time code runs once. And only for a failure Cloudflare's D1 error list says to
+  retry (a lost connection, the database's object reset or updated, a replica cut off, a node that
+  could not be reached), or the local runtime's own. Everything else is the caller's at once: an
+  overloaded database is not helped by more requests, and a failure nobody recognises is not known
+  to be safe to repeat. The waits are about 25 and 100 ms, each times a random factor between 0.5
+  and 1.5, so reads that failed together do not come back together. Each resend is logged by a
+  fixed name for the failure and the attempt's number, never with D1's words, which can carry what
+  a row held. A read that works is sent once and waits for nothing.
+- **A query that failed says nothing of its statement.** Drizzle's own error is `Failed query:
+  select … params: …`, with every value the statement was given, and whoever catches an error
+  tends to log it or show it: Better Auth logged a session read that failed, the token among its
+  values, a page whose read failed showed the statement and its values, and what catches nothing
+  (the gateways, a connection's exchange) left it to the runtime, which reports an uncaught error
+  by its message. So `createDb` throws a `DatabaseError` instead
+  (`apps/web/src/server/db/query-failure.ts`), whose message is `A database query failed
+  (reference 1a2b3c4d)` and nothing else. It is made where Drizzle's session prepares a query,
+  the one place every builder, `db.query`, `db.get`, `db.all`, `db.run` and a transaction go
+  through; a batch fails in D1's words where the binding is asked, and gets the same there, so
+  what fails while a batch is put together is thrown as it is.
+- **The log has what the error leaves out**, once per failure: `d1: a query failed (<kind>),
+  reference <reference>: <statement>`. The statement is the text with its `?`, cut at 600
+  characters, never the values: the app writes no value into a statement's text (no `sql.raw`; a
+  `sql` template binds what it is given), which has to stay so. The kind is D1's code at the start
+  of its words, SQLite's at their end, a name for each thing D1 says in fixed words (the passing
+  ones of `retry-reads.ts`, and `overloaded`, `queued-too-long`, `queue-full`, `cpu-reset`,
+  `memory-reset`, `storage-timeout`, `response-too-large`, `too-many-api-requests`,
+  `too-many-variables`, `syntax-error`), a constraint or a missing table or column by the
+  schema's names, and what a trigger of the migrations refused with (`a workspace must keep an
+  owner`, `sign-up is closed here`, `a closed server must keep its owner`, `the sign-up list is
+  full`). Those are quoted only right after D1's code: never D1's words as they came, since the
+  same words further in may be what a row held. A trigger with new words is added to that list,
+  which a test checks against the migrations.
+- **Nothing reads a database error to decide what to answer.** An address that has an account, a
+  workspace address that is taken, a full sign-up list and an only owner are asked about before
+  the write, or asked about again after it failed, as deleting an account does when the trigger
+  refuses its batch. So the answers are what they were. The error's cause is an error that says
+  the kind only, which Better Auth's oauth-provider reads to tell a database not migrated yet (`no
+  such table`) from a real failure when it seeds `oauth_resource`.
+- **A page shows no error's message.** `RouteError` says that the page could not be loaded, and
+  the reference if the failure has one, which it looks for in the error's causes too; being
+  offline keeps its own notice. The workspace's pages are rendered in the browser only, so their
+  reads fail as a server function's error, of which only the message crosses. One whose reference
+  is in a cause, as Better Auth's `Failed to get session` is, leaves with the reference added to
+  its message (`apps/web/src/start.ts`). That file exports a start instance for it, and a start
+  instance replaces the request middleware the framework adds by default, which is its CSRF guard
+  on server functions. So the file lists the guard too, as the framework has it: a server
+  function's request that the browser does not call same-origin (`Sec-Fetch-Site`, or else
+  `Origin`, or else `Referer`, and one with none of them) is answered 403 before a handler runs.
+  The gateways are not server functions, and it leaves them alone. A dialog or a toast still
+  shows the message of what a server function threw, which for a failed query is that sentence.
+  The gateways answer 500, and the `Backup` entrypoint's caller gets the sentence.
+
+None of what `query-failure.ts` reaches for is in Drizzle's public types. With a session it does
+not know, `createDb` throws as the Worker starts, and with a prepared query sent some other way,
+at the first query: either is better than the statements being in the errors again. A deployment
+without a database (a branch's Preview) is left as Drizzle made it, so it starts and answers its
+503. The schema generator's configuration (`auth/cli.ts`) asks nothing, and makes its database
+without `createDb`, which refuses a stand-in that is no binding.
+
+### When a guard cannot read the session
+
+Two rules are held in hooks in front of an endpoint of Better Auth's or of a plugin, and decide
+by the session the request came with: who sees a workspace's invitations ("Roles and
+invitations"), and the tries at a password that one person's sessions share ("Changing a name or
+password"), in front of changing a password and deleting an account. Each leaves a request with
+no session to the endpoint, which answers 401 by itself. So each steps aside only when it is
+known that nobody is signed in, and reads the session through `sessionOf`
+(`apps/web/src/server/auth/session-of.ts`):
+
+- **No session cookie**, or one this server did not sign, is nobody, and the endpoint answers as
+  it does. Nothing more is asked of the database.
+- **A cookie whose session the database does not have, or has as ended,** is nobody too: the
+  person signed out, or was signed out. That costs one more read, for a request that is refused
+  anyway, and signing in again works as ever.
+- **A cookie whose session could not be read** is refused with 500, like any other request whose
+  query failed, and the reference is in the log. The endpoint is never reached, so nothing is
+  changed and nothing is listed.
+
+With the database answering, a hook reads the session once, as before, and decides as before.
+The signed session cookie is the only thing these endpoints take for a session: there is no
+cookie cache and no bearer plugin, and the tokens and keys of `/mcp` are checked by its own
+gateway. A hook that only writes to the audit log after an endpoint has answered still takes a
+session it cannot read for nobody, and writes nothing: the answer has been given by then.
+Everything else that asks for a session refuses a request without one: the endpoints of the
+plugins here, the server functions, and the gateways for sync, files, push, webhooks, GitHub and
+connecting an agent. A session they cannot read is a failed query there, and is answered as one.
 
 ### Roles and invitations
 

@@ -3,8 +3,8 @@ title: "Track changelog"
 editUrl: "https://github.com/gateweavehq/track/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Track"
-  version: "v0.39.2"
-  url: "https://github.com/gateweavehq/track/blob/v0.39.2/CHANGELOG.md"
+  version: "v0.39.6"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.6/CHANGELOG.md"
 ---
 Notable changes to Gateweave Track, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,85 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.39.6] - 2026-11-16
+
+A guard that cannot read the session now refuses. There is no migration in this release.
+
+### Fixed
+
+- **A guard that cannot read the session refuses.** The guards on listing a workspace's
+  invitations and on counting password tries decide by the caller's session. When a session
+  cookie is present and the session cannot be read, they now refuse the request instead of
+  leaving the decision to the endpoint. Nothing changes when the database answers. ([#324])
+
+### If you run your own
+
+- **Update.**
+
+## [0.39.5] - 2026-11-16
+
+Puts back a guard that v0.39.4 dropped by mistake. There is no migration in this release.
+
+### Fixed
+
+- **A server function's request from another origin is refused again.** The framework refuses
+  such a request unless the browser says it comes from the app's own origin. v0.39.4 added a file
+  that replaced the framework's default without listing that guard, so for some hours it did not
+  run. The session cookie is `SameSite=Lax`, which browsers keep off another site's `POST`
+  requests, and everything that changes something is a `POST`, so a page on an unrelated site
+  could not act as a signed-in person in such a browser. A page on another host of the same site (another
+  subdomain of the deployment's domain) could have, for the settings a workspace's pages change:
+  webhooks, the GitHub connection, notification settings, a guided team. Issues and everything
+  that syncs go through the sync gateway, which checks the origin itself and was not affected.
+  ([#322])
+
+### If you run your own
+
+- **If you run v0.39.4, update.**
+
+## [0.39.4] - 2026-11-16
+
+A database read that fails in passing is asked again instead of becoming an error, and a query
+that fails for good no longer shows or logs its values. There is no migration in this release.
+
+### Fixed
+
+- **An error because one database read failed.** When a single read from D1 failed, a page, a
+  sync connection or an MCP call was an error although asking again would have worked. A plain
+  read (one `SELECT` statement) that fails with one of the errors Cloudflare documents as passing
+  is now sent up to three times, a moment apart. Everything else is sent once, as before: writes,
+  several statements in one, and any other error. ([#320])
+- **A failed database query no longer carries its values.** When a query failed for good, the
+  error held the statement and its values. A failed read of a session was logged with the
+  session's token among them, and a failed read for a page showed them on the error page. The
+  token alone does not sign anyone in: the cookie also carries a signature made with the
+  server's secret. A failure now carries a reference only. The log has the kind of failure and
+  the statement without its values under the same reference, and the page shows a plain sentence
+  with it. To see whether a server ever logged one, search its logs for `Failed query:`.
+  ([#320])
+
+### If you run your own
+
+- **Nothing to do.** If a page shows a reference, the line with the same reference in the
+  Worker's logs says what failed.
+
+## [0.39.3] - 2026-11-15
+
+An invitation's buttons no longer do nothing when pressed early. There is no migration in this
+release.
+
+### Fixed
+
+- **Joining by an invitation on a slow connection.** Join, Decline and Switch account on the
+  invitation page, and "Email me a link", work only once the page's script has run, but they
+  looked ready before that. Pressed then, they did nothing and said nothing, and the person
+  stayed on the invitation. They are now disabled until the page is ready, as the buttons on the
+  sign-in page already were. ([#316])
+
+### If you run your own
+
+- **Nothing to do.**
 
 ## [0.39.2] - 2026-11-15
 
@@ -1775,6 +1854,7 @@ The first pre-release.
 - An MCP server at `/mcp`: AI agents sign in with your approval, then search, read, create and
   update issues. ([#15])
 
+[0.39.3]: https://github.com/gateweavehq/track/releases/tag/v0.39.3
 [0.39.2]: https://github.com/gateweavehq/track/releases/tag/v0.39.2
 [0.39.1]: https://github.com/gateweavehq/track/releases/tag/v0.39.1
 [0.39.0]: https://github.com/gateweavehq/track/releases/tag/v0.39.0
@@ -1873,6 +1953,10 @@ The first pre-release.
 [#311]: https://github.com/gateweavehq/track/pull/311
 [#313]: https://github.com/gateweavehq/track/pull/313
 [#314]: https://github.com/gateweavehq/track/pull/314
+[#316]: https://github.com/gateweavehq/track/pull/316
+[#320]: https://github.com/gateweavehq/track/pull/320
+[#322]: https://github.com/gateweavehq/track/pull/322
+[#324]: https://github.com/gateweavehq/track/pull/324
 [#295]: https://github.com/gateweavehq/track/pull/295
 [#294]: https://github.com/gateweavehq/track/pull/294
 [#293]: https://github.com/gateweavehq/track/pull/293

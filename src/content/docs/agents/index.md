@@ -4,15 +4,16 @@ description: "Assign an issue to an AI agent and get a pull request back. Open s
 editUrl: "https://github.com/gateweavehq/agents/edit/main/README.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.27.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/README.md"
+  version: "v0.28.1"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/README.md"
 ---
 <p align="center">
   <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><strong>Watch a real run (45 s)</strong></a> ·
   <a href="https://agents-demo.gateweave.com"><strong>Try the demo</strong></a> ·
   <a href="https://gateweave.com/agents"><strong>See what it does</strong></a> ·
   <a href="#self-hosting"><strong>Deploy your own</strong></a> ·
-  <a href="https://github.com/gateweavehq/agents/tree/v0.27.0/setups">Ready-made setups</a>
+  <a href="/agents/first-pull-request/"><strong>From zero to a first pull request</strong></a> ·
+  <a href="https://github.com/gateweavehq/agents/tree/v0.28.1/setups">Ready-made setups</a>
 </p>
 
 <p align="center">
@@ -61,8 +62,8 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   which repositories carry each one and which are behind.
 - **Apply it.** Setups pin those assets for a set of coding agents, preview the files they write, apply
   them to a repository by pull request and show where a repository has drifted from them since.
-  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.27.0/setups), are added to a workspace in one click,
-  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.27.0/packages/cli) applies a setup to a working tree and checks it in CI.
+  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.28.1/setups), are added to a workspace in one click,
+  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.28.1/packages/cli) applies a setup to a working tree and checks it in CI.
 - **Read about the code.** A model writes a wiki of each repository, private ones included, with the
   workspace's own key: numbered pages that cite the lines they explain, steered by `.devin/wiki.json`
   as DeepWiki is. AI agents read it and ask it questions over MCP with DeepWiki's tools, signing in with
@@ -113,12 +114,16 @@ and can close sign-up to people it has not let in (account page > This server). 
 uncomment and fill in `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.dev.vars`. To connect
 workspaces to GitHub, create a GitHub App as [docs/github-app.md](/agents/github-app/) describes. GitLab
 needs nothing on the server: an owner or admin connects it in Settings > GitLab with an access
-token, which the server keeps encrypted, so `SECRETS_KEY` must be set.
+token, which the server keeps encrypted.
 
-Workspaces keep their model provider keys and environment secrets encrypted with the server's
-`SECRETS_KEY`, which `pnpm dev:setup` generates for local development. On a deployed Worker, set
-it once with `openssl rand -base64 32 | pnpm wrangler secret put SECRETS_KEY` and keep it: if it
-changes, workspaces have to add their keys and secret values again.
+Workspaces keep their model provider keys and environment secrets encrypted. A deployed Worker
+needs no step to try that: without a `SECRETS_KEY` it encrypts under a key made from
+`BETTER_AUTH_SECRET`. Then one secret both signs sessions and opens everything workspaces
+stored, and changing it makes all of that unreadable. For anything beyond a first try, generate a
+`SECRETS_KEY` with `openssl rand -base64 32`, keep a copy and give it to the server with
+`pnpm wrangler secret put SECRETS_KEY`;
+[docs/self-hosting.md](/agents/self-hosting/#the-key-that-encrypts-workspaces-secrets) has the
+rest, and how to keep secret storage off. `pnpm dev:setup` generates one for local development.
 
 Chat sends each agent's requests straight to its model provider. To send them through a
 [Cloudflare AI Gateway](https://developers.cloudflare.com/ai-gateway/) instead, for its logs,
@@ -161,14 +166,16 @@ to their requests on the way out, so the key never enters the sandbox either.
 The button copies Agents to your GitHub or GitLab account, creates the database, and deploys it
 to your Cloudflare account; every push to your copy deploys again. From the command line, use
 `pnpm run deploy`. See [docs/self-hosting.md](/agents/self-hosting/) for the first deploy, every
-setting, your own domain, email, sandboxes and their limits, and updating.
+setting, your own domain, email, sandboxes and their limits, and updating, and
+[docs/first-pull-request.md](/agents/first-pull-request/) for each step from the button to an
+agent's first pull request, with the plan and the accounts each one needs.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.27.0/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.27.0/AGENTS.md). Run `pnpm verify` before you
+Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.28.1/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.28.1/AGENTS.md). Run `pnpm verify` before you
 open a pull request.
 
 ## License
 
-[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.27.0/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.27.0/CLA.md), which covers every Gateweave
+[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.28.1/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.28.1/CLA.md), which covers every Gateweave
 project.

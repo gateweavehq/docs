@@ -3,8 +3,8 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.39.2"
-  url: "https://github.com/gateweavehq/track/blob/v0.39.2/docs/self-hosting.md"
+  version: "v0.39.6"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.6/docs/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
 list of workspaces, a Durable Object for each workspace, and an R2 bucket for attached files.
@@ -500,3 +500,12 @@ against your production after each update. They need a checkout and a browser:
 pnpm --filter @gateweave/track-web exec playwright install chromium   # once
 TRACK_SMOKE_URL=https://track.example.com pnpm test:smoke
 ```
+
+### When a page shows a reference
+
+A page that could not be loaded because the database did not answer says so, with a reference of
+eight characters such as `1a2b3c4d`. The page shows nothing else of the failure. Search the
+Worker's logs for the reference (Workers Logs in the dashboard, which `wrangler.jsonc` turns on, or
+`pnpm wrangler tail` while it happens): the line `d1: a query failed (…), reference 1a2b3c4d: …`
+says what kind of failure it was and which statement, without the values it was given. See
+[the architecture notes](/track/architecture/#when-a-query-of-d1-fails).

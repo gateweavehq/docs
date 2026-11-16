@@ -3,8 +3,8 @@ title: "Agents architecture"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.27.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/docs/architecture.md"
+  version: "v0.28.1"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/docs/architecture.md"
 ---
 How Gateweave Agents is built today. [spec.md](/agents/spec/) describes where it is going; this file
 changes with the code.
@@ -20,6 +20,53 @@ The UI, the API and auth ship as one Worker (`apps/web`), the same shape as Gate
   invitations, stored in **D1**. There is one Better Auth instance per isolate, built on first
   use, because workerd forbids I/O in global scope. It can also sign people in through an OpenID
   Connect provider: see "Signing in through a provider" below.
+- **A read of D1 that fails is sent again**, up to three times in all
+  (`apps/web/src/server/db/retry-reads.ts`), before a page or a session check is told. D1 can fail
+  for a moment, and so can the local runtime under load, where one failed read of a session made a
+  signed-in person's page a 500. Only a single `select` is sent again, on the database or on a
+  session of it (`withSession`): a write may have happened although its answer was lost, and a
+  batch, or a text with a second statement after a `;`, may hold writes. And only for a failure
+  Cloudflare's D1 error list says to retry (a lost connection, the database's object reset or
+  updated, a replica cut off, a node that could not be reached), or the local runtime's own.
+  Everything else is the caller's at once: an overloaded database is not helped by more requests,
+  and a failure nobody recognises is not known to be safe to repeat. The waits are about 25 and
+  100 ms, each times a random factor between 0.5 and 1.5, so reads that failed together do not
+  come back together. Each resend is logged by a fixed name for the failure and the attempt's
+  number, never with D1's words, which can carry what a row held. After the last attempt the
+  failure reaches the caller.
+- **A query of D1 that failed says nothing of its statement.** Drizzle's own error is `Failed
+  query: select … params: …`, with every value the statement was given, and whoever catches an
+  error tends to log it or show it: Better Auth logged a session read that failed, token
+  included, and a page whose read failed showed the statement and its values. So `createDb`
+  throws a `DatabaseError` instead (`apps/web/src/server/db/query-failure.ts`), whose message is
+  `A database query failed (reference 1a2b3c4d)` and nothing else. It is made where Drizzle's
+  session prepares a query, the one place every builder, `db.query` and a transaction go through;
+  a batch fails in D1's words where the binding is asked, and gets the same there, so what fails
+  while a batch is put together is thrown as it is. The failure is logged once, as `d1: a query
+  failed (<kind>), reference <reference>: <statement>`. The statement is the text with its `?`,
+  cut at 600 characters, never the values: the app writes no value into a statement's text (no
+  `sql.raw`; a `sql` template binds what it is given), which has to stay so. The kind is D1's
+  code at the start of its words, SQLite's at their end, a name for each thing D1 says in fixed
+  words (the passing ones of `retry-reads.ts`, and `overloaded`, `queued-too-long`, `cpu-reset`,
+  `memory-reset`, `storage-timeout`, `response-too-large`, `too-many-api-requests`,
+  `too-many-variables`, `syntax-error`), and a constraint or a missing table or column by the
+  schema's names, quoted only right after D1's code: never D1's words as they came, since the
+  same words further in may be what a row held. The error's cause is an error that says the kind
+  only, which Better Auth's oauth-provider reads to tell a database not migrated yet (`no such
+  table`) from a real failure. None of what this reaches for is in Drizzle's public types: with
+  a session it does not know, `createDb` throws as the Worker starts, and with a prepared query
+  sent some other way, at the first query. The error page (`RouteError`) shows no error's
+  message, only that the page could not be loaded and the reference if there is one, which it
+  looks for in the error's causes too. Only a message crosses from a server function to the
+  browser, so one whose reference is in a cause, as Better Auth's `Failed to get session` is,
+  leaves with the reference added to its message (`apps/web/src/start.ts`). A dialog or a toast
+  still shows the message of what a server function threw, which for a failed query is that
+  sentence. That file also lists the framework's guard against forged requests
+  (`createCsrfMiddleware`, for server functions only) as request middleware: a start instance
+  replaces the framework's default request middleware, which is that guard, so leaving it out
+  would let a page of another origin call a server function. A server function answers 403
+  unless `Sec-Fetch-Site` is `same-origin` or, without that header, `Origin` or else `Referer`
+  is the app's own (`test/server-fn-origin.test.ts`).
 - **Rate limits** on sign-in, password reset, invitations and email are counted in a
   `RateLimiter` Durable Object per client address or recipient, so they hold across isolates and
   locations. Everything else is limited in memory per isolate. Every Worker reaches another zone
@@ -661,19 +708,40 @@ providers, `KEYED_PROVIDERS` in `packages/model/src/vocabulary.ts`; `MODEL_PROVI
 and Workers AI, for what an agent definition may name.
 
 - **Sealed in the registry.** A key is encrypted with AES-256-GCM before it is stored, under a
-  key derived with HKDF from the server's `SECRETS_KEY` secret and the workspace's Durable Object
+  key derived with HKDF from one of the server's secrets and the workspace's Durable Object
   id, with the key's place as additional data (`packages/registry/src/secrets.ts`). A key sealed
   in one workspace does not open in another, and a sealed value copied to another row does not
-  open there either. Without `SECRETS_KEY` the page says so and keys cannot be added.
+  open there either.
+- **Which secret.** `SECRETS_KEY` when it is set, and a sealed value then starts with `v1`. A
+  server without one derives from `BETTER_AUTH_SECRET` (HKDF again, under a salt of its own, so
+  the key is unrelated to anything else made from that secret) and its values start with `d1`, so
+  that a first deploy keeps secrets with nothing more to set. The id at the start picks the key
+  that opens a value: a server that gets a `SECRETS_KEY` later seals with it from then on and
+  still opens its `d1` values while `BETTER_AUTH_SECRET` stays the same. A `SECRETS_KEY` that
+  is set but unusable is reported and never passed over for the derived key.
+- **Sealed again on use.** On a server with a `SECRETS_KEY`, a `d1` value that opens is sealed
+  with it and written back over the value it was opened from (`#open` in the registry, and
+  `replaceSealed` in `packages/registry/src/sealed.ts`, which lists every sealed column and
+  matches by the old value, so one replaced meanwhile is left alone). Values not used since stay
+  `d1`. The registry's `sealedCounts` says how many of each a workspace holds; no page shows it.
+- **When a workspace keeps none.** `secretsProblem` decides, for the registry and the pages
+  alike (the registry's `secretsState`). The server has no key to seal with: an unusable
+  `SECRETS_KEY`; or none, and a `BETTER_AUTH_SECRET` that is under 32 characters or under 120
+  bits by the estimate Better Auth warns with, written out there; or none, and
+  `SECRETS_FROM_AUTH_SECRET` set to `off`, which keeps a server from deriving a key at all. Or
+  the key is lost: the workspace holds `v1` values and the server has no `SECRETS_KEY`. Then
+  nothing is sealed under the derived key and nothing opens, and the pages say that the key has
+  to be put back, because sealing new values beside ones that cannot open would hide it.
 - **Only the registry opens one**, when a request needs it. Server functions get the provider,
   the last four characters, who added it and when, and the last check, never the key.
 - **Checking a key** lists the provider's models with it (`listProviderModels` in
   `packages/registry/src/providers.ts`) and records whether that worked, how many models there
   are, or the provider's refusal in a sentence. A check that finishes after the key was replaced
   is dropped.
-- **Losing `SECRETS_KEY` loses the keys.** A check then says the key cannot be opened, and it
-  has to be added again.
-  Sealed values carry a version, so a rotation scheme can be added beside this one.
+- **Changing the secret loses the keys**: `SECRETS_KEY` for what it sealed, `BETTER_AUTH_SECRET`
+  for what the derived key sealed. A check then says the key cannot be opened, and it has to be
+  added again; nothing throws past the registry. A `SECRETS_KEY` that is taken away is the case
+  above, and putting it back restores everything.
 
 ### Workers AI
 
@@ -762,8 +830,8 @@ admins manage them on the Environment page (`packages/registry/src/environment.t
   opens) as `missing`. No RPC returns what it opens: values leave the registry only in an MCP
   server's headers, through `turnServers`, for `beginTurn` and `mcpCheckTarget`. Pages and
   server functions only see `set` or `missing`.
-- **Without `SECRETS_KEY`** the page says so and values cannot be set; sets with only variables
-  work as they are.
+- **On a server that cannot keep secrets** (see "Model providers") the page says so and values
+  cannot be set; sets with only variables work as they are.
 
 ## MCP servers
 
@@ -976,7 +1044,10 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   `write_file`, `edit_file` (an exact replacement, found once unless every place is asked for),
   `find_files` and `search` (ripgrep). File paths stay under `/workspace`; that keeps the tools on
   the work, not a wall, since a command reaches the whole machine, which holds nothing else. They
-  reach the container through `SandboxPort`, which the tests fill with files in memory.
+  reach the container through `SandboxPort`, which the tests fill with files in memory. Only
+  `run_command` needs the machine: the five for files ask for a `FilePort` (files read and written
+  whole, listed and searched), which `sandboxFiles` makes of a sandbox, with ripgrep run in it for
+  the last two.
 - **The trace** has a span for each call, under the server name `sandbox`, with its sizes and
   never its content, like an MCP tool's. A call that fails keeps the reason the tool gave the
   model, clipped to 500 characters (`traced` with `showErrors`), so a run's page says why; it can

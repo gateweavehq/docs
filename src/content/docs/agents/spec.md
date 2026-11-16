@@ -3,8 +3,8 @@ title: "Gateweave Agents: product spec"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/spec.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.27.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/docs/spec.md"
+  version: "v0.28.1"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/docs/spec.md"
 ---
 > **Status: agreed.** Phases 1 to 3 (the registry, the library and setups, and the runtime) are
 > built; phase 4 (agents in Gateweave products) is next. Decisions are recorded at the end.
@@ -190,7 +190,8 @@ runtime is designed alongside it, so the data model fits both.
   and model requests carry the workspace's own provider key. A gateway per
   workspace with keys stored in it would not scale: an account has at most 20 gateways, and
   stored keys belong to a gateway. So keys stay with the workspace, sealed in its registry with
-  AES-256-GCM under a key derived from the deployment's `SECRETS_KEY` and the workspace's id.
+  AES-256-GCM under a key derived from the deployment's `SECRETS_KEY` and the workspace's id
+  (since AGT-132, from `BETTER_AUTH_SECRET` on a deployment that sets no `SECRETS_KEY`).
   Secrets Store was set aside: it is in beta, and its secrets are bindings fixed at deploy time,
   not values each workspace adds. Workers AI and AI Gateway's Unified Billing stay off unless a
   deployment turns them on, so a self-hosted server never spends its owner's money on someone

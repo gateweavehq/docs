@@ -3,8 +3,8 @@ title: "Agents changelog"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.27.0"
-  url: "https://github.com/gateweavehq/agents/blob/v0.27.0/CHANGELOG.md"
+  version: "v0.28.1"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/CHANGELOG.md"
 ---
 Notable changes to Gateweave Agents, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,117 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/agents/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.28.1] - 2026-11-16
+
+Puts back a guard that v0.28.0 dropped by mistake, and lets the schema generator run again.
+There is no migration in this release.
+
+### Fixed
+
+- **A server function's request from another origin is refused again.** The framework refuses
+  such a request unless the browser says it comes from the app's own origin. v0.28.0 added a file
+  that replaced the framework's default without listing that guard, so for some hours it did not
+  run. A page on an unrelated site could not act as a signed-in person, because browsers keep
+  the session cookie off its requests; a page on another host of the same site (another
+  subdomain of the deployment's domain) could have, for what a workspace's pages change.
+  ([#254](https://github.com/gateweavehq/agents/pull/254))
+- **`pnpm auth:schema` runs again.** Since v0.28.0 it stopped with "Drizzle's session cannot be
+  reached". Only this developer command was affected.
+  ([#253](https://github.com/gateweavehq/agents/pull/253))
+
+### If you run your own
+
+- **If you run v0.28.0, update.**
+
+## [0.28.0] - 2026-11-16
+
+A server no longer needs a `SECRETS_KEY` set by hand before workspaces can keep their keys, and a
+database failure no longer shows or logs a statement's values. There is no migration in this
+release. **If you run your own server without a `SECRETS_KEY`, read the last section before
+updating: this release turns secret storage on for it.**
+
+### Added
+
+- **Secrets without a `SECRETS_KEY`.** A server with no `SECRETS_KEY` refused to keep a model
+  key, an environment secret or a GitLab token, which made adding one in the dashboard the first
+  hand step after the Deploy button. Such a server now encrypts under a key made from
+  `BETTER_AUTH_SECRET`, when that secret is at least 32 characters and varied enough. A
+  `SECRETS_KEY` that is set is always the one used. Once one is set, values kept without it are
+  encrypted again under it as they are next used.
+  ([#250](https://github.com/gateweavehq/agents/pull/250))
+- **From zero to a first pull request.** A page in the docs walks from the Deploy button to an
+  agent's first pull request, with what each step needs and the times that were measured.
+  ([#250](https://github.com/gateweavehq/agents/pull/250))
+
+### Changed
+
+- **A `SECRETS_KEY` that goes missing is named.** A workspace holding values encrypted with a
+  `SECRETS_KEY` the server no longer has keeps nothing new and says that the key is missing,
+  instead of asking for each value again. Putting the key back restores them.
+  ([#250](https://github.com/gateweavehq/agents/pull/250))
+
+### Fixed
+
+- **A failed database query no longer carries its values.** When a query failed for good, the
+  error held the statement and its values. A failed read of a session was logged with the
+  session's token among them, and a failed read for a page showed them on the error page. The
+  token alone does not sign anyone in: the cookie also carries a signature made with the
+  server's secret. A failure now carries a reference only. The log has the kind of failure and
+  the statement without its values under the same reference, and the page shows a plain sentence
+  with it. To see whether a server ever logged one, search its logs for `Failed query:`.
+  ([#249](https://github.com/gateweavehq/agents/pull/249))
+
+### If you run your own
+
+- **Without a `SECRETS_KEY`, this release turns secret storage on**, if your
+  `BETTER_AUTH_SECRET` is long and varied enough. One secret then both signs sessions and opens
+  what workspaces stored, and changing it makes all of that unreadable. Set a `SECRETS_KEY` for
+  anything beyond a first try, or set `SECRETS_FROM_AUTH_SECRET=off` to keep storage off as
+  before. [Self-hosting](/agents/self-hosting/#the-key-that-encrypts-workspaces-secrets) has both.
+- **With a `SECRETS_KEY`, nothing to do.**
+
+## [0.27.2] - 2026-11-15
+
+A run that is still going opens on the first click, and a database read that fails in passing is
+asked again instead of becoming an error page. There is no migration in this release.
+
+### Fixed
+
+- **Opening a run while it is still going.** A run that has not ended shows how long it has taken
+  so far, read from the clock. The server and the browser read it at different moments, the page
+  took the difference for a fault and drew itself again, and a click on a run in that moment
+  opened nothing. The Runs page and a run's own page now keep what the server sent.
+  ([#247](https://github.com/gateweavehq/agents/pull/247))
+- **A page failing because one database read did.** When a single read from D1 failed, the page
+  was an error although asking again would have worked. A plain read (one `SELECT` statement,
+  which is what the app's pages send) that fails with one of the errors Cloudflare documents as
+  passing is now sent up to three times, a moment apart. Everything else is sent once, as before:
+  writes, a read that begins with `WITH`, several statements in one, and any other error. Each
+  resend is logged by the kind of failure, never with the database's own message.
+  ([#245](https://github.com/gateweavehq/agents/pull/245))
+
+### If you run your own
+
+- **Nothing to do.**
+
+## [0.27.1] - 2026-11-15
+
+An invitation's buttons no longer do nothing when pressed early. There is no migration in this
+release.
+
+### Fixed
+
+- **Joining by an invitation on a slow connection.** Join, Decline and Switch account on the
+  invitation page, and "Email me a link", work only once the page's script has run, but they
+  looked ready before that. Pressed then, they did nothing and said nothing, and the person
+  stayed on the invitation. They are now disabled until the page is ready, as the buttons on the
+  sign-in page already were.
+  ([#241](https://github.com/gateweavehq/agents/pull/241))
+
+### If you run your own
+
+- **Nothing to do.**
 
 ## [0.27.0] - 2026-11-15
 

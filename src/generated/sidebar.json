@@ -64,6 +64,10 @@
 				"slug": "agents/architecture"
 			},
 			{
+				"label": "From zero to a first pull request",
+				"slug": "agents/first-pull-request"
+			},
+			{
 				"label": "Memory",
 				"slug": "agents/memory"
 			},

@@ -3,8 +3,8 @@ title: "ID changelog"
 editUrl: "https://github.com/gateweavehq/id/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave ID"
-  version: "v0.15.0"
-  url: "https://github.com/gateweavehq/id/blob/v0.15.0/CHANGELOG.md"
+  version: "v0.15.2"
+  url: "https://github.com/gateweavehq/id/blob/v0.15.2/CHANGELOG.md"
 ---
 Notable changes to Gateweave ID, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -12,6 +12,50 @@ Notable changes to Gateweave ID, newest first. The format follows
 
 Each version's [GitHub release](https://github.com/gateweavehq/id/releases) carries the same notes.
 Publishing a release deploys it to Gateweave Cloud.
+
+## [0.15.2] - 2026-11-16
+
+A guard that cannot read the session now refuses. There is no migration in this release, and the
+signing algorithm doesn't change.
+
+### Fixed
+
+- **A guard that cannot read the session refuses.** The guards on changing a second factor,
+  removing a password, counting password tries and an app's consent decide by the caller's
+  session. When a session cookie is present and the session cannot be read, they now refuse the
+  request instead of leaving the decision to the endpoint. Nothing changes when the database
+  answers. ([#123](https://github.com/gateweavehq/id/pull/123))
+
+### If you run your own
+
+- **Update.**
+
+## [0.15.1] - 2026-11-16
+
+A database read that fails in passing is asked again instead of failing a sign-in, and a query
+that fails for good no longer logs its values. There is no migration in this release, and the
+signing algorithm doesn't change.
+
+### Fixed
+
+- **A sign-in failing because one database read did.** When a single read from D1 failed, a
+  sign-in, a token exchange or a page was an error although asking again would have worked. A
+  plain read (one `SELECT` statement) that fails with one of the errors Cloudflare documents as
+  passing is now sent up to three times, a moment apart. Writes are sent once, as before, so a
+  code or a token is still used up exactly once.
+  ([#121](https://github.com/gateweavehq/id/pull/121))
+- **A failed database query no longer carries its values.** When a query failed for good, the
+  error held the statement and its values, and it was logged: a session's token, an app's id, the
+  identifiers of codes and tokens, addresses. A failure now carries a reference only. The log has
+  the kind of failure and the statement without its values under the same reference; a page shows
+  a plain sentence with it. What an app gets when the database fails is unchanged: an error, and
+  never a code or a token. To see whether a server ever logged one, search its logs for
+  `Failed query:`. ([#121](https://github.com/gateweavehq/id/pull/121))
+
+### If you run your own
+
+- **Nothing to do.** If a page shows a reference, the line with the same reference in the
+  Worker's logs says what failed.
 
 ## [0.15.0] - 2026-11-15
 
