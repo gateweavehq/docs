@@ -3,8 +3,8 @@ title: "Sign in to Grafana with Gateweave ID"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/recipes/grafana.md"
 source:
   product: "Gateweave ID"
-  version: "v0.15.2"
-  url: "https://github.com/gateweavehq/id/blob/v0.15.2/docs/recipes/grafana.md"
+  version: "v0.16.0"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.0/docs/recipes/grafana.md"
 ---
 Grafana works with ID's default settings, and can set each person's role from their groups.
 

@@ -3,8 +3,8 @@ title: "Agents changelog"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.1"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/CHANGELOG.md"
+  version: "v0.28.2"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/CHANGELOG.md"
 ---
 Notable changes to Gateweave Agents, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
@@ -13,6 +13,41 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/agents/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.28.2] - 2026-11-16
+
+Fixes "Use vN" on an agent's page, which reset the agent's engine and memory. There is no
+migration in this release.
+
+### Fixed
+
+- **Moving a pin to its latest version no longer resets the agent's engine and memory.** "Use vN"
+  on an agent's page saved the whole agent from a list of fields that left out the engine and
+  memory, so an agent running on Claude Code, Codex or OpenCode went back to Gateweave's own loop
+  and its memory was turned off, without a word. Moving a pin is now its own call, which names the
+  asset and the version and changes nothing else. Open pages keep the old behaviour until they are
+  reloaded. ([#260](https://github.com/gateweavehq/agents/pull/260))
+
+### Changed
+
+- **The audit log says which pin moved.** Its entry names the asset and the two versions, where it
+  used to list the fields of a whole save.
+  ([#260](https://github.com/gateweavehq/agents/pull/260))
+
+### If you run your own
+
+- **Check agents whose pins were moved from the agent's page.** An agent with a sandbox that should
+  run on Claude Code, Codex or OpenCode, or with memory on, may have been reset: open it and look
+  at its engine and memory. In Settings › Audit log such a change reads as an agent updated with
+  the engine or memory among its fields, at the time a pin was moved.
+- **Reload open pages after updating.**
+
+### Internal
+
+- Two pieces for running an agent on a repository's files without a sandbox, which nothing uses
+  yet: reading a tree and a file and making a commit through GitHub's API
+  ([#257](https://github.com/gateweavehq/agents/pull/257)), and a store for those files in the
+  conversation's own storage ([#258](https://github.com/gateweavehq/agents/pull/258)).
 
 ## [0.28.1] - 2026-11-16
 
@@ -24,8 +59,9 @@ There is no migration in this release.
 - **A server function's request from another origin is refused again.** The framework refuses
   such a request unless the browser says it comes from the app's own origin. v0.28.0 added a file
   that replaced the framework's default without listing that guard, so for some hours it did not
-  run. A page on an unrelated site could not act as a signed-in person, because browsers keep
-  the session cookie off its requests; a page on another host of the same site (another
+  run. The session cookie is `SameSite=Lax`, which browsers keep off another site's `POST`
+  requests, and everything that changes something is a `POST`, so a page on an unrelated site
+  could not act as a signed-in person in such a browser. A page on another host of the same site (another
   subdomain of the deployment's domain) could have, for what a workspace's pages change.
   ([#254](https://github.com/gateweavehq/agents/pull/254))
 - **`pnpm auth:schema` runs again.** Since v0.28.0 it stopped with "Drizzle's session cannot be

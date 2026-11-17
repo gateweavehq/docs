@@ -3,8 +3,8 @@ title: "Mail architecture"
 editUrl: "https://github.com/gateweavehq/mail/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Mail"
-  version: "main"
-  url: "https://github.com/gateweavehq/mail/blob/main/docs/architecture.md"
+  version: "v0.1.0"
+  url: "https://github.com/gateweavehq/mail/blob/v0.1.0/docs/architecture.md"
 ---
 How Gateweave Mail is built today, and the shape it is planned to take. This file changes with
 the code.
@@ -1047,6 +1047,64 @@ Gateweave Agents have the same code, and the same reasons.
 - **Signing out of Mail stays in Mail.** The provider's session is left alone, and
   `disableProviderLogout` keeps the plugin from sending anyone there.
 
+### Who may make an account
+
+Sign-up is open unless a deployment sets `SIGN_UP_ALLOW`, a list of addresses and `@domain`s
+(`apps/web/src/lib/sign-up-allow.ts`). It is a setting and not a table, because it is the smallest
+thing that can close a server: nothing to migrate, no page that changes it and so no session that
+could, and unset it changes nothing. Gateweave Cloud runs with it, and Gateweave Track, which has
+an owner and a page for the same purpose, is where the rules started from.
+
+Only a setting that is not there is open. One that is there and empty, or holds nothing usable, is
+a list of nobody (`parseAllowList`), and the log says so: emptying a setting must not open a
+server, and a deployment's plain variables stay through a deploy (`keep_vars`), so an emptied one
+would otherwise stay open unnoticed.
+
+- **One place decides.** Better Auth makes every account through `internalAdapter.createUser`,
+  which runs the `user.create.before` hook in `auth/config.ts` before it writes anything: the
+  sign-up form, GitHub, the provider, and any plugin added later. The hook asks `mayMakeAccount`
+  (`auth/sign-up.ts`) and throws, so a refusal leaves no `user`, `account` or `session` row: the
+  user is the first of the three to be written, on every path.
+  Agents are the one other maker of `user` rows (`auth/agents.ts`): an owner or admin makes them
+  at `@agents.invalid`, they never sign in, and the list has nothing to say about them.
+- **Only a proved address makes an account.** `emailVerified` reaches the hook as `true` only
+  when GitHub says the address is verified or the provider's `email_verified` is a JSON `true`; the
+  sign-up form's is always `false`. A typed address proves nothing, and Mail gives a new account a
+  session at once, so one that counted would let in whoever typed a listed or invited address
+  first, and everyone who made one up at a listed domain. So on a closed server the sign-up form
+  makes no account for anyone: a hook on the request refuses it before Better Auth reads what was
+  sent, and the database hook would refuse it again. Comparison is of the whole address or the
+  whole domain after the last `@`, in lowercase, as accounts are stored: no suffix, no subdomain.
+- **An invitation admits its address, once a provider has proved it.** A pending, unexpired
+  invitation to any workspace is a way in for an address no list names. This is narrower than
+  Track's rule, which takes an invited address typed: there, the account would exist before
+  anything showed whose address it is, and it could make a workspace of its own and invite the
+  next address the same way.
+- **Everyone with an account can admit people.** Any account can create a workspace and invite any
+  address, and the invitation admits it. That is known and kept, as in Track: the list keeps out
+  strangers, not the guests of those it let in. Nothing limits it yet but the length of the list.
+- **Every refusal reads the same, as far as Mail decides it.** The answer is `403` with the code
+  `SIGN_UP_CLOSED` and one sentence, and the form gives it to every request, so it cannot be used
+  to ask who is here. Someone coming back from GitHub or the provider is sent to the sign-in page
+  with the code, which `signInRefusal` turns into the same sentence. `onAPIError.errorURL` is
+  `/login`, so even a sign-in that did not name a page to come back to never ends on Better Auth's
+  own error page.
+- **What that does not hide.** Someone a provider vouches for, whose address has an account here
+  that the sign-in cannot be linked to (one with a password and an address not verified in Mail,
+  say), comes back with `error=account_not_linked` and not `SIGN_UP_CLOSED`: Better Auth answers
+  that before any account would be made, whether or not the provider says the address is verified.
+  So whoever can make a provider name an address of their choosing can tell that it has an
+  account. That takes a provider that hands over an address its person has not proved to it, which
+  GitHub does not and which is the operator's to choose. It was so before there was a list. On a
+  closed server the sign-in page shows both codes as the same sentence; the address bar still
+  differs.
+- **Having an account is enough to sign in.** Signing in makes no account, so the hook never runs
+  for someone who has one, and removing an entry removes nobody.
+- **The pages only follow.** `getAuthOptions` tells the sign-in page that sign-up is closed, and it
+  then says so, links to `SIGN_UP_REQUEST_URL` if that is an https address, never offers "Create
+  an account", whatever the link that led there asks, and tells an invited person to continue with
+  the provider. An invitation's page sends someone new to sign in for the same reason.
+
 ### Deleting an account
 
 People delete their own account on `/settings/account`, through `POST /api/auth/account/delete`
@@ -1088,6 +1146,38 @@ People change both on `/settings/account`, through Better Auth's `/update-user` 
   most once a day and only at an address they have verified.
 - **It ends every session,** whatever the request asks, since whoever knew the old password may be
   why it is changing and may be the one asking.
+
+## Where Durable Objects are kept
+
+A deployment can keep its Durable Objects in one of Cloudflare's jurisdictions, with
+`DURABLE_OBJECT_JURISDICTION` (`apps/web/src/server/jurisdiction.ts`). Gateweave Cloud's production
+sets `eu` in its `cloud` environment, beside a database, a bucket and a queue made there; see
+"Gateweave Cloud" in [self-hosting.md](/mail/self-hosting/).
+
+- **Every id is made from `ownObjects`.** A namespace's `jurisdiction("eu")` is a namespace of its
+  own: the same name there is another object than outside it. So the five places that reach an
+  object by name (`mailboxStub`, `webhooksStub`, `audienceStub`, the rate limiter, and a mailbox
+  telling its workspace's webhooks of mail, from inside a Durable Object) all take their namespace
+  through `ownObjects`, never from the binding. One that did not would keep mail outside the
+  jurisdiction, in an object nothing else reaches. `jurisdiction.test.ts` reads the source for
+  a binding used any other way. Unset, `ownObjects` returns the binding itself, so nothing
+  changes for a deployment without the setting.
+- **Nothing is derived from an object's id but its name.** Objects read `ctx.id.name`, the
+  mailbox's or the workspace's id, and never the id's own text, which differs between
+  jurisdictions. What a workspace's webhooks seal is sealed with `SECRETS_KEY` and the workspace's
+  id, and R2 objects are named by workspace and mailbox, so neither depends on where an object is.
+  The name has to be there, though: a webhooks object without one throws, and a mailbox without
+  one stops telling webhooks of mail. Local workerd can't show it, so a throwaway Worker on
+  Cloudflare did (2026-11-16): reached through `jurisdiction("eu")` by `getByName` and by
+  `get(idFromName(…))`, from the Worker and from another object, and in its alarm, an object's
+  `ctx.id.name` was the name it was asked for, and its id's text differed from the one outside.
+- **A wrong value is an error.** One Cloudflare doesn't have throws wherever an object would be
+  reached, rather than keeping data somewhere else. Rate limits then count in each isolate, as
+  they do whenever their object can't be reached, and the log says why.
+- **Nothing moves an object yet.** The setting is for a deployment's first day. Setting it later
+  leaves every mailbox, webhook and template where it was, out of the Worker's sight. Local
+  workerd has no jurisdictions and refuses one, so tests show which namespace an id comes from, not
+  where an object ends up.
 
 ## Backups
 

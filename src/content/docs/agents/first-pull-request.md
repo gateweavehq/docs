@@ -3,8 +3,8 @@ title: "From zero to a first pull request"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/first-pull-request.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.1"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/docs/first-pull-request.md"
+  version: "v0.28.2"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/docs/first-pull-request.md"
 ---
 Every step between an empty Cloudflare account and an agent on your own server that opens a pull
 request, in order, with what each one needs. [self-hosting.md](/agents/self-hosting/) has the details

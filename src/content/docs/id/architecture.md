@@ -3,8 +3,8 @@ title: "ID architecture"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/architecture.md"
 source:
   product: "Gateweave ID"
-  version: "v0.15.2"
-  url: "https://github.com/gateweavehq/id/blob/v0.15.2/docs/architecture.md"
+  version: "v0.16.0"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.0/docs/architecture.md"
 ---
 Gateweave ID is an OpenID Connect provider that runs entirely on Cloudflare, with no server to run.
 It is in the space of Pocket ID and authentik. People hold one account, and any app that supports
@@ -255,6 +255,55 @@ A passkey is a way to sign in like any other: someone whose only one is a passke
 password on the way to an app, and is still subject to "Who may sign in", after which they carry on to
 it as they would after a password.
 
+### One sign-in per page
+
+The sign-in page offers a password, GitHub and a passkey at once, and the browser's offer under the email
+field waits for as long as the page shows. On the way to an app that is longer than it looks: GitHub, ID
+and the app answer each other with redirects, so the page is still there, and still running, until the
+app has answered. A passkey chosen in that time used to sign the person in a second time. The provider
+answered it with a second code for the same request, the page set off for the app again, and that
+cancelled the first return after the app had used up its one-time `state`: the person landed on the app's
+error page, signed in to nothing.
+
+So a page runs one attempt at a time (`lib/sign-in-latch.ts`). Whatever starts one takes the page's
+latch: a button, the form, or the request that sends a passkey's answer to be checked. While it is taken
+the offer in the field is ended and the buttons are off. It is given back only when the attempt has
+failed, which brings the offer back too. An attempt that worked keeps it, since the browser is leaving,
+and a page the browser brings back as it was left (`pageshow` with `persisted`) starts free again.
+
+- **A page that is leaving says so.** A browser has no event for someone pressing Stop on the way, or for
+  an app that never answers, and the buttons are off. So the page shows "Taking you there…", and after
+  five seconds "Still here? Reload the page to try again." with a button that does.
+- **It gives itself back only where nothing came of the attempt.** GitHub is the one way that hands the
+  browser to someone else before anyone is signed in. Fifteen seconds after it left, a page that is
+  still showing, in a tab someone is looking at, asks ID whether the session is the one it began with
+  (usually none). If so it stops the browser from following that trip any further, asks once more, and
+  on a second yes frees the latch: GitHub's answer had not reached ID when the trip was stopped, so no
+  code was made and no app has heard of it. Leaving takes about two seconds when it works, so fifteen is
+  someone who has waited, and being right does not depend on the number. With a new session the page
+  stays taken and the browser is left alone, because a code may be with the app. For the same reason a
+  password, a passkey and a second factor never give the page back: they leave with someone signed in.
+- **The check that a person is there holds only "Sign in".** The page is taken for a password when its
+  request is about to be sent, after Turnstile has answered. It can ask for a click or never answer, and
+  GitHub and the passkey work meanwhile. One of them started in that time drops the password.
+- **The email field asks for a passkey only while the page is free.** Its `autocomplete` loses `webauthn`
+  while an attempt has the page, without which the browser's offer cannot start. An offer whose options
+  were still on their way when the passkey button was pressed would otherwise start after the button's
+  ceremony and end it, since a browser runs one.
+
+- **Ending the ceremony is not what stops a second sign-in.** `WebAuthnAbortService.cancelCeremony()`
+  only ends a request the browser has waiting. It does nothing to an offer whose options are still on
+  their way, which starts when they arrive, nor to one the authenticator has just answered. The plugin's
+  client has no way to end either. What it does take is a hook on the request that sends the answer, so
+  the latch is asked there, and an answer that arrives while another attempt has the page is never sent.
+- **The provider would still answer twice.** It keeps nothing about a request it is waiting on: the
+  request is the signed query in the page's address, good for ten minutes, and any response that sets a
+  session cookie while a page sends it back is followed by the authorization. Refusing the second would
+  take a row per signature, with a unique index to make the first use win, written inside the plugin's
+  own hook between the session and the code. That is a migration and one more change to a patched
+  dependency for something only ID's own page could do, so it is not done. What went wrong was the page
+  setting off twice, and the latch is what stops that.
+
 ## Two-factor sign-in
 
 Someone who turns this on is asked for a code from an authenticator app every time they sign in with a
@@ -403,7 +452,10 @@ it, at `/account/delete`.
 - **Two people have to stay.** The only owner of a workspace hands it over or deletes it first, and the answer
   names each one. Whoever runs the server stays until someone else does, as [self-hosting.md](/id/self-hosting/)
   says. The answers have words because the code asks first. The triggers `member_delete_keeps_an_owner` and
-  `deployment_keeps_its_owner` hold it whatever asks.
+  `deployment_keeps_its_owner` hold it whatever asks. The page asks the same two questions before it shows a
+  field for the password (`/account/delete/check`, which reads, about whoever asks), and says what stands in
+  the way with a link to each workspace. That is a courtesy: deleting asks again, since either answer can
+  change in between.
 - **Better Auth's `/delete-user` stays off.** Its `internalAdapter.deleteUser` removes the sessions, then the
   ways of signing in, and the user last, so a trigger refusing that last step would leave someone with no way
   back. This ends the sessions through the adapter, so that the provider's hooks send back-channel logouts,
@@ -835,6 +887,15 @@ without leaving the workspace. `allowed-apps.ts` has a list and a take-back, for
 to a workspace's apps. First-party apps do not ask, so they are not on it, and the same answer comes back
 for an app that does not exist, is someone else's to take back or was never allowed, so nobody learns which.
 
+The first-party apps someone has signed in to are on a list of their own, "Products you use", which
+only reads: `/account/products` in the same file. It goes by the person's own `app_sign_in` rows, so it
+covers the ninety days the log keeps, and it offers no taking back, since the next sign-in would undo one.
+Its link back to an app is the origin of a redirect URI the app is registered with, and never anything a
+sign-in carried: the first https one, or the first http one where there is no https, so an app registered
+for a developer's machine as well does not send everyone to `localhost`. An app registered only at
+something else, such as a custom scheme, gets no link and no host. An app that is switched off, or whose
+metadata the check for who may sign in cannot read, is left out.
+
 - **All of it, at once.** The take-back deletes the person's access tokens, refresh tokens and consent for
   that app in one batch, the same three tables as the trigger below. The provider's `/oauth2/delete-consent`
   removes only the row, and a refresh never reads it, so that path is closed. `get-consent`, `get-consents`
@@ -1074,7 +1135,11 @@ themselves, so a session they cannot read is refused there too.
   Siteverify cannot answer. Entering a code needs no pass, since the code is the proof.
 - Rate limits are durable and keyed by `cf-connecting-ip`, or by zone for a Worker.
 - Changing a password ends every other session, since whoever knew the old one may be why it changed.
-  The account page lists a person's sessions, and they can end any of them.
+  The account page lists a person's sessions, and they can end any of them. Ending several at once asks
+  first, on the page, and then makes the request it always made. Each row says when the session was
+  made and when it was last renewed, and not when it was last used: Better Auth moves a session's
+  `updatedAt` only once a day has passed since the last time, so a session in use now, a copied one
+  too, can show yesterday's date.
 - The cookie keeps the session token away from scripts, so the session a page carries leaves it out.
 - A password known from a breach is refused wherever someone chooses one. Only the first five
   characters of its SHA-1 go to Have I Been Pwned. It is on in Gateweave Cloud, and self-hosters opt in
@@ -1142,7 +1207,13 @@ account can collect.
 
 A person sees their last 50 events on their account page: what happened to them, and what they did to
 someone else. Where someone else did it, they see who, and not that person's IP address or device. Nobody
-can read anyone else's.
+can read anyone else's. The page shows ten at a time, under the day they happened on. It leaves out a
+`two_factor_asked` whose sign-in with a code followed within ten minutes from the same kind of device, since
+the two are one sign-in. The address may differ, as a phone's does when it leaves the wifi, and where two
+questions are open the one from the sign-in's own address is the one taken. A `two_factor_asked` that
+nothing followed is the page's one alarm, in red, since it means someone has the password. A failed
+sign-in and a wrong password from a session get a quieter mark. That is the page's arrangement
+(`lib/activity.ts`): the endpoint still sends every row.
 
 Every write happens after the response. A failed sign-in writes a row only for an address with an
 account, so a response that waited for the write would say which addresses have one, as sending email

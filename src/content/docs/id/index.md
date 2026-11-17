@@ -4,8 +4,8 @@ description: "One sign-in for your team's apps, on one Cloudflare Worker. An Ope
 editUrl: "https://github.com/gateweavehq/id/edit/main/README.md"
 source:
   product: "Gateweave ID"
-  version: "v0.15.2"
-  url: "https://github.com/gateweavehq/id/blob/v0.15.2/README.md"
+  version: "v0.16.0"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.0/README.md"
 ---
 <p align="center">
   <a href="https://gateweave.com/id"><strong>See what it does</strong></a> ·
@@ -86,7 +86,7 @@ with the callback URL `http://localhost:4730/api/auth/callback/github`, then unc
 `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` in `.dev.vars`.
 
 `pnpm verify` runs everything CI does: lint, types, tests and a build. See
-[CONTRIBUTING.md](https://github.com/gateweavehq/id/blob/v0.15.2/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/id/blob/v0.15.2/AGENTS.md) for how the code is organized and
+[CONTRIBUTING.md](https://github.com/gateweavehq/id/blob/v0.16.0/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/id/blob/v0.16.0/AGENTS.md) for how the code is organized and
 what must never break.
 
 ## Running your own
@@ -99,6 +99,6 @@ soon as it is up.
 
 ## License
 
-[AGPL-3.0](https://github.com/gateweavehq/id/blob/v0.15.2/LICENSE). Contributors sign a [CLA](https://github.com/gateweavehq/id/blob/v0.15.2/CLA.md) once, which covers every Gateweave project.
-Third-party code is listed in [THIRD_PARTY_NOTICES.md](https://github.com/gateweavehq/id/blob/v0.15.2/THIRD_PARTY_NOTICES.md). Report security
-problems as [SECURITY.md](https://github.com/gateweavehq/id/blob/v0.15.2/SECURITY.md) describes.
+[AGPL-3.0](https://github.com/gateweavehq/id/blob/v0.16.0/LICENSE). Contributors sign a [CLA](https://github.com/gateweavehq/id/blob/v0.16.0/CLA.md) once, which covers every Gateweave project.
+Third-party code is listed in [THIRD_PARTY_NOTICES.md](https://github.com/gateweavehq/id/blob/v0.16.0/THIRD_PARTY_NOTICES.md). Report security
+problems as [SECURITY.md](https://github.com/gateweavehq/id/blob/v0.16.0/SECURITY.md) describes.

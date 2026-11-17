@@ -4,8 +4,8 @@ description: "Assign an issue to an AI agent and get a pull request back. Open s
 editUrl: "https://github.com/gateweavehq/agents/edit/main/README.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.1"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/README.md"
+  version: "v0.28.2"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/README.md"
 ---
 <p align="center">
   <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><strong>Watch a real run (45 s)</strong></a> ·
@@ -13,7 +13,7 @@ source:
   <a href="https://gateweave.com/agents"><strong>See what it does</strong></a> ·
   <a href="#self-hosting"><strong>Deploy your own</strong></a> ·
   <a href="/agents/first-pull-request/"><strong>From zero to a first pull request</strong></a> ·
-  <a href="https://github.com/gateweavehq/agents/tree/v0.28.1/setups">Ready-made setups</a>
+  <a href="https://github.com/gateweavehq/agents/tree/v0.28.2/setups">Ready-made setups</a>
 </p>
 
 <p align="center">
@@ -62,8 +62,8 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   which repositories carry each one and which are behind.
 - **Apply it.** Setups pin those assets for a set of coding agents, preview the files they write, apply
   them to a repository by pull request and show where a repository has drifted from them since.
-  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.28.1/setups), are added to a workspace in one click,
-  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.28.1/packages/cli) applies a setup to a working tree and checks it in CI.
+  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.28.2/setups), are added to a workspace in one click,
+  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.28.2/packages/cli) applies a setup to a working tree and checks it in CI.
 - **Read about the code.** A model writes a wiki of each repository, private ones included, with the
   workspace's own key: numbered pages that cite the lines they explain, steered by `.devin/wiki.json`
   as DeepWiki is. AI agents read it and ask it questions over MCP with DeepWiki's tools, signing in with
@@ -172,10 +172,10 @@ agent's first pull request, with the plan and the accounts each one needs.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.28.1/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.28.1/AGENTS.md). Run `pnpm verify` before you
+Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.28.2/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.28.2/AGENTS.md). Run `pnpm verify` before you
 open a pull request.
 
 ## License
 
-[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.28.1/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.28.1/CLA.md), which covers every Gateweave
+[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.28.2/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.28.2/CLA.md), which covers every Gateweave
 project.

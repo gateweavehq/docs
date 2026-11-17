@@ -11,20 +11,20 @@
 		"name": "Gateweave Agents",
 		"summary": "See which coding agents work in which repositories, share their setups, run your own agents and keep a wiki of each repository.",
 		"repo": "gateweavehq/agents",
-		"version": "v0.28.1"
+		"version": "v0.28.2"
 	},
 	{
 		"key": "id",
 		"name": "Gateweave ID",
 		"summary": "An OpenID Connect provider with passkeys and access rules: one sign-in for Gateweave's products and your own apps.",
 		"repo": "gateweavehq/id",
-		"version": "v0.15.2"
+		"version": "v0.16.0"
 	},
 	{
 		"key": "mail",
 		"name": "Gateweave Mail",
 		"summary": "Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
 		"repo": "gateweavehq/mail",
-		"version": "main"
+		"version": "v0.1.0"
 	}
 ]

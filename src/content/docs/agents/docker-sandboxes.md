@@ -3,8 +3,8 @@ title: "Docker cloud sandboxes as a sandbox backend"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/docker-sandboxes.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.1"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.1/docs/docker-sandboxes.md"
+  version: "v0.28.2"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/docs/docker-sandboxes.md"
 ---
 A decision record for AGT-55: whether Gateweave Agents should run its sandboxes on Docker's
 cloud sandboxes, part of the Docker Agentic Platform, instead of or beside the Cloudflare
