@@ -3,8 +3,8 @@ title: "Self-hosting Mail"
 editUrl: "https://github.com/gateweavehq/mail/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Mail"
-  version: "v0.1.0"
-  url: "https://github.com/gateweavehq/mail/blob/v0.1.0/docs/self-hosting.md"
+  version: "v0.2.0"
+  url: "https://github.com/gateweavehq/mail/blob/v0.2.0/docs/self-hosting.md"
 ---
 Gateweave Mail runs on your own Cloudflare account as one Worker. It is early: today it has
 accounts, workspaces, a directory of addresses, and mailboxes that keep the mail sent to them and
@@ -320,6 +320,14 @@ is refused, and its copy in the thread says why. A workspace sends up to 200 mes
 address that bounced or complained before. An agent also has a day's count of its own, which an
 owner or admin sets on the Agents page, and mail it writes that waits for approval counts against
 the workspace's day only once it is approved.
+
+An agent is made to send on its own, up to 20 messages a day. On its page an owner or admin can
+have its mail wait for a person instead: all of it, or what goes to anyone a list doesn't name.
+Mail whose every recipient is an address of the agent's own workspace never waits. An agent that
+sends on its own can be made, by a message it reads, to write to anyone, up to its day's count, so
+have the mail of one that reads strangers' mail wait. Agents made before a server had this choice
+keep what they had, mail inside the workspace waiting included, until someone saves their sending
+settings: one whose list was empty still has everything wait.
 
 A message whose every recipient is an address on this deployment, in any workspace, doesn't leave
 it: it goes straight to their mailboxes, with no send and no spam score, and its copy shows each as

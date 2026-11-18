@@ -3,8 +3,8 @@ title: "ID architecture"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/architecture.md"
 source:
   product: "Gateweave ID"
-  version: "v0.16.0"
-  url: "https://github.com/gateweavehq/id/blob/v0.16.0/docs/architecture.md"
+  version: "v0.16.1"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/architecture.md"
 ---
 Gateweave ID is an OpenID Connect provider that runs entirely on Cloudflare, with no server to run.
 It is in the space of Pocket ID and authentik. People hold one account, and any app that supports
@@ -738,6 +738,10 @@ Other rules:
   be registered without it. The provider still wants one or the other for `offline_access`, and refuses a
   verifier for a code that was asked for with no challenge. Whether the app really sends and checks a
   nonce is for the app.
+- **HTTP callbacks are only for exact loopback hosts.** Registration and the provider both accept
+  `http://localhost` and `http://127.0.0.1`, including when ID's own issuer uses HTTPS. This lets an
+  admin connect an app running on their own machine; other HTTP hosts are refused. The redirect URI
+  still has to match the registered URI exactly for web clients.
 - **`sid` is the session's own id, in the ID token and the logout token,** so two apps can match up a
   person for as long as one session lasts. Workspace apps (who may
   not trust each other) need this looked at before they get `backchannel_logout_uri`.

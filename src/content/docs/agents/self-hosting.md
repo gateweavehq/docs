@@ -3,8 +3,8 @@ title: "Self-hosting Agents"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.2"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/docs/self-hosting.md"
+  version: "v0.28.3"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/self-hosting.md"
 ---
 Agents runs on your own Cloudflare account as one Worker. It uses:
 
@@ -410,6 +410,22 @@ after its conversation's last turn. To keep the bill in hand:
 - `SANDBOX_MONTHLY_BUDGET` limits the server's spending per month. Agents prices sandbox time at
   the most it can cost, so Cloudflare's bill stays under the budget. Set `SANDBOX_ALERT_EMAIL` to
   hear at 80% and at 100%.
+
+### When Cloudflare removes a Workers AI model
+
+Cloudflare retires Workers AI models, with a few weeks' notice in its
+[changelog](https://developers.cloudflare.com/changelog/product/workers-ai/). Sixteen text models
+stop answering on 20 November 2026, among them Kimi K2.6 and K2.7 Code, GLM-5.2, GLM-5.3 Flash,
+DeepSeek V4 Flash and Pro, Nemotron 3 and Qwen3 30B; the changelog entry of 5 November 2026 lists
+them all.
+
+Agents leaves the models Cloudflare has announced out of its model lists, and prices their runs
+until that day, so they count toward `WORKERS_AI_DAILY_DOLLARS` to the end. An agent
+that is still set to one keeps it, and its runs then fail with "Cloudflare removed … from Workers
+AI on 20 November 2026. Choose another model in the agent's settings." Nothing changes an
+agent's model for you, because the next one costs something else: an owner or admin opens the
+agent under **Agents**, chooses **Edit**, and picks another model. Failed runs on the Runs page
+show which agents are left.
 
 ### Usage across workspaces
 

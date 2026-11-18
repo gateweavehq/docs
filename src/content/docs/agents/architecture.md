@@ -3,8 +3,8 @@ title: "Agents architecture"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.2"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/docs/architecture.md"
+  version: "v0.28.3"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/architecture.md"
 ---
 How Gateweave Agents is built today. [spec.md](/agents/spec/) describes where it is going; this file
 changes with the code.
@@ -810,9 +810,19 @@ production leaves it off for now; a self-hoster turns it on.
   `packages/runtime/src/workers-ai.ts`), made with the deployment's token and keeping the models
   whose `function_calling` property is `"true"`, because agents need tools. Any id can still be
   typed.
-- **Prices** for six models are in `MODEL_PRICES` (`packages/model/src/prices.ts`), from the
-  catalog's `price` property. Other Workers AI models get no estimate, as an unlisted model of any
-  provider does.
+- **Prices** for eight models are in `MODEL_PRICES` (`packages/model/src/prices.ts`), from each
+  model's page. Other Workers AI models get no estimate, as an unlisted model of any provider
+  does. A model Cloudflare is removing keeps its prices until that day (`until`), because it
+  answers until then and a run without a cost would not count toward `WORKERS_AI_DAILY_DOLLARS`;
+  `pricedModels`, which the demo lists, leaves it out.
+- **Removed models.** Cloudflare retires models, and a request for one then fails with HTTP 410
+  and error 5028. `WORKERS_AI_REMOVED` (`packages/model/src/workers-ai.ts`) lists the ones it has
+  announced, with the day: the lists above leave them out, their prices end that day, and no dialog or
+  page suggests one, which `apps/web/src/lib/removed-models.test.ts` checks across the
+  repository. An agent still set to one keeps its model: `describeFailure` turns the 410 or the
+  5028 into "Cloudflare removed … from Workers AI on 20 November 2026. Choose another model in
+  the agent's settings." Nothing switches it, in code or in a migration, because an owner or
+  admin chose the model and another costs something else.
 
 ## Agents run by Gateweave
 
@@ -840,6 +850,38 @@ with no repository and its own id as its key, and a row in `agent_definitions` b
   commands and edit files in (see "Sandboxes").
 - **Memory**, off by default, gives its turns the tools that write to the workspace's memory and
   recall from it (see "Memory").
+- **Files only** (`files`, off by default; AGT-122) is for turns that read and edit a
+  repository's files and open pull requests without a sandbox, and run nothing. It ships dark:
+  the registry keeps the setting and its rules, no form offers it, and no turn has file tools
+  yet. The setting is one appended boolean beside `sandbox`, so an agent has `files`, a sandbox
+  or neither, and an agent saved before it reads as it did.
+  - **On save**: `files` with `sandbox` is refused by the input schema
+    (`agentDefinitionInput`), the one rule that needs no registry. The registry refuses `files`
+    without a repository ("Files only works on a repository"), since there is nothing else for
+    such a turn to work on. An engine other than Gateweave's loop, and an MCP server that runs
+    as a local command, are refused as they are for any agent without a sandbox, in the same
+    words. A repository still needs `sandbox` or `files`, so a client that knows nothing of the
+    setting and sends the repository alone is told why. One that sends neither, as a page
+    loaded before the form carried every field (AGT-135) does for an agent without a sandbox,
+    saves the agent with the setting off and no repository. A repository on GitLab is refused in
+    the setting's own words, not a sandbox's.
+  - **In the app**, the form still has no control for it. An edit starts from the agent as it is
+    (`formInput` in `apps/web/src/lib/agent-input.ts`), so an agent that has `files` keeps it
+    and its repository through one; giving it a sandbox there turns `files` off, since it has
+    one or the other. Moving a pin (`moveAgentPin`) takes the pin alone, so it keeps both, and
+    refuses a version of an MCP server that runs as a local command, as for any agent without a
+    sandbox. It is not a turn, so the deployment's setting below has no say in it.
+  - **A turn** (`beginTurn`) with `files` asks for no sandbox: `sandboxOfferTo`, the workspace's
+    sandboxes, the day's minutes and the month's budget do not decide, `runs.sandbox` stays
+    false, and the run counts no sandbox time. It carries `files: true`, the repository, and
+    `steps`, 40 (`MAX_SANDBOX_STEPS`), since its work goes in many small steps too. An ask over a
+    team's edge has no tools, so it has no files either. The snapshot and the turn leave `files`
+    and `steps` out when they do not apply, so both are what they were for every other agent.
+  - **Until the runtime reads it**, a deployment refuses such a turn ("This server does not run
+    agents on files without a sandbox yet") unless it sets `FILES_ONLY_RUNS` to the text `1`,
+    which nothing does; a number or anything else is off. A deployment that set it now would get a turn without file tools, which is why
+    it is off: an agent told it can edit files should not answer as one that cannot. A server
+    that runs no sandboxes still refuses an agent with `sandbox`; it never falls back to files.
 - **A turn reads one snapshot** (`agentSnapshot`): the model and the pinned instructions' text, in
   one synchronous read, so a turn never mixes two versions of an agent.
 - **Removing an agent** marks it removed, as scans do, so its id stays known to whatever names
@@ -1474,6 +1516,16 @@ after a reconnect.
   provider's refusal becomes a sentence of ours chosen by its status (`describeFailure` in
   `packages/runtime/src/models.ts`); the provider's message, which can quote the key, is neither
   shown nor logged.
+- **A turn runs, and can be stopped, before its reply begins.** A reply's first frame waits for
+  the agent's MCP servers, and in a sandbox for the checkout. The page that sent the message
+  shows Stop from the moment it is sent until the send settles, whatever the chat hook's status
+  says: a message sent before a new socket has heard whether a turn was left running is set back
+  to ready by that answer, with the turn under way. A page that opens meanwhile, or a socket
+  that comes back, hears only that a turn is pending (`cf_agent_stream_pending`), of which the chat hook
+  says nothing until the reply starts, so the page reads those frames itself
+  (`apps/web/src/lib/pending-turn.ts`) and stops that turn by its request's id. A stop in that
+  time ends the run as stopped: the model's request never leaves, and an engine in the sandbox
+  is never started.
 - **AI Gateway, when the deployment names one.** With `AI_GATEWAY_URL`
   (`https://gateway.ai.cloudflare.com/v1/<account>/<gateway>`), every model request goes through
   that gateway with the workspace's key (Workers AI: the deployment's token, see "Workers AI"),

@@ -3,8 +3,8 @@ title: "Sign in to Gitea with Gateweave ID"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/recipes/gitea.md"
 source:
   product: "Gateweave ID"
-  version: "v0.16.0"
-  url: "https://github.com/gateweavehq/id/blob/v0.16.0/docs/recipes/gitea.md"
+  version: "v0.16.1"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/recipes/gitea.md"
 ---
 Gitea works once **Require PKCE** is off, and can make people admins from their groups. Read
 [what that setting costs](#what-turning-require-pkce-off-costs) before you decide.

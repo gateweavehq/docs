@@ -4,8 +4,8 @@ description: "Mailboxes for people and agents, on one Cloudflare Worker. Open so
 editUrl: "https://github.com/gateweavehq/mail/edit/main/README.md"
 source:
   product: "Gateweave Mail"
-  version: "v0.1.0"
-  url: "https://github.com/gateweavehq/mail/blob/v0.1.0/README.md"
+  version: "v0.2.0"
+  url: "https://github.com/gateweavehq/mail/blob/v0.2.0/README.md"
 ---
 <p align="center">
   <a href="https://deploy.workers.cloudflare.com/?url=https://github.com/gateweavehq/mail"><img src="https://deploy.workers.cloudflare.com/button" alt="Deploy to Cloudflare"></a>
@@ -62,9 +62,12 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   to agents. Mail's MCP server, at `/mcp`, has tools that wait for mail to come and hand over the
   code in a sign-up or sign-in message without the rest of its text. The same operations are a
   REST API at `/api/v1`, described by an OpenAPI document at `/api/v1/openapi.json`.
-  A mailbox can let an agent send too, in text or HTML and with files. Mail to the addresses and
-  domains its settings name goes on its own; the rest waits for someone who reads the mailbox to approve or reject it. Each
-  agent has a daily limit of its own. An agent can also make addresses for itself, such as one
+  A mailbox can let an agent send too, in text or HTML and with files. An agent sends on its
+  own unless an owner or admin has its mail wait for someone who reads the mailbox to approve or
+  reject it: all of it, or what goes to anyone its settings don't name. Mail to its own
+  workspace's addresses alone never waits, except for an agent made before agents sent on their
+  own, which keeps what it had until someone saves its sending settings. Each agent has a daily limit of its own, 20 messages
+  unless changed, which bounds what an agent that sends on its own can be made to write. An agent can also make addresses for itself, such as one
   for each sign-up, on the domains an admin gives it, as many and for as long as the admin
   allows. Each one ends. One button pauses an agent: its keys do nothing until it is resumed,
   and what it wrote that waits to be tried again waits for a person instead. Each agent has a
@@ -117,12 +120,12 @@ once. Then:
   environment variable, so it is never in the repository.
 - **Any other agent:** point its MCP client at `https://mail.example.com/mcp` with the header
   `Authorization: Bearer <key>`, and give it the skill,
-  [`plugins/gateweave-mail/skills/mail/SKILL.md`](https://github.com/gateweavehq/mail/blob/v0.1.0/plugins/gateweave-mail/skills/mail/SKILL.md),
+  [`plugins/gateweave-mail/skills/mail/SKILL.md`](https://github.com/gateweavehq/mail/blob/v0.2.0/plugins/gateweave-mail/skills/mail/SKILL.md),
   which is plain Markdown.
-- **Code of your own:** [`@gateweave/mail`](https://github.com/gateweavehq/mail/blob/v0.1.0/packages/mail) is a TypeScript client with a method
+- **Code of your own:** [`@gateweave/mail`](https://github.com/gateweavehq/mail/blob/v0.2.0/packages/mail) is a TypeScript client with a method
   for each route, typed from the API's document, a check of a webhook's signature, and a command
   line, `gateweave-mail`, that waits for a sign-in code or sends a message from a script or a CI
-  job. It isn't on npm yet: [its README](https://github.com/gateweavehq/mail/blob/v0.1.0/packages/mail#readme) says how to install a release from
+  job. It isn't on npm yet: [its README](https://github.com/gateweavehq/mail/blob/v0.2.0/packages/mail#readme) says how to install a release from
   `pkg.gateweave.com`. Or call the REST API at `https://mail.example.com/api/v1` with the same
   header; `/api/v1/openapi.json` describes it.
 
@@ -204,17 +207,17 @@ Read [docs/architecture.md](/mail/architecture/) for how it is built, and
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/mail/blob/v0.1.0/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/mail/blob/v0.1.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/mail/blob/v0.1.0/AGENTS.md). Report security issues privately, as described in
-[SECURITY.md](https://github.com/gateweavehq/mail/blob/v0.1.0/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/mail/blob/v0.2.0/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/mail/blob/v0.2.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/mail/blob/v0.2.0/AGENTS.md). Report security issues privately, as described in
+[SECURITY.md](https://github.com/gateweavehq/mail/blob/v0.2.0/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Mail is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/mail/blob/v0.1.0/LICENSE). You can
+Gateweave Mail is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/mail/blob/v0.2.0/LICENSE). You can
 self-host, use and modify Mail freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/mail/blob/v0.1.0/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/mail/blob/v0.2.0/CLA.md).

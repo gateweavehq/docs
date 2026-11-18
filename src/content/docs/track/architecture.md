@@ -3,8 +3,8 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.39.6"
-  url: "https://github.com/gateweavehq/track/blob/v0.39.6/docs/architecture.md"
+  version: "v0.39.7"
+  url: "https://github.com/gateweavehq/track/blob/v0.39.7/docs/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
 This document explains how the pieces fit together and why they are built the way they are.
@@ -680,6 +680,21 @@ uses their own provider: one path, differing only by configuration.
   other ended session. Once a token has arrived it is seen through with `waitUntil`, even if the
   provider stops waiting. Keys that cannot be fetched at that moment get a 503 and end nothing: it
   says nothing about the token, and a provider tries a 503 again where it takes a 400 as final.
+- **A return has ten minutes, in the browser that left.** Better Auth keeps the state of a sign-in
+  in the `verification` table for ten minutes and sets a signed cookie naming it, and a return is
+  taken only when its `state` is such a row, not yet used, and the cookie names the same one. Better
+  Auth gives that cookie five minutes; Track gives it the row's ten
+  (`advanced.cookies.state.attributes.maxAge`), so that someone who signs up at the provider with an
+  emailed code on the way still gets back. Nothing else about the check changes. A browser has one
+  such cookie, so of two tabs that start a sign-in, only the later one can finish.
+- **A failed return comes back to the sign-in page.** One whose state can still be read goes to
+  the page it set out from, query and all, so `redirect` is kept. One whose state is used already or
+  unknown, or missing, has nowhere of its own, and goes to `/login` (`onAPIError.errorURL`) instead
+  of Better Auth's own page, as `/api/auth/error` itself now does. The page maps the `error` code to
+  a sentence of its own (`apps/web/src/lib/sign-in-refusal.ts`) and shows nothing else from the
+  query, which anyone can write. It never starts a sign-in by itself: that address is one any site
+  can link to. An agent's authorization that Better Auth refuses before it trusts the agent's
+  redirect address comes to the same page.
 - **Signing out of Track stays in Track.** The provider's session is left alone, as other apps
   signed in through it would expect, and `disableProviderLogout` keeps the plugin from sending
   anyone there.

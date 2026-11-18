@@ -3,8 +3,8 @@ title: "Memory"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/memory.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.2"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.2/docs/memory.md"
+  version: "v0.28.3"
+  url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/memory.md"
 ---
 A workspace has a memory: short notes that its agents recall in later runs. A note is a fact
 ("The storefront's database is Postgres 17"), a decision ("Deploys go out on Tuesdays") or a
