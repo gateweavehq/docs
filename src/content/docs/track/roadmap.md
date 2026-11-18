@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/track/edit/main/docs/roadmap.md"
 source:
   product: "Gateweave Track"
   version: "v0.39.7"
+  updatedAt: "2026-11-15T00:25:04Z"
   url: "https://github.com/gateweavehq/track/blob/v0.39.7/docs/roadmap.md"
+  markdownUrl: "/markdown/track/roadmap.md"
 ---
 Where Gateweave Track is going, in order. Dates are deliberately absent; each phase ships when its
 "done when" holds. For the wider Gateweave product family, see [ecosystem.md](/track/ecosystem/).

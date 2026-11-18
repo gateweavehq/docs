@@ -22,7 +22,11 @@ export default defineConfig({
 			components: {
 				PageTitle: "./src/components/PageTitle.astro",
 			},
-			sidebar: [{ label: "Home", link: "/" }, ...sidebar],
+			sidebar: [
+				{ label: "Home", link: "/" },
+				{ label: "Agent setup", link: "/agent-setup/" },
+				...sidebar,
+			],
 			lastUpdated: false,
 			pagination: true,
 			plugins: [

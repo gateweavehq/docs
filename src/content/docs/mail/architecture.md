@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/mail/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Mail"
   version: "v0.2.0"
+  updatedAt: "2026-11-18T09:16:22Z"
   url: "https://github.com/gateweavehq/mail/blob/v0.2.0/docs/architecture.md"
+  markdownUrl: "/markdown/mail/architecture.md"
 ---
 How Gateweave Mail is built today, and the shape it is planned to take. This file changes with
 the code.

@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-18T11:31:34Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/CHANGELOG.md"
+  markdownUrl: "/markdown/id/changelog.md"
 ---
 Notable changes to Gateweave ID, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow

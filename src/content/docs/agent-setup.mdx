@@ -1,0 +1,45 @@
+---
+title: Agent setup
+description: Give an AI coding agent the right Gateweave docs and connect product tools when it needs them.
+editUrl: https://github.com/gateweavehq/docs/edit/main/src/content/docs/agent-setup.mdx
+---
+
+import AgentPrompt from "../../components/AgentPrompt.astro";
+
+Gateweave's pages serve people in the browser and agents as Markdown. Start with the documentation
+index, then open only the product pages relevant to the task. Each page shows the source version it
+describes and links to its source repository.
+
+<AgentPrompt />
+
+## Read the right context
+
+1. Open [`llms.txt`](/llms.txt) to find the product and page.
+2. Open the **View as Markdown** link on a page, or use **Copy as Markdown** to put that page in an agent's context. [`llms-small.txt`](/llms-small.txt) is a compact tour; [`llms-full.txt`](/llms-full.txt) includes changelogs and architecture notes.
+3. Before changing a product, read its repository's `AGENTS.md` and check that the documentation version matches the code you are editing. Source repositories: [Track](https://github.com/gateweavehq/track), [Agents](https://github.com/gateweavehq/agents), [ID](https://github.com/gateweavehq/id), [Mail](https://github.com/gateweavehq/mail), and [Guard](https://github.com/gateweavehq/guard).
+
+## Connect tools when the task needs them
+
+Product MCP servers let an agent work with real data under the signed-in person's permissions. Use
+the product's own setup instructions and authenticate through its normal sign-in flow:
+
+- [Track](/track/) for issues, projects and planning.
+- [Mail](/mail/) for mailboxes and sending permissions.
+- [Guard](/guard/) for security findings.
+- [Agents](/agents/) for repository knowledge and agent runs.
+
+In Mail, a connected agent can see **zero mailboxes** until an owner or admin opens a mailbox's
+**Choose who** control and grants that agent access. Reading and sending are separate choices.
+Give it a dedicated mailbox when appropriate; keep outgoing mail waiting for approval or allow
+only the intended recipients instead of giving it broad automatic sending rights.
+
+Read-only documentation does not require a login. Product MCP access does. Give an agent only the
+workspace access needed for its task, and keep passwords, API keys and recovery codes out of
+prompts and source files.
+
+## Verify changes
+
+Use the target repository's checks before opening a pull request. The docs site copies product
+pages from the product repositories at each release, so edit product documentation there. Changes
+to this site's navigation, rendering or agent entry points belong in the
+[docs repository](https://github.com/gateweavehq/docs).

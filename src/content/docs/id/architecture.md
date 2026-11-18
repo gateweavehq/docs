@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/docs/architecture.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-18T10:36:13Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/architecture.md"
+  markdownUrl: "/markdown/id/architecture.md"
 ---
 Gateweave ID is an OpenID Connect provider that runs entirely on Cloudflare, with no server to run.
 It is in the space of Pocket ID and authentik. People hold one account, and any app that supports

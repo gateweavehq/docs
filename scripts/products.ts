@@ -38,8 +38,10 @@ export const products: Product[] = [
 		summary:
 			"See which coding agents work in which repositories, share their setups, run your own agents and keep a wiki of each repository.",
 		pages: [
+			"first-pull-request",
 			"self-hosting",
 			"github-app",
+			"memory",
 			"track-triage",
 			"track-work",
 			"docker-sandboxes",
@@ -82,6 +84,14 @@ export const products: Product[] = [
 		name: "Gateweave Mail",
 		summary:
 			"Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
+		pages: ["self-hosting", "architecture"],
+	},
+	{
+		key: "guard",
+		repo: "guard",
+		name: "Gateweave Guard",
+		summary:
+			"See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
 		pages: ["self-hosting", "architecture"],
 	},
 ];

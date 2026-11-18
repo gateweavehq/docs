@@ -5,7 +5,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/README.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-15T04:28:01Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/README.md"
+  markdownUrl: "/markdown/id/index.md"
 ---
 <p align="center">
   <a href="https://gateweave.com/id"><strong>See what it does</strong></a> ·

@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/github-app.md"
 source:
   product: "Gateweave Agents"
   version: "v0.28.3"
+  updatedAt: "2026-11-01T23:10:05Z"
   url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/github-app.md"
+  markdownUrl: "/markdown/agents/github-app.md"
 ---
 Gateweave Agents reads the agent configuration in each repository, and applies setups by pull
 request, through a GitHub App. Every

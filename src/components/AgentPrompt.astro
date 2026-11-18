@@ -1,0 +1,42 @@
+---
+const prompt = `Use Gateweave's official documentation at https://docs.gateweave.com/llms.txt. First find the relevant product and page, then read its Markdown version before answering or changing code. Check the page's source version and the product repository's AGENTS.md. For implementation work, follow that repository's instructions, verify the result, and link the documentation and pull request in your summary. Do not put secrets in prompts or source files.`;
+---
+
+<button type="button" class="agent-prompt" data-agent-prompt={prompt}>Copy prompt for an AI agent</button>
+
+<script>
+	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-agent-prompt]")) {
+		button.addEventListener("click", async () => {
+			const label = button.textContent;
+			try {
+				await navigator.clipboard.writeText(button.dataset.agentPrompt ?? "");
+				button.textContent = "Copied";
+				window.setTimeout(() => {
+					button.textContent = label;
+				}, 2000);
+			} catch {
+				button.textContent = "Copy failed";
+			}
+		});
+	}
+</script>
+
+<style>
+	.agent-prompt {
+		border: 1px solid var(--sl-color-text-accent);
+		border-radius: 0.35rem;
+		background: var(--sl-color-text-accent);
+		color: var(--sl-color-bg);
+		padding: 0.55rem 0.85rem;
+		font: inherit;
+		font-weight: 600;
+		cursor: pointer;
+	}
+	.agent-prompt:hover {
+		opacity: 0.85;
+	}
+	.agent-prompt:focus-visible {
+		outline: 2px solid var(--sl-color-text-accent);
+		outline-offset: 2px;
+	}
+</style>

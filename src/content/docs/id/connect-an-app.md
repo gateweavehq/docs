@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/docs/connect-an-app.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-15T04:28:01Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/connect-an-app.md"
+  markdownUrl: "/markdown/id/connect-an-app.md"
 ---
 Your own app can sign people in with Gateweave ID. It works with any library that speaks OpenID Connect,
 and only members of the workspace that added it can use it. To put a sign-in in front of an app without

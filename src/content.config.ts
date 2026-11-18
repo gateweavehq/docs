@@ -9,7 +9,15 @@ export const collections = {
 		schema: docsSchema({
 			extend: z.object({
 				/** Where a page copied from a product's repository came from (`scripts/sync.ts`). */
-				source: z.object({ product: z.string(), version: z.string(), url: z.url() }).optional(),
+				source: z
+					.object({
+						product: z.string(),
+						version: z.string(),
+						updatedAt: z.string(),
+						url: z.url(),
+						markdownUrl: z.string(),
+					})
+					.optional(),
 			}),
 		}),
 	}),

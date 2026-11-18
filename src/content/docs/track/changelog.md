@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/track/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Track"
   version: "v0.39.7"
+  updatedAt: "2026-11-18T09:41:47Z"
   url: "https://github.com/gateweavehq/track/blob/v0.39.7/CHANGELOG.md"
+  markdownUrl: "/markdown/track/changelog.md"
 ---
 Notable changes to Gateweave Track, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow

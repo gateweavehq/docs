@@ -5,7 +5,9 @@ editUrl: "https://github.com/gateweavehq/agents/edit/main/README.md"
 source:
   product: "Gateweave Agents"
   version: "v0.28.3"
+  updatedAt: "2026-11-16T00:01:07Z"
   url: "https://github.com/gateweavehq/agents/blob/v0.28.3/README.md"
+  markdownUrl: "/markdown/agents/index.md"
 ---
 <p align="center">
   <a href="https://gateweave.com/watch/issue-to-pull-request.mp4"><strong>Watch a real run (45 s)</strong></a> ·
