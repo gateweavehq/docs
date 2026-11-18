@@ -26,5 +26,12 @@
 		"summary": "Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
 		"repo": "gateweavehq/mail",
 		"version": "v0.2.0"
+	},
+	{
+		"key": "guard",
+		"name": "Gateweave Guard",
+		"summary": "See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
+		"repo": "gateweavehq/guard",
+		"version": "v0.3.2"
 	}
 ]

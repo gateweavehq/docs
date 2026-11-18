@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
   version: "v0.39.7"
+  updatedAt: "2026-11-16T02:11:58Z"
   url: "https://github.com/gateweavehq/track/blob/v0.39.7/docs/self-hosting.md"
+  markdownUrl: "/markdown/track/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
 list of workspaces, a Durable Object for each workspace, and an R2 bucket for attached files.

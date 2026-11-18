@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/docs/recipes/gitea.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-06T23:43:27Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/recipes/gitea.md"
+  markdownUrl: "/markdown/id/recipes/gitea.md"
 ---
 Gitea works once **Require PKCE** is off, and can make people admins from their groups. Read
 [what that setting costs](#what-turning-require-pkce-off-costs) before you decide.

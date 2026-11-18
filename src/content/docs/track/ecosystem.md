@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/track/edit/main/docs/ecosystem.md"
 source:
   product: "Gateweave Track"
   version: "v0.39.7"
+  updatedAt: "2026-11-14T20:03:04Z"
   url: "https://github.com/gateweavehq/track/blob/v0.39.7/docs/ecosystem.md"
+  markdownUrl: "/markdown/track/ecosystem.md"
 ---
 > **Status: draft proposal.** This describes where the product family could go and the
 > architecture that would let it get there. Nothing here is built yet except Track itself.

@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/docs/recipes/outline.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-06T23:43:27Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/recipes/outline.md"
+  markdownUrl: "/markdown/id/recipes/outline.md"
 ---
 Outline works once its app is set to send the secret in the body of the request, which is the one setting it
 needs changed.

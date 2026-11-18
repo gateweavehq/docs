@@ -6,17 +6,65 @@
 import Default from "@astrojs/starlight/components/PageTitle.astro";
 
 const { source } = Astro.locals.starlightRoute.entry.data;
+const markdownUrl = source?.markdownUrl;
+const prompt = source
+	? `Read the current ${source.product} documentation page at https://docs.gateweave.com${source.markdownUrl} before making changes. The page describes ${source.version}. Follow the source repository's AGENTS.md, verify current behavior, and run its checks before proposing a change.`
+	: undefined;
 ---
 
 <Default />
 {
 	source && (
-		<p class="source">
-			{source.product} · {source.version === "main" ? "unreleased" : source.version} ·{" "}
-			<a href={source.url}>source on GitHub</a>
-		</p>
+		<>
+			<p class="source">
+				{source.product} · {source.version === "main" ? "unreleased" : source.version} ·{" "}
+				<time datetime={source.updatedAt}>
+					Last updated {new Date(source.updatedAt).toLocaleDateString("en", { dateStyle: "medium", timeZone: "UTC" })}
+				</time>{" "}
+				· <a href={source.url}>source on GitHub</a>
+			</p>
+			<div class="doc-actions" aria-label="Documentation actions">
+				<a href={markdownUrl}>View as Markdown</a>
+				<button type="button" data-doc-markdown={markdownUrl}>Copy as Markdown</button>
+				<button type="button" data-doc-prompt={prompt}>Copy prompt</button>
+			</div>
+		</>
 	)
 }
+
+<script>
+	const copied = (button: HTMLButtonElement) => {
+		const label = button.textContent;
+		button.textContent = "Copied";
+		window.setTimeout(() => {
+			button.textContent = label;
+		}, 2000);
+	};
+	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-doc-markdown]")) {
+		button.addEventListener("click", async () => {
+			const path = button.dataset.docMarkdown;
+			if (!path) return;
+			try {
+				const response = await fetch(path);
+				if (!response.ok) throw new Error(`Markdown answered ${response.status}`);
+				await navigator.clipboard.writeText(await response.text());
+				copied(button);
+			} catch {
+				button.textContent = "Copy failed";
+			}
+		});
+	}
+	for (const button of document.querySelectorAll<HTMLButtonElement>("[data-doc-prompt]")) {
+		button.addEventListener("click", async () => {
+			try {
+				await navigator.clipboard.writeText(button.dataset.docPrompt ?? "");
+				copied(button);
+			} catch {
+				button.textContent = "Copy failed";
+			}
+		});
+	}
+</script>
 
 <style>
 	.source {
@@ -29,5 +77,31 @@ const { source } = Astro.locals.starlightRoute.entry.data;
 	}
 	.source a:hover {
 		color: var(--sl-color-white);
+	}
+	.doc-actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
+		margin-top: 0.75rem;
+		font-size: var(--sl-text-sm);
+	}
+	.doc-actions a,
+	.doc-actions button {
+		border: 1px solid var(--sl-color-hairline);
+		border-radius: 0.35rem;
+		background: transparent;
+		color: var(--sl-color-text-accent);
+		padding: 0.35rem 0.65rem;
+		font: inherit;
+		cursor: pointer;
+	}
+	.doc-actions a:hover,
+	.doc-actions button:hover {
+		background: var(--sl-color-gray-6);
+	}
+	.doc-actions a:focus-visible,
+	.doc-actions button:focus-visible {
+		outline: 2px solid var(--sl-color-text-accent);
+		outline-offset: 2px;
 	}
 </style>

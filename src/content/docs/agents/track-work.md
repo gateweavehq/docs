@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/track-work.md"
 source:
   product: "Gateweave Agents"
   version: "v0.28.3"
+  updatedAt: "2026-11-14T23:17:24Z"
   url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/track-work.md"
+  markdownUrl: "/markdown/agents/track-work.md"
 ---
 An agent run by Gateweave can take the issues you assign to it in a
 [Gateweave Track](https://github.com/gateweavehq/track) workspace. It joins the workspace as an

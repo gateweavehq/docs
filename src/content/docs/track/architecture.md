@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
   version: "v0.39.7"
+  updatedAt: "2026-11-18T09:14:38Z"
   url: "https://github.com/gateweavehq/track/blob/v0.39.7/docs/architecture.md"
+  markdownUrl: "/markdown/track/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
 This document explains how the pieces fit together and why they are built the way they are.

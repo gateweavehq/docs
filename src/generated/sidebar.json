@@ -36,12 +36,20 @@
 				"slug": "agents"
 			},
 			{
+				"label": "From zero to a first pull request",
+				"slug": "agents/first-pull-request"
+			},
+			{
 				"label": "Self-hosting",
 				"slug": "agents/self-hosting"
 			},
 			{
 				"label": "Connecting GitHub",
 				"slug": "agents/github-app"
+			},
+			{
+				"label": "Memory",
+				"slug": "agents/memory"
 			},
 			{
 				"label": "Triaging Track issues",
@@ -62,14 +70,6 @@
 			{
 				"label": "Architecture",
 				"slug": "agents/architecture"
-			},
-			{
-				"label": "From zero to a first pull request",
-				"slug": "agents/first-pull-request"
-			},
-			{
-				"label": "Memory",
-				"slug": "agents/memory"
 			},
 			{
 				"label": "Changelog",
@@ -145,6 +145,27 @@
 			{
 				"label": "Changelog",
 				"slug": "mail/changelog"
+			}
+		]
+	},
+	{
+		"label": "Gateweave Guard",
+		"items": [
+			{
+				"label": "Overview",
+				"slug": "guard"
+			},
+			{
+				"label": "Self-hosting",
+				"slug": "guard/self-hosting"
+			},
+			{
+				"label": "Architecture",
+				"slug": "guard/architecture"
+			},
+			{
+				"label": "Changelog",
+				"slug": "guard/changelog"
 			}
 		]
 	}

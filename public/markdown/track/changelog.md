@@ -1,0 +1,2148 @@
+# Track changelog
+
+Notable changes to Gateweave Track, newest first. The format follows
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
+[Semantic Versioning](https://semver.org). Until 1.0, any release may change how things work:
+read its entry before updating a self-hosted copy.
+
+Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
+notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.39.7] - 2026-11-18
+
+Signing in through a provider: a return that fails comes back to Track's own page, and a sign-in
+may take ten minutes. There is no migration in this release.
+
+### Fixed
+
+- **A failed return from the sign-in provider lands on Track's sign-in page.** It used to show
+  the authentication library's bare error page. The page now says what happened in a sentence of
+  Track's own, chosen from a fixed list; nothing from the link is shown. ([#327])
+- **A sign-in through a provider may take ten minutes.** After five, the return was refused, so
+  anyone who signed up at the provider with an emailed code or reset a password on the way had to
+  start again. The check itself is unchanged: the return must come to the browser that started,
+  once. ([#327])
+- **`/settings/account` opened signed out** remembers where you were headed. ([#327])
+- **The path to go to after signing in** is refused when its dot segments resolve to another
+  site (`/.//example.com`). Nothing followed such a path before, because the router and the
+  authentication library refuse it too. ([#329])
+
+### If you run your own
+
+- **Update.**
+
+## [0.39.6] - 2026-11-16
+
+A guard that cannot read the session now refuses. There is no migration in this release.
+
+### Fixed
+
+- **A guard that cannot read the session refuses.** The guards on listing a workspace's
+  invitations and on counting password tries decide by the caller's session. When a session
+  cookie is present and the session cannot be read, they now refuse the request instead of
+  leaving the decision to the endpoint. Nothing changes when the database answers. ([#324])
+
+### If you run your own
+
+- **Update.**
+
+## [0.39.5] - 2026-11-16
+
+Puts back a guard that v0.39.4 dropped by mistake. There is no migration in this release.
+
+### Fixed
+
+- **A server function's request from another origin is refused again.** The framework refuses
+  such a request unless the browser says it comes from the app's own origin. v0.39.4 added a file
+  that replaced the framework's default without listing that guard, so for some hours it did not
+  run. The session cookie is `SameSite=Lax`, which browsers keep off another site's `POST`
+  requests, and everything that changes something is a `POST`, so a page on an unrelated site
+  could not act as a signed-in person in such a browser. A page on another host of the same site (another
+  subdomain of the deployment's domain) could have, for the settings a workspace's pages change:
+  webhooks, the GitHub connection, notification settings, a guided team. Issues and everything
+  that syncs go through the sync gateway, which checks the origin itself and was not affected.
+  ([#322])
+
+### If you run your own
+
+- **If you run v0.39.4, update.**
+
+## [0.39.4] - 2026-11-16
+
+A database read that fails in passing is asked again instead of becoming an error, and a query
+that fails for good no longer shows or logs its values. There is no migration in this release.
+
+### Fixed
+
+- **An error because one database read failed.** When a single read from D1 failed, a page, a
+  sync connection or an MCP call was an error although asking again would have worked. A plain
+  read (one `SELECT` statement) that fails with one of the errors Cloudflare documents as passing
+  is now sent up to three times, a moment apart. Everything else is sent once, as before: writes,
+  several statements in one, and any other error. ([#320])
+- **A failed database query no longer carries its values.** When a query failed for good, the
+  error held the statement and its values. A failed read of a session was logged with the
+  session's token among them, and a failed read for a page showed them on the error page. The
+  token alone does not sign anyone in: the cookie also carries a signature made with the
+  server's secret. A failure now carries a reference only. The log has the kind of failure and
+  the statement without its values under the same reference, and the page shows a plain sentence
+  with it. To see whether a server ever logged one, search its logs for `Failed query:`.
+  ([#320])
+
+### If you run your own
+
+- **Nothing to do.** If a page shows a reference, the line with the same reference in the
+  Worker's logs says what failed.
+
+## [0.39.3] - 2026-11-15
+
+An invitation's buttons no longer do nothing when pressed early. There is no migration in this
+release.
+
+### Fixed
+
+- **Joining by an invitation on a slow connection.** Join, Decline and Switch account on the
+  invitation page, and "Email me a link", work only once the page's script has run, but they
+  looked ready before that. Pressed then, they did nothing and said nothing, and the person
+  stayed on the invitation. They are now disabled until the page is ready, as the buttons on the
+  sign-in page already were. ([#316])
+
+### If you run your own
+
+- **Nothing to do.**
+
+## [0.39.2] - 2026-11-15
+
+The public demo shows what an agent member's work looks like. There is no migration in this
+release, and nothing changes outside the demo.
+
+### Changed
+
+- **The demo has an agent member and one issue that shows its work.** A sandbox now comes with
+  an agent member, Coder, and a sample issue it was assigned: its two comments, the status it
+  moved, and one change it proposed, which the visitor can accept or dismiss. No agent runs in
+  the demo, and the issue says so itself and links the recording of a real run. The welcome card
+  points to it. ([#314])
+- **The README links the questions page and GitHub Discussions.** ([#313])
+
+### If you run your own
+
+- **Nothing to do.** Your copy is not a demo unless you set `TRACK_DEMO`, and `pnpm dev:seed`
+  adds the same example only where `/mcp` is on.
+
+## [0.39.1] - 2026-11-15
+
+A connection to an agent that was started and not finished no longer leaves an agent member and
+a webhook behind. There is no migration in this release.
+
+### Fixed
+
+- **An unfinished agent connection is taken back.** Allowing a connection on `/connect/agent`
+  makes the agent member and its webhook at once, and the asking server then fetches their key
+  and secret with a one-time code. When that never happened (the tab was closed, the server was
+  down) or the code was refused, both stayed in the workspace for an admin to find and remove.
+  Track now removes them itself: at once when a code is refused, and otherwise when the next
+  connection is approved or on the daily run. An agent that someone has taken over by hand in
+  the meantime, by giving it another key or using its key, is left alone. The audit log says
+  why an agent went. ([#310])
+
+### Changed
+
+- **The README opens with an agent taking an issue**: the tagline says that agents are members,
+  and a frame of one real run links to its 45-second recording. ([#309], [#311])
+- **The roadmap lists connecting an agent in one step under Done.** That line was written by
+  the agent in the recording. ([#308])
+
+### If you run your own
+
+- **Nothing to do** beyond updating. If you ever go back to v0.39.0 after running this version,
+  delete the rows of `verification` whose identifier starts with `track-connect:` first: this
+  version keeps them for three days, and v0.39.0 would read that as how long a code is good
+  for. A connection that was unfinished at that moment then keeps its agent member and webhook:
+  remove those under Settings, Agents and Settings, Webhooks.
+
+## [0.39.0] - 2026-11-15
+
+Another server, such as Gateweave Agents, can add an agent to a workspace in one step: an owner
+or admin approves it on a page in Track, and no key or secret is copied by hand. There is no
+migration in this release.
+
+### Added
+
+- **Connect an agent in one step.** Setting up an agent by hand took seven steps across two
+  products, with a key and a webhook secret copied between tabs. A server can now send an owner
+  or admin to Track's new page at `/connect/agent`, which shows in large type which address is
+  asking and, in words, what Allow makes: an agent member and a webhook to that address, for one
+  team or all. Allow makes both or neither, and Cancel makes nothing. The asking server then
+  fetches the key and the secret itself, for a one-time code that is good for a minute and a
+  proof that it is the server that started, so neither is ever in a page, an address or a
+  clipboard. It can also take back what was made if its own setup fails. Only an owner or admin
+  can allow, the audit log records who asked, and the manual way under Settings stays.
+  ([#306])
+
+### Changed
+
+- **The roadmap lists feature flags under Done.** ([#305])
+
+### If you run your own
+
+- **Nothing to do** beyond updating: no migration, and the page works without any setting. To
+  have it show your own Agents server as known rather than with a warning, set `CONNECT_ORIGINS`
+  to its origin, such as `https://agents.example.com`; see "Connecting agents from another server" in
+  `docs/self-hosting.md`. A workspace whose address is `connect` cannot be made any more.
+
+## [0.38.0] - 2026-11-14
+
+A server can turn a feature on for some workspaces before everyone gets it. Nothing changes
+unless a server sets that up: without it, every feature behind a flag stays as it is. There is no
+migration in this release.
+
+### Added
+
+- **Feature flags, for a server that wants them.** A feature can now be merged before it is ready
+  for everyone. `apps/web/src/lib/flags.ts` lists each flag with its default, and a server with
+  a [Cloudflare Flagship](https://developers.cloudflare.com/flagship/) app bound as `FLAGS`
+  decides them per workspace when the workspace opens. The answer is kept with what the browser
+  remembers of the workspace, so opening it without a connection shows what it showed last. Only
+  the workspace's id is sent to the flag store, and a store that fails leaves each flag at its
+  default. ([#302])
+- **A count beside "My issues"**, the first feature behind a flag (`my-issues-count`, off by
+  default): how many open issues are assigned to you, in the sidebar. ([#302])
+
+### Changed
+
+- **The ecosystem document links Gateweave Guard's repository**, which is public now. ([#303])
+
+### If you run your own
+
+- **Nothing to do** beyond updating: no migration and no new setting. Your copy asks no outside
+  service about flags and serves each default. To turn a flag on early for your own workspaces,
+  see Feature flags in `docs/self-hosting.md`.
+
+## [0.37.0] - 2026-11-14
+
+A person can see the AI assistants they allowed to act as them through `/mcp`, and take one
+back, effective at once. There is no migration in this release.
+
+### Added
+
+- **Assistants you allowed.** Your account page lists each app you let act as you: the name it
+  gave itself, where it goes ("an app on this computer" for one on your own machine), when you
+  allowed it and when it was last used. "Take back" ends its access at once: its tokens and your
+  consent go, and `/mcp` checks the consent on every call, so even an access token that hasn't
+  expired is refused, and the app has to ask you again. Agent members' keys are not affected;
+  they are revoked in workspace settings as before. ([#300])
+
+### Changed
+
+- **The daily clean-up also deletes OAuth clients** that registered themselves more than a day
+  ago and that nobody allowed. ([#300])
+
+### If you run your own
+
+- **Nothing to do** beyond updating: no migration and no new setting.
+
+## [0.36.0] - 2026-11-14
+
+The public demo shows what it is doing while it makes a visitor's workspace, and points to
+Gateweave Cloud and self-hosting from a bar at the bottom. Only the demo changes. There is no
+migration in this release.
+
+### Changed
+
+- **The demo opens with a progress screen.** Making a sandbox takes a few seconds, during which
+  the button only said "Opening your workspace…". A screen now shows the server's real steps in
+  order: the private account, Acme's people and teams, the issues, projects and cycle, and opening
+  it on this device. The last step finishes when the issue list is on screen. If something
+  fails, the screen says so and offers to try again. ([#297])
+- **A bar at the bottom replaces the demo's banner.** It shows how long the sandbox has before it
+  is deleted, and lets the visitor start over with a new sandbox. It links to Gateweave Cloud and
+  to the repository and the self-hosting guide, and can be hidden for the tab. ([#297])
+- **A welcome card on the first visit** suggests two things to try: opening the workspace in a
+  second tab to watch changes arrive live, and editing offline. ([#297])
+
+### If you run your own
+
+- **Nothing to do** beyond updating. All of this appears only when `TRACK_DEMO` is `"1"`.
+
+## [0.35.4] - 2026-11-14
+
+Track reads email with postal-mime 4.2.1, a security release of the parser. There is no migration
+in this release.
+
+### Security
+
+- **Parsing a crafted email could take a long time.** Track parses mail from anyone sent to a
+  team's intake address, and requesters' replies. In postal-mime before 4.2.1, a deeply nested
+  multipart message made boundary matching cost the nesting depth times the message size. The
+  parser also read an address's domain with whitespace beside a dot differently from RFC 5322;
+  Track already treats an intake email's sender as unproven, so that changed no decision here.
+  ([#295])
+
+### If you run your own
+
+- **Nothing to do** beyond updating.
+
+## [0.35.3] - 2026-11-13
+
+An email to a team's intake address is filed once, even when it arrives twice, push turned off
+stays off, and Gateweave Cloud's Worker runs near its databases in the EU. There is no migration
+in this release.
+
+### Changed
+
+- **Gateweave Cloud runs its Worker near its databases.** They are in the EU, and a page from far
+  away made its queries across an ocean, one after another: opening the demo took 11 seconds from
+  the US. The Worker now runs near Warsaw, where they answer; static files still come from the
+  nearest data center. A self-hosted copy is unchanged, and the self-hosting guide says how to do
+  the same. ([#293])
+
+### Fixed
+
+- **An email delivered twice became two requests.** Cloudflare's Email Routing delivers mail at
+  least once, so a mail it sent again after a slow or failed first try filed a second request, or a
+  second comment on one, and stored its attachments twice against the workspace's file quota. The
+  workspace now remembers each mail it filed, by its `Message-ID`, sender and date, for as long as
+  it remembers applied changes, and takes it again without filing anything. A mail that arrives
+  again after a delivery failed partway reuses the attachments already stored. A mail without a
+  `Message-ID` can't be told apart from another, so it is filed each time, as before. ([#290])
+- **A restart in the middle of a move ended its freeze.** While a workspace's rows are copied to
+  its new place, the old object sits idle, and Cloudflare may restart it. It then took writes
+  again, which the copy would miss, or the move failed at its last check. The freeze now holds
+  until it lapses, ten minutes after it began. ([#292])
+- **Push turned off could come back on.** Track saves this browser's push subscription again each
+  time it starts. Turned off while that was under way, push was saved again, and came back on then
+  or at the next start. Changes to push in a browser now run one at a time, across its tabs.
+  ([#294])
+
+### If you run your own
+
+- **Nothing to do.** If your database is far from your team, `docs/self-hosting.md` ("Keeping
+  data in one jurisdiction") now says how to run the Worker near it.
+
+## [0.35.2] - 2026-11-13
+
+A change kept unsent on a device for weeks no longer risks landing twice. There is no migration
+in this release.
+
+### Fixed
+
+- **A change kept offline for over four weeks could apply twice.** The server remembers which
+  changes it has applied for 30 days, so a device that sends one again after a lost confirmation
+  is recognized. A device that stayed away longer could resend a change the server had already
+  applied and forgotten, and a comment edit, a project rename or an archive would then land again
+  over newer edits. A browser now keeps an unsent change for 29 days at most: older ones are not
+  sent, and the app says they were not saved. ([#288])
+
+### If you run your own
+
+- **Nothing to do.**
+
+## [0.35.1] - 2026-11-13
+
+Opening the demo is quick again from far away. There is no migration in this release.
+
+### Fixed
+
+- **The demo opened slowly outside Europe.** Since 0.35.0 each sandbox lives in the EU, and its
+  sample data went over one write at a time, so from the US opening a demo took about twenty
+  seconds. It now goes in two calls. A guided team and its issues go in one call too, which helps a
+  new workspace made far from its server's jurisdiction. ([#286])
+
+### If you run your own
+
+- **Nothing to do.**
+
+## [0.35.0] - 2026-11-13
+
+A server can now keep its workspaces in one of Cloudflare's jurisdictions, and Gateweave Cloud's
+workspaces move into the EU, after its database and files. This release adds a D1 migration,
+which `pnpm run deploy` applies.
+
+### Added
+
+- **Workspaces in one jurisdiction.** `DURABLE_OBJECT_JURISDICTION` (`eu`, `us`, `fedramp` or
+  `fedramp-high`) keeps each workspace's Durable Object, which holds its issues, comments and
+  members, in that jurisdiction. New workspaces are made there. The daily Cron Trigger moves the
+  older ones there, three a run: each is paused for a few seconds while its rows are copied and
+  checked against the original, then its clients reconnect to the new place and carry on. The old
+  copy is sealed and kept until the workspace is deleted. Rate limits are counted there too.
+  ([#284])
+
+### Changed
+
+- **Gateweave Cloud's workspaces are in the EU.** track.gateweave.com, staging and the demo set
+  `DURABLE_OBJECT_JURISDICTION` to `eu`. The demo's list of sandboxes moved to a database in the
+  EU as well. ([#283], [#284])
+
+### If you run your own
+
+- **The D1 migration** adds the `workspace_location` table, which notes where each workspace's
+  object is. `pnpm run deploy` applies it before the new code goes live.
+- **Nothing else changes unless you set `DURABLE_OBJECT_JURISDICTION`.** "Keeping data in one
+  jurisdiction" in `docs/self-hosting.md` covers it, with the database and the bucket of files.
+  Unsetting it later moves nothing back.
+
+## [0.34.1] - 2026-11-13
+
+Gateweave Cloud's Track now keeps its database and attached files in the EU. Nothing changes for
+a server you run yourself, and there is no migration in this release.
+
+### Changed
+
+- **Gateweave Cloud's database and files are in the EU.** track.gateweave.com's D1 database and
+  its bucket of attached files moved to ones created with Cloudflare's `eu` jurisdiction, which
+  guarantees where they run and store data. The old ones only had an Eastern Europe location hint,
+  which does not. Everything was copied over, files with their type and uploader, including what
+  was written while the release deployed. Workspaces live in Durable Objects, which move
+  separately. Staging moved first. ([#280], [#281])
+
+### Fixed
+
+- `pnpm dev:seed` works again when local email is on. It used to stop at the first invitation,
+  because the sample people have no mailbox to verify their address with. ([#279])
+
+### If you run your own
+
+- **Nothing to do.** The top level of `wrangler.jsonc`, which is what you deploy, is as it was;
+  Gateweave Cloud's production now deploys its own `cloud` environment.
+- If your `FILES` binding names a bucket in a jurisdiction, `pnpm run deploy` now creates a
+  missing bucket in that jurisdiction too, instead of an empty one outside it. ([#281])
+
+## [0.34.0] - 2026-11-13
+
+Admins can now see who changed their workspace, and when. Each workspace adds the table for it
+itself when it next wakes; there is no D1 migration in this release.
+
+### New
+
+- **Audit log.** Settings has a new Audit log page for admins. It lists who invited, removed or
+  promoted whom, who joined or left, who added, renamed or deleted an agent or made or revoked its
+  keys, who changed a team's name, key, cycles, automations, request form or intake email, who
+  changed statuses, webhooks or GitHub connections, and who deleted labels, projects, issues or
+  someone else's comment. The newest come first. The log keeps a deleted issue's key but not its
+  title, and a webhook's host but not the rest of its address. It names people as the workspace
+  knows them now, so someone who deleted their account appears as "Deleted member". Entries are
+  kept for a year. Only admins can read it. ([#277])
+
+### If you run your own
+
+- The log holds the addresses invitations went to, for a year. If your privacy policy lists what
+  Track keeps, add it; see Audit log in `docs/architecture.md`.
+- Deploys can now check themselves. `pnpm test:smoke` with `TRACK_SMOKE_URL` set opens a
+  deployment from outside and checks that sign-in, the service worker, sync and `/mcp` answer as
+  they should. Gateweave Cloud's deploys run it after each environment goes live; see Checking a
+  deployment in `docs/self-hosting.md`. ([#276])
+
+## [0.33.0] - 2026-11-12
+
+Track can now send notifications to people's phones and computers. This release has two
+migrations, one in D1 and one in each workspace, and push stays off until the server has a key for
+it.
+
+### New
+
+- **Push notifications.** Anyone can turn on push in Settings, Notifications, on each phone or
+  computer they use Track on. News from their inbox that they get by email then also reaches those
+  devices as it happens, one notification per issue, and a click opens the issue. News read in Track
+  first is not pushed, and the email still follows ten minutes later if it stays unread. Each
+  message is encrypted so that only that browser can read it, and passes through the browser's own
+  push service: Google's for Chrome, Mozilla's for Firefox, Apple's for Safari, Microsoft's for Edge.
+  Signing out on a device turns push off there. On iPhone and iPad, push works once Track is added
+  to the Home Screen. ([#274])
+
+### If you run your own
+
+- **To turn push on,** make the key your server signs pushes with and set it in one go, so it is
+  never shown: `node apps/web/scripts/push-key.mjs | pnpm wrangler secret put PUSH_VAPID_KEY`.
+  Keep the key: a new one makes everyone turn push on again on each device. Name the browsers' push
+  services in your privacy policy; see Push notifications in `docs/self-hosting.md`.
+- `pnpm run deploy` applies the D1 migration (`0014_push_subscription`). Each workspace adds its
+  own column when it next wakes.
+
+## [0.32.0] - 2026-11-12
+
+A backup Worker in the same Cloudflare account can now back up every workspace. There is no
+migration in this release, and nothing changes until such a Worker binds to it.
+
+### New
+
+- **A way in for backups.** D1 can be backed up from outside the Worker, but a workspace's Durable
+  Object can't: only Track's own code reads its SQLite. The Worker now exports a named entrypoint,
+  `Backup`, for a backup Worker such as Gateweave Backup's. It lists the workspaces and runs a SQLite
+  dump's reads in one, inside a transaction it always rolls back, so a backup sees one moment and
+  can change nothing. It has no route: only a Worker in the same account with a service binding to
+  it can call it. A name that isn't a workspace answers null, so a backup never makes an empty
+  one. ([#272])
+
+### If you run your own
+
+- **To back up your workspaces,** bind a backup Worker to the entrypoint
+  (`"services": [{ "binding": "TRACK", "service": "<your Worker>", "entrypoint": "Backup" }]`); see
+  Backups in `docs/self-hosting.md`. The copies it makes hold your workspaces' issues and comments:
+  keep them as you keep the database.
+
+## [0.31.0] - 2026-11-11
+
+The person who runs a server can now close sign-up and keep a list of who may make an account.
+This release has four migrations, and nothing changes until the owner closes sign-up.
+
+### New
+
+- **Who runs this server.** Track now knows its server's owner: the oldest account that is a person,
+  or on a new server the first account made. The owner gets a **This server** section on the account
+  page. Changing anything there asks for a recent sign-in. If the owner deletes their account while
+  sign-up is open, the next oldest person becomes the owner. ([#269])
+- **Closed sign-up and the owner's list.** The owner can close sign-up. Then an account can be made
+  only by:
+  - an address on the owner's list, or at a domain on it (`@example.com` covers that domain, not its
+    subdomains); the list has notes, a search and room for 5,000 entries, and shows whether each
+    entry has an account yet;
+  - an address with a pending invitation to a workspace, as before;
+  - if the owner turns on **Trust** for it, the OpenID Connect provider Track is set up with, such as
+    Gateweave ID, which keeps its own list. GitHub is never trusted this way.
+
+  Every way of making an account (password, GitHub, OpenID Connect, invitations) gives the same
+  refusal, and says nothing about which addresses have accounts. The database holds any other path
+  to the same rule. ([#269])
+- **Ask for access.** If `SIGN_UP_REQUEST_URL` is set to an https address, the sign-in page links to
+  it while sign-up is closed. ([#269])
+
+### If you run your own
+
+- **Nothing changes unless you close sign-up.** Deploying applies migrations `0010` to `0013` and
+  makes your oldest account the owner. Check that it's yours before you close sign-up. To hand the
+  server to someone else, change `owner_id` in the `deployment` table.
+- **The list holds addresses of people who may not have an account yet.** It is personal data in
+  your D1 database (`sign_up_allow`). Mention it in your own privacy notice. ([#269])
+- **`pnpm dev:seed` needs sign-up open**, since it signs its sample people up through the API.
+
+## [0.30.7] - 2026-11-11
+
+A changed webhook stops retrying what it no longer wants. There is no migration in this release.
+
+### Fixed
+
+- **Changing a webhook drops what it no longer wants.** Pausing a webhook already failed what it had yet to deliver,
+  but changing its teams, events or agent dropped nothing: deliveries about a team taken off it, or of an event it
+  stopped listening to, kept being retried to the receiver for up to about 17 hours. Each waiting delivery is now
+  checked against the webhook as it is, and those it would no longer send fail with a reason its settings show. A
+  delivery waiting its turn goes out with the webhook's URL and secret as they are when it is sent. ([#265])
+
+### Changed
+
+- **Dependencies are up to date**, among them Better Auth 1.7.18, Vite 8.3.6 and Wrangler 4.158. ([#266])
+
+## [0.30.6] - 2026-11-09
+
+Webhooks to a host on your own zone now come in through Cloudflare. There is no migration in this release.
+
+### Security
+
+- **Webhooks reach your own zone as anyone's requests do.** A request from the Worker to another host on its own zone
+  went straight to that host's origin, past the security settings in front of it, such as Access or the WAF. A
+  webhook's URL is the choice of whoever owns a workspace, so the Worker now runs with the `global_fetch_strictly_public`
+  compatibility flag, and such a request comes in through Cloudflare like anyone's. A URL naming Track's own host with a
+  trailing dot is refused, as the host itself is. ([#263])
+
+### If you run your own
+
+- **Deploy, and keep the flag.** It is in `wrangler.jsonc`. If you keep compatibility flags of your own elsewhere, add
+  `global_fetch_strictly_public` to them. Requests to GitHub and to sign-in providers elsewhere are unaffected, and a
+  provider on your own zone served by a Worker on a Custom Domain is reached as before. One on your own zone behind
+  Access or a WAF rule now meets those rules, as a request from anywhere else would.
+- **`pnpm install` no longer pulls in a flagged version of esbuild** through drizzle-kit, which only makes migrations.
+  ([#258])
+
+## [0.30.5] - 2026-11-07
+
+Whoever runs a server with no email can now help someone back in. There is no migration in this release.
+
+### Fixed
+
+- **A way back in without email.** Without email nobody could reset a forgotten password, and `/forgot-password` told
+  them to ask whoever runs the server, who had nothing to do about it. The self-hosting guide now says how: find the
+  person's `id` in a list, run one statement, and pass on the link it prints. The link works once, for an hour. Using it
+  signs the person out everywhere, as a reset does with email. ([#256])
+
+### If you run your own
+
+- **Nothing to do for this release.** Nothing changes on a server that sends email.
+- **`CONTRIBUTING.md` now says where a newcomer can start.** ([#255])
+
+## [0.30.4] - 2026-11-07
+
+People now hear by email when the tries at their password run out. There is no migration in this release.
+
+### Security
+
+- **An email when the tries at a password run out.** Whoever holds a copy of a session can use up the person's
+  allowance, which keeps them from changing their password in settings for a while. They now get an email at the first
+  refusal, saying what happened and what to do, at most once a day and only at an address they have verified. The
+  refusal doesn't wait for it, and it is the same as before. ([#250])
+
+### If you run your own
+
+- **Nothing to do for this release.** With no email set up, nothing changes.
+- **The self-hosting guide now says where your database lives and how to choose.** A D1 database stays where it was
+  made, so this is worth reading before your first deploy. ([#249])
+
+## [0.30.3] - 2026-11-07
+
+Reading a session takes one trip to the database instead of two. There is no migration in this release.
+
+### Performance
+
+- **One query fewer each time a session is read.** Better Auth read the session, then the person, as two queries, and
+  each is a trip to D1's primary from wherever the Worker runs: measured at about 19 ms from Frankfurt, 109 from
+  Virginia, 240 from Tokyo and 290 from Sydney with the primary in Eastern Europe. Opening a socket and fetching a
+  snapshot now make two reads instead of three. ([#247])
+
+### If you run your own
+
+- **Where your database lives matters more than this does.** A D1 database stays where it was created, and every read
+  and write of a session goes there. Nothing to do for this release, but if your people are far from it, that is where
+  the time goes.
+
+## [0.30.2] - 2026-11-07
+
+Tries at a password are now held per person where a session asks for one, and the account settings can end every session
+at once. There is no migration in this release.
+
+### Security
+
+- **A stolen cookie could guess at the password from as many addresses as it could be sent from.** Better Auth counts
+  per client address, at five tries a minute. Changing a password and deleting an account now also share an allowance
+  per person: 10 at once, refilling over an hour, within 30 that refill over a day. Over it, they answer 429 with the
+  code `TOO_MANY_PASSWORD_TRIES`, and the page says so in words. It is spent before the password is checked, so the
+  right password counts too and is refused once it has gone. ([#244])
+- **"Sign out everywhere" in the account settings.** It asks for no password and ends every session of the account, this
+  browser's too, because a stolen cookie may be a copy of this browser's and nobody can tell. This browser's copy of
+  your workspaces is deleted with it, and open sockets close. The public demo hides it along with the other account
+  forms. ([#245])
+
+### If you run your own
+
+- **Nobody can lock a person out with their address alone.** Only a request with a session for that account spends the
+  allowance, and signing in is not part of it. Whoever holds the cookie can spend it, which keeps the person from
+  changing their password in settings for a while. A password reset asks for no session, and signing out everywhere asks
+  for no password.
+
+## [0.30.1] - 2026-11-07
+
+Twelve auth routes that no page uses are closed, and a test now notices when a Better Auth upgrade adds a route. There
+is no migration in this release.
+
+### Security
+
+- **Twelve routes that no page uses now answer 404.** `/link-social` added another way into an account on a session
+  alone. The other eleven manage OAuth clients and consents: `/oauth2/create-client`, `get-client`, `get-clients`,
+  `update-client`, `delete-client`, `client/rotate-keys`, `client/rotate-secret`, `get-consent`, `get-consents`,
+  `update-consent` and `delete-consent`. MCP clients go on registering themselves and signing in as before. ([#242])
+- **An upgrade can no longer open a route unnoticed.** A test lists every route that answers, and a new one fails until
+  someone decides whether it stays open. ([#242])
+
+### If you run your own
+
+- **If you call a closed route by hand, it stops working,** for example making an OAuth client with
+  `/oauth2/create-client`. Nothing in the app uses them, and agents registering themselves don't.
+
+## [0.30.0] - 2026-11-07
+
+People can change their name and password on their account page. There is no migration in this release.
+
+### Added
+
+- **Your name and password on the account page.** A new name reaches everyone in your workspaces at once, in mentions
+  already written too. Someone who signs in through GitHub or a sign-in provider has no password here, and the page says
+  so. A name they change stays theirs: the provider's is read only when the account is made. ([#240])
+
+### Security
+
+- **A new password needs the current one, at five tries a minute.** The change emails the person and ends every other
+  session, whatever the request asks, since whoever knew the old password may be the one asking. A tab left open in the
+  browser that made the change carries on with the new session. ([#240])
+- **A name is 1 to 100 characters, at sign-up too, and a rename changes nothing else.** Ten a minute. ([#240])
+
+### If you run your own
+
+- **Anyone holding a session can now rename that account,** within the rules above. There is no setting for it.
+- **On a server without email, the password email is not sent.** Everything else about the change still happens.
+
+## [0.29.5] - 2026-11-07
+
+Track's pages now say what a browser may do with them. There is no migration in this release.
+
+### Security
+
+- **Pages sent no security headers,** so any site could put Track in a frame under its own buttons, and a script that
+  got into a page could load and send anything. Every answer now gets `X-Content-Type-Options`, `Referrer-Policy` and,
+  over HTTPS, `Strict-Transport-Security`. A page also gets `X-Frame-Options`, `Cache-Control: private, no-store` and a
+  Content-Security-Policy with a nonce made for that response. The request form and attached files keep their stricter
+  policies. ([#238])
+
+### If you run your own
+
+- **A member's picture shows only from GitHub or your sign-in provider's own host.** From anywhere else, their initials
+  show instead.
+- **Leave Web Analytics' automatic setup and Rocket Loader off for this hostname.** A zone setting that adds scripts to
+  a page does nothing here or gets in the way. See "Your own domain" in `docs/self-hosting.md`.
+- **A browser that has seen `Strict-Transport-Security` keeps to HTTPS on that host for a year,** which sign-in already
+  needed.
+
+## [0.29.4] - 2026-11-07
+
+Someone signing up can no longer choose the address of their picture. There is no migration in this release.
+
+### Security
+
+- **An email sign-up could set any picture address,** and other members' browsers then fetched it, which told that
+  server when they were looking and from where. The sign-up form sends no picture, so it is now dropped. GitHub's and a
+  provider's stay. Pictures already stored are not changed. ([#236])
+
+## [0.29.3] - 2026-11-07
+
+Closes the account routes a stolen session cookie could use and the app does not. Self-hosted copies should update.
+There is no migration in this release.
+
+### Security
+
+- **A stolen cookie could delete an account without its password.** Deleting an account asks for the password only where
+  there is one, and Better Auth's `/unlink-account` removed a password on a recent session alone. On an account that
+  also signs in with GitHub or a provider, a cookie under a day old could do both. The route is now closed. ([#234])
+- **A stolen cookie could try passwords.** `/verify-password` and `/change-password` took one from any session. The app
+  has no use for either, and both are closed. ([#234])
+- **Other routes that any session could call and the app has no use for are closed:** `/update-user`, `/list-sessions`,
+  `/list-accounts`, `/get-access-token`, `/refresh-token` and `/account-info`. An account keeps none of a provider's
+  tokens, so the token routes had nothing to give. ([#234])
+
+### Changed
+
+- **These routes now answer 404,** for anyone who called them by hand. The app has no page for any of them, and changing
+  a password still goes through a reset. ([#234])
+
+## [0.29.2] - 2026-11-07
+
+The members page no longer says an invitation was emailed before that is known. There is no migration in this release.
+
+### Changed
+
+- **A mail that fails to send now says why in Workers Logs,** with Cloudflare's error code and without the address. It
+  used to log only a stack, with no reason. ([#229])
+
+### Fixed
+
+- **The members page said an invitation had been emailed, though it couldn't know.** The mail goes in the background, so
+  an invitation to an address that had bounced before looked sent when it wasn't. The page now says the mail is on its
+  way and offers the link in case it doesn't arrive. ([#229])
+
+## [0.29.1] - 2026-11-07
+
+This release fixes how account deletion counts owners and retries, and how an HTML email is read. It has two D1
+migrations, which `pnpm run deploy` applies before the new code goes live. One adds a column and an index, and the other
+replaces two triggers.
+
+### Fixed
+
+- **An owner who also had another role, such as `owner,admin`, was not counted as an owner when deleting an account.**
+  Someone owning a workspace beside them was told they were its only owner, and such a co-owner could be missed as an
+  owner to keep. ([#227])
+- **Account erasures that keep failing no longer hold up the rest.** The daily cron asked for the 20 oldest, so twenty
+  that kept failing left later people's names in their workspaces. It now asks those tried longest ago first. ([#227])
+- **An HTML-only email to a team's intake address is now read in one pass.** Anyone who knows that address could send
+  one that took quadratic time to turn into text. ([#226])
+
+## [0.29.0] - 2026-11-07
+
+People can delete their own account. This release has two D1 migrations, which `pnpm run deploy` applies before the new
+code goes live; neither touches existing rows.
+
+### Added
+
+- **Delete your own account, on `/settings/account`.** Your name, address and picture go from every workspace you are in
+  or left from this version on. That includes mentions, the history replicas catch up from, webhook deliveries and the
+  search index. What you wrote stays with the team, under "Deleted member". The only owner of a workspace is told which
+  one stands in the way. If you run Track yourself, [say what stays in your privacy
+  notice](/track/self-hosting/#when-someone-deletes-their-account). ([#224])
+
+### Changed
+
+- **A workspace now keeps an owner in the database,** so two owners leaving at once can't leave it with none. ([#224])
+- **New workspaces can't be called `mcp`, `oauth` or `request`,** because those addresses were already taken by the app.
+  A workspace with one of those names keeps it, and the address stays as it was. ([#224])
+
+### Fixed
+
+- **A comment or description made of many brackets or backticks could stall a workspace for over ten seconds,** measured
+  in Node at the 100,000-character limit, because of how mentions were found. They are now found in one pass over the
+  text. ([#224])
+- **Webhook deliveries waiting for their turn still went out after their webhook was paused or deleted.** ([#224])
+
+## [0.28.3] - 2026-11-07
+
+A deployment with no `BETTER_AUTH_URL` now marks its cookies `Secure`. No migration.
+
+### Fixed
+
+- **Session cookies had no `Secure` on a deployment without `BETTER_AUTH_URL`.** The setting is optional, and without it
+  a browser could send the cookie over plain HTTP, such as on the first request to a custom domain. Now it can't, unless
+  this is local dev. Cookies keep their names, so nobody is signed out. Sign-in needs HTTPS on your own domain, as it
+  already did with the setting, and the guide now says so. ([#222])
+
+### Changed
+
+- **The README shows the product on its first screen,** with a recording, the demo and the Deploy button. ([#221])
+
+## [0.28.2] - 2026-11-06
+
+Branches now build on a copy made with the Deploy button, and a deployment without its secret no longer runs. No
+migration.
+
+### Fixed
+
+- **Every push to a branch of a button's copy failed its build.** The button turns Preview builds on, and Wrangler will
+  not build a Preview without a `previews` block in `wrangler.jsonc`. So each branch showed a failed build, Dependabot's
+  included. Those builds now pass. ([#219])
+- **A deployment missing the database or `BETTER_AUTH_SECRET` now answers 503,** says why, serves nothing else, and
+  refuses mail for intake addresses, dropping what a machine sent. A deployed Worker needs the secret to deploy, so this
+  reaches a Preview given a database and no secret of its own. ([#219])
+- **`update-copy` no longer guesses or leaves anything behind.** A line a copy rewrote that stands twice in
+  `wrangler.jsonc` could land on the wrong one, so it is now left to a person. A run stopped halfway left a replacement
+  that falsified the copy's history and stopped the next run. ([#218])
+
+### Changed
+
+- **The self-hosting guide says what a Preview gets:** none of the Worker's bindings or secrets, where it used to say
+  Previews share the database. It says how to give them what they need, and that Dependabot's pull requests on a copy
+  are not needed. `update-copy` keeps Dependabot's file out once a copy has deleted it. ([#219])
+
+### Upgrading
+
+No migration. If you gave a Preview a database, give Previews a secret of their own, or they now answer 503: `pnpm
+wrangler preview base-config secret put BETTER_AUTH_SECRET`. Anyone with an account on such a Preview should treat its
+sessions as forgeable until then.
+
+## [0.28.1] - 2026-11-06
+
+A copy's settings now stay through a deploy. If you set anything on a self-hosted copy as a Text variable in the
+dashboard, read this one: it may have been gone since your last deploy. No migration, and the protocol stays at version
+26.
+
+### Fixed
+
+- **Settings made in the dashboard stay through a deploy.** Wrangler removes a plain-text variable it does not find in
+  `wrangler.jsonc` unless `keep_vars` says otherwise, and ours did not. So every push and every `update-copy` took away
+  what had been set as a Text variable, without a word. `TURNSTILE_SITE_KEY` going stops the request forms, and email
+  and the legal pages could go the same way. Secrets were not affected, and neither was Gateweave Cloud. ([#215])
+- **`update-copy` reads `wrangler.jsonc` as data.** It searched the file's text for a Worker's name and database, so a
+  release that renamed `database_name` could get through on a copy with default names, and one that changed its own
+  staging database could stop an update for no reason. ([#213])
+
+### Changed
+
+- **The self-hosting guide says to use the Workers Paid plan.** It used to say a free account is enough. It also says
+  where the Git account is on the Deploy form, and what to do when GitHub refuses an update's push because a commit
+  carries a private address. ([#214], [#215])
+
+### Upgrading
+
+No migration. After updating, look through the Worker's variables in the dashboard and set again what has gone. A site
+key missing there means the request forms were not open. A variable taken out of `vars` in `wrangler.jsonc` now stays on
+the Worker until someone removes it in the dashboard.
+
+## [0.28.0] - 2026-11-05
+
+A deployment can now link its legal notice, privacy policy and terms. Updating a self-hosted copy needs no migration,
+and nothing changes until you set them. The protocol stays at version 26. ([#209])
+
+### Added
+
+- **Links to your legal pages.** Three optional settings, `LEGAL_NOTICE_URL`, `PRIVACY_POLICY_URL` and `TERMS_URL`, are
+  linked from the pages around signing in, the workspace list, the workspace menu, where they also work offline, and a
+  team's public request form. With `TERMS_URL` set, the sign-in page also says that continuing means agreeing to them.
+  Track comes with no legal pages of its own and never links to Gateweave's. ([#209])
+
+### Upgrading
+
+No migration. To show links, set any of the three addresses; see `docs/self-hosting.md`.
+
+## [0.27.0] - 2026-11-05
+
+People can now follow a team's intake, and hear of each request that comes through its form or email address. Updating a
+self-hosted copy needs no new setting. The protocol moves to version 26, so clients reload and re-sync. ([#207])
+
+### Added
+
+- **Following a team's intake.** A request filed through a public form or an intake email told nobody, so someone had to
+  open the intake page to find it. Anyone can now follow a team's intake from that page. Each new request reaches them
+  as a new kind of notification, "New requests", in the inbox and by email unless they change it, and subscribes them to
+  the request, so they hear of comments, replies and the decision. Whoever turns on a form or address starts out
+  following, and leaving the workspace ends it. A stranger's text still mentions nobody. ([#207])
+
+### Upgrading
+
+Durable Object migration `0030_intake_followers` adds one column with an empty default, and runs by itself when each
+workspace wakes. A form or address that is already on stays silent until someone follows its team's intake: open the
+intake page and press Follow.
+
+## [0.26.6] - 2026-11-05
+
+Sessions and invitations past their time now go by themselves. Updating a self-hosted copy needs no migration and no
+new setting, and the protocol stays at version 25. ([#205])
+
+### Fixed
+
+- **What was past its time stayed.** Better Auth removes a session or a verification only when something looks it up, so
+  one nobody came back for stayed for good, with the address and browser it came from, and an invitation kept the address
+  it was sent to. A daily Cron Trigger now deletes sessions, verifications, OAuth tokens, client assertions and
+  invitations past their time, in batches. Nothing anyone can see changes. ([#205])
+
+### Upgrading
+
+Deploying creates the Cron Trigger, at 03:23 UTC, from `wrangler.jsonc`. If you keep your own copy of that file, add
+`"triggers": { "crons": ["23 3 * * *"] }`, or the rows stay. It counts toward your account's limit of Cron Triggers. The
+first run deletes everything already past its time.
+
+## [0.26.5] - 2026-11-05
+
+Opening a workspace wrote the member's name and email address into Workers Logs. Updating a self-hosted copy needs no
+migration and no new setting, and the protocol stays at version 25. ([#203])
+
+### Fixed
+
+- **People's names and addresses reached the logs.** The request that opens a workspace's socket carried the member's
+  whole profile in a header, and Workers Logs records that request's headers for seven days, so anyone who can read a
+  deployment's logs could read them. It now carries only the person's id, and the gateway hands over the profile first
+  by RPC, whose arguments are not logged. What is already in the logs ages out by itself. ([#203])
+
+### Upgrading
+
+During the deploy, a tab can reach an old gateway with a new object or the other way round. Its socket is refused and it
+reconnects, as with any deploy. A gateway you changed yourself must call `syncMember` before opening a socket, and send
+the member's id rather than their profile.
+
+## [0.26.4] - 2026-11-05
+
+A Worker with nothing to do with Track could use up the sign-in limits of every other Worker. Updating a self-hosted
+copy needs no migration and no new setting, and the protocol stays at version 25. ([#201])
+
+### Fixed
+
+- **One Worker could use up what another needs.** Every Worker on Cloudflare reaches Track from one address, so
+  Track's sign-in limits counted them all as one caller, and enough junk from any of them could stop a provider's
+  logout reaching Track. A Worker is now counted by its zone, which Cloudflare sets and a sender cannot change. Anyone
+  else is counted by their address as before, whatever they claim. ([#201])
+
+## [0.26.3] - 2026-11-05
+
+A tab left open could keep someone out of their workspace after signing in again. Updating a self-hosted copy needs no
+migration and no new setting, and the protocol stays at version 25. ([#198])
+
+### Fixed
+
+- **A tab left open could stand in the way of the next sign-in.** A new tab said "Your session has ended" though the
+  person had just signed in, or stayed on "Loading…", until the old tab was reloaded or closed. A tab told that its session had ended now connects again when a new tab asks, and
+  tells every tab what it finds. A tab whose local copy is deleted by signing out in another tab now reloads, unless
+  the person is still signed in and has only left the workspace. ([#198])
+
+## [0.26.2] - 2026-11-04
+
+Signing out at a provider could leave someone signed in to Track. Updating a self-hosted copy needs no migration and
+no new setting, and the protocol stays at version 25. ([#196])
+
+### Fixed
+
+- **A provider's logout could be lost.** If the provider stopped waiting for the answer, Workers cancelled the
+  request and the session stayed, which happened on Gateweave Cloud. A logout that has arrived is now seen through.
+  When Track cannot fetch the provider's keys at that moment it answers 503 rather than 400, so that a provider can
+  try again, and nothing ends until the token has been checked. ([#196])
+
+## [0.26.1] - 2026-11-04
+
+Better Auth 1.7.16, a security release, so anyone running a copy should update. Updating a self-hosted
+copy needs no migration and no new setting, and the protocol stays at version 25. ([#194])
+
+### Security
+
+- **Better Auth 1.7.16.** Email verification and email-change links worked for an account other than the
+  one they were issued to. Generic OAuth profiles are now bound to the ID token's subject, which signing
+  in through an OpenID Connect provider rests on. ([#194])
+
+## [0.26.0] - 2026-11-04
+
+Every signed-in page carried the session's token in its HTML, and signing in with GitHub stored
+GitHub's token where nothing used it, so anyone running a copy should update. GitHub's automation
+also now moves an issue only when a pull request is about it. Updating a self-hosted copy applies one
+D1 migration, which deletes those stored GitHub tokens, and needs no new setting; the protocol stays
+at version 25. ([#190], [#191], [#192])
+
+### Security
+
+- Every signed-in page carried the session's token in its HTML, where a saved page or anything that
+  keeps a copy of the document would have it too. The cookie is `HttpOnly` to keep it from there, and
+  no page reads it, so pages no longer get it. Better Auth's `/get-session` still answers a script
+  with it, so this keeps the token out of documents, not out of reach of a script already running in
+  the page. ([#190])
+- Signing in with GitHub stored GitHub's access token, unencrypted, in `account`. Nothing read it:
+  Track never acts for someone there, and its GitHub integration makes an exchange of its own. Track
+  now keeps none of them, and a migration deletes the ones already stored. ([#192])
+
+### Changed
+
+- **A pull request that only mentions an issue in its description links it and no longer moves it.**
+  An issue named to say it was out of scope used to go to In Review with no work done on it. The
+  branch name, the title and a closing word such as "Fixes ENG-12" still move an issue, and a closing
+  word added by a later edit moves it when the edit arrives. ([#191])
+
+## [0.25.0] - 2026-11-04
+
+Track can sign people in through an OpenID Connect provider, and a password can no longer reach a
+page's URL, so anyone running a copy should update. Updating a self-hosted copy applies one D1
+migration, which only adds a column, and needs no new setting; the protocol stays at version 25.
+([#183], [#184], [#187], [#188])
+
+### Security
+
+- Pressed before the page's script had run, on a slow connection for example, the submit button on
+  the sign-in and password reset pages made the browser send the form itself, with the password in
+  the URL: in the address bar, the history and any log of requests. These buttons now stay disabled
+  until there is a script. ([#188])
+
+### Added
+
+- Sign in through any OpenID Connect provider, such as Gateweave ID, Pocket ID or Keycloak, with
+  `OIDC_ISSUER`, `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET`, and `OIDC_PROVIDER_NAME` for the button.
+  Signing out at the provider ends the sessions it started. Without them nothing changes. See
+  docs/self-hosting.md. ([#187])
+- `scripts/update-copy.mjs` updates a copy made with the Deploy button, which `git pull` cannot:
+  that copy shares no history with this repository. See docs/self-hosting.md. ([#183], [#184])
+
+### Changed
+
+- A refused sign-in through GitHub comes back to the sign-in page with an explanation, not to
+  Better Auth's error page. ([#187])
+
+## [0.24.0] - 2026-11-04
+
+A new workspace now learns how to move in from another tracker, and dependencies are up to date.
+Updating a self-hosted copy needs no migration and no new setting; the protocol stays at version
+25. ([#179], [#180])
+
+### Added
+
+- The guided start has two more issues: bringing issues from another tracker (Settings, Import,
+  from Jira's CSV export, a Linear team, a GitHub repository, CSV or another workspace's JSON
+  export), and linking pull requests from GitHub (Settings, GitHub). ([#179])
+
+### Changed
+
+- Dependencies are updated. postal-mime, which reads intake email, goes to 4.2.0, with fixes for
+  how it reads malformed messages, and wrangler to 4.156.0. ([#180])
+
+## [0.23.0] - 2026-11-02
+
+Teams can move from Jira, and moving from Linear keeps more. Updating a self-hosted copy needs no
+migration and no new setting; the protocol stays at version 25. ([#174], [#175], [#176], [#177])
+
+### Added
+
+- Settings, Import reads Jira's CSV export (Filters, Export, Export Excel CSV (all fields)):
+  every label, comments with who wrote them, Jira's dates, parents named by issue id, story
+  points, issue types other than Task as labels, and the status category of a team's own status
+  names. Descriptions and comments in Jira's wiki markup become Markdown: headings, lists, code
+  with its language, tables, links, quotes and inline styles. Attachments stay in Jira, and each
+  one shown in the text becomes a note naming its file. ([#176], [#177])
+- A Linear import brings the relations between the team's issues (blocks, duplicate, related)
+  and the team's projects with their description and document, status, lead, target date and
+  updates. ([#177])
+
+### Fixed
+
+- In local development (`pnpm dev`), the optional settings that `.dev.vars.example` says to
+  uncomment, such as the Turnstile keys, `INTAKE_EMAIL_DOMAIN` and the GitHub App's, now take
+  effect. Before, the list of settings it loaded stopped at `EMAIL_FROM`. ([#174])
+
+## [0.22.0] - 2026-11-02
+
+Long lists and tables are much faster, issues with very long comment threads keep working, text
+with invisible broken characters is cleaned or refused, and intake email is safe from a slow
+header. Updating a self-hosted copy applies a migration in each workspace's database, which runs
+on its own; there is no D1 migration and no new setting. The protocol stays at version 25.
+([#168], [#169], [#171], [#172], [#173])
+
+### Security
+
+- A crafted header in a message to a team's intake email address could make the Worker spend
+  CPU time that grew with the square of its length. postal-mime, which reads those messages, is
+  updated to 4.0.8 (GHSA-f2hq-32vh-53cc). ([#173])
+
+### Fixed
+
+- An issue whose comments added up past about 10 MB could take no more comments, and its newest
+  ones were not found by search. Such an issue's comments are now indexed apart, so it takes new
+  comments and all of them stay searchable. The migration moves only issues past 1 MiB of
+  comments. ([#169])
+- A picker that had just closed could take the next click or Escape meant for what lay under it,
+  such as the next row's priority picker in a table. Menus and pickers now leave the page as soon
+  as they close. ([#172])
+
+### Changed
+
+- Issue lists draw only the rows near the screen. Changing 2,000 issues at once now shows in about
+  135 ms instead of 1,160, and opening a workspace from the device's copy in about 340 ms instead
+  of 1,100. Rows are measured, so the list holds at any font size, and screen readers hear each
+  row's place in the list. When a change is refused because its issue is gone, the message says
+  so apart from other refusals. ([#171])
+- The issue table also draws only the rows near the screen, measured so they hold at any font
+  size. J/K and the arrow keys move between its rows as in a list, and its header row stays at the
+  top as it scrolls. ([#172])
+- Text with NUL characters or lone halves of an emoji's character pair is refused by the server,
+  since it confused search or came back silently changed. The app, request forms, intake email,
+  the guided start, the importer and GitHub titles clean such text instead, so people do not run
+  into errors. Text already stored stays as it is. ([#168])
+
+## [0.21.1] - 2026-11-02
+
+Open tabs lose their connection when their session ends, exports handle large archives, and bulk
+edit follow-ups. Updating a self-hosted copy needs no migration and no new setting; the protocol
+stays at version 25. ([#161], [#163], [#164], [#166])
+
+### Security
+
+- A tab's live connection now closes when its session ends: signing out, revoking sessions,
+  resetting the password or deleting the account. A connection whose session has expired closes
+  too. Before, an open tab kept syncing until the workspace restarted. The tab then reconnects
+  if the person is still signed in, or asks them to sign in again. ([#164])
+
+### Fixed
+
+- Exports page through large archives instead of fetching them in one answer, and when an export
+  fails it says why: offline, signed out, no access, or a server error. Issues restored while an
+  export runs are no longer left out. Tabs still on v0.21.0 keep getting the answer they expect,
+  or an error rather than a short file; that answer is sized by its bytes, so archives of many
+  small rows still fit and only ones that are really too big are refused. ([#163], [#166])
+- Bulk edit: changes made offline and refused after a reload are summed up in one message instead
+  of one per issue, collapsing a group no longer unpicks its issues, refusals are grouped by
+  reason, and a tab that has stopped syncing says so instead of calling the change not valid.
+  ([#161])
+
+## [0.21.0] - 2026-11-02
+
+Archived issues are whole again whenever there is a connection: their page, exports and imports.
+Updating a self-hosted copy needs no migration and no new setting; the protocol stays at version
+25. ([#159])
+
+### Added
+
+- An archived issue's page loads the whole issue from the server while online: its description,
+  labels, people, dates, comments, history, proposals and pull requests, read-only, with Restore
+  as before. Offline it keeps the short view and says the rest needs a connection. ([#159])
+- Two read-only routes beside the sync snapshot, behind the same membership checks: one issue
+  with everything that belongs to it, and a workspace's or a team's archived issues. ([#159])
+
+### Changed
+
+- Exports fetch archived issues from the server, so the CSV fills in their cells and the JSON
+  lists them whole, with their comments and history. Offline, an export that includes archived
+  issues stops and offers to leave them out, and a JSON made that way says how many it left out.
+  ([#159])
+- The JSON import brings archived issues along, with their comments and relations, and archives
+  each one once it is in. Slim rows from v0.20 exports still stay behind, with a note. ([#159])
+
+## [0.20.1] - 2026-11-02
+
+Bulk edit stays quick on large selections, and two follow-ups to v0.20.0's security fixes.
+Updating a self-hosted copy needs no migration and no new setting; the protocol stays at
+version 25. ([#156], [#157])
+
+### Fixed
+
+- Changing several hundred issues at once froze the tab for many seconds. The changes now go out
+  as one batch and the page redraws once per frame: about 680 issues show their change in under
+  half a second. A failed batch says in one message how many issues were left as they were,
+  instead of one message per issue. The bar's menus and Ctrl/Cmd+A no longer open where they do
+  not apply, and issues hidden by a filter leave the selection. ([#157])
+- Mail to a request's reply address is now parsed only after its address is found, so mail to
+  made-up reply addresses costs nothing. When attaching files, every refused file is reported,
+  including first tries made offline, and each one can be saved again from the device's copy.
+  ([#156])
+
+## [0.20.0] - 2026-11-02
+
+Pick several issues and change them at once, in lists, tables and on the board; archived issues
+weigh much less on each device; and two security fixes. Updating a self-hosted copy needs no
+migration and no new setting. The protocol goes to version 25, so open tabs reload and every
+browser starts again from a fresh copy of its workspaces. ([#148], [#149], [#150], [#151],
+[#153], [#154])
+
+### Security
+
+- An attached file's upload belongs to whoever attached it. The browser links a file before its
+  upload finishes, so another member could see its id; the first upload to an id now wins
+  atomically, and anyone else's upload to it is refused instead of being taken as done. ([#150])
+- Leaving a workspace, and deleting a user, now tell the workspace at once, so the person's open
+  tabs lose access as they do when an admin removes them. Mail to a request's reply address is
+  checked against the request and its sender before it counts against any limit or stores any
+  attachment. ([#153])
+
+### Added
+
+- Bulk edit: pick issues by a checkbox, X, Shift or Ctrl/Cmd+A in lists, tables and on the board,
+  then set their status, priority, assignee, labels, project or cycle, archive the closed ones,
+  or delete them, from a bar at the bottom. Each change is the same one a single issue's menu
+  makes, so history, the inbox and webhooks see it as usual. ([#148], [#151], [#154])
+- Track has its own icon: an issue in progress, on the dark tile of the new Gateweave mark.
+  ([#152])
+
+### Changed
+
+- Archived issues stay in each browser's copy only as a slim row: key, title, status, team,
+  project, cycle, parent and estimate. Lists, boards, the archive page, links, progress and search
+  by key or title work from it, offline too; an archived issue's description, comments and
+  history need a connection. JSON exports list archived issues apart, with what is known of them.
+  ([#149])
+
+## [0.19.0] - 2026-11-01
+
+Admins can connect GitHub by installing a GitHub App, files can be attached while offline, and a
+deployment can cap each workspace's attached files. Updating a self-hosted copy applies a D1
+migration (`pnpm run deploy` applies it before the new code goes live) and a migration in each
+workspace's database, which runs on its own. The protocol stays at version 24. The new settings
+are optional: `GITHUB_APP_SLUG`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET` and
+`GITHUB_APP_WEBHOOK_SECRET` turn on the GitHub App, and `ATTACHMENT_QUOTA_MB` caps attached
+files per workspace (see `docs/self-hosting.md`). ([#131], [#138], [#141])
+
+### Added
+
+- A GitHub App that admins install from Settings, GitHub, on the repositories they choose, next
+  to adding a webhook by hand. An installation connects to a workspace only once GitHub vouches
+  for it and the person controls the account it is on: an active admin of the organization, or
+  the owner of the personal account. The app needs the Organization › Members: Read permission
+  for that check. Webhooks keep working, for self-hosters without an app. ([#141])
+- Files attached while offline, or whose upload fails on the network, wait in the browser and
+  upload when the connection returns. Until then the text marks them as waiting, and images show
+  from the device's copy. A file waits for the person who attached it, even across an expired
+  session. ([#131])
+- `ATTACHMENT_QUOTA_MB` caps what each workspace keeps in attached files. Uploads past it get a
+  clear refusal, and emailed requests still come in, without the attachments that do not fit.
+  Unset, storage is unlimited, as before. ([#138], [#145])
+
+## [0.18.0] - 2026-11-01
+
+Teams can take requests into an intake, from a public form and by email; projects have updates,
+a health and insights; templates can make issues on a schedule. Updating a self-hosted copy
+applies five migrations in each workspace's database, which run on their own; there is no D1
+migration. The new settings are optional: `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET_KEY` open
+teams' request forms, and `INTAKE_EMAIL_DOMAIN`, with Email Routing, turns on their intake email
+addresses (see `docs/self-hosting.md`). The protocol goes to version 24, so open tabs reload and
+sync again. ([#109], [#114], [#118], [#125], [#128], [#133])
+
+### Added
+
+- Team intake: requests wait on a team's intake page until a person accepts them into the
+  workflow or declines them with a reply. Members file them in the app and agents over MCP
+  (`triage_request`). ([#109])
+- A public request form per team, behind Turnstile, that admins turn on and share, and an intake
+  email address per team, through Email Routing. Attachments of emailed requests are kept with
+  the request. Both are rate limited. ([#109], [#126])
+- Whoever filed a request through the form or by email is emailed the decision, and members who
+  follow it hear of it in their inbox. A reply to the decision email becomes a comment on the
+  request, without the text it quotes. ([#118], [#133])
+- An agent's decision on a request becomes a proposal, whatever it is set to propose: only
+  people decide on requests. Accepting it makes the decision as the person, with the agent's
+  drafted reply. ([#125])
+- Project updates: a health (on track, at risk, off track) and a note, kept as the project's
+  history, shown on the projects page, sent to webhooks and available over MCP
+  (`post_project_update`, `list_project_updates`). ([#114])
+- Insights per project, across its teams, and filters by label and assignee on team and project
+  insights. Over MCP, `get_insights` gives an agent a team's or a project's numbers. ([#116],
+  [#117], [#119])
+- Recurring issues: a template can make its issue every 1 to 99 days, weeks or months, at
+  midnight in the time zone its schedule names. ([#128])
+- Over MCP, `get_issue` names what filed a request or wrote a reply on its own: Request form,
+  Email, GitHub or Track. ([#134])
+
+### Changed
+
+- Lists, boards and views no longer go through archived issues on every change, so a workspace
+  with many of them stays as quick to edit. ([#124])
+- Settings tabs fit in one row on a desktop, and menus keep clear of the window's edges and are
+  at least as wide as what opened them. ([#129], [#130])
+
+### Fixed
+
+- In Node 22, a client whose reconnect was refused stayed "connecting" instead of finding out
+  why. ([#123])
+
+## [0.17.0] - 2026-11-01
+
+Teams can keep issue templates, and each team has an insights page. Updating a self-hosted copy
+applies a migration in each workspace's database, which runs on its own; there is no D1
+migration and no new setting. The protocol goes to version 19, so open tabs reload and sync
+again. ([#112])
+
+### Added
+
+- Issue templates per team, kept by any member under Settings, Templates: a name and the title,
+  description, priority, assignee and labels a new issue starts with, up to 50 per team. Start
+  an issue from one in the create dialog's Template menu or with "Create issue from …" in the
+  command palette. ([#112])
+- Over MCP, `get_workspace` lists each team's templates, and `create_issue` takes one by name.
+  Fields given in the call win over the template's. ([#112])
+- Team insights, from a button in the team header: open, created and closed counts and the
+  median cycle time over the last 4, 12 or 26 weeks, issues created and closed by week in the
+  team's time zone, and open issues by status, assignee and label. ([#111])
+- A JSON import that keeps the file's teams brings along their own statuses, such as
+  "Ready for QA", instead of moving those issues to the first status of the same category.
+  ([#110])
+
+### Fixed
+
+- An issue's Labels menu offers "Create label" when no label matches what was typed, including
+  in a workspace with no labels yet. ([#112])
+
+## [0.16.0] - 2026-11-01
+
+Teams can have Track archive closed issues and close stale ones on its own. Updating a self-hosted
+copy applies a migration in each workspace's database, which runs on its own; there is no D1
+migration and no new setting. The protocol goes to version 18, so open tabs reload and sync
+again. ([#107])
+
+### Added
+
+- Team automations, set by admins in the team settings: archive completed and canceled issues,
+  and cancel backlog and unstarted ones, once no one has touched them for 1 to 24 months. Each is
+  off until turned on, and the settings say how many issues the first run would change. ([#107])
+- Track applies them about once a day, with an entry in each issue's history and an
+  `issue.updated` webhook, but nothing in anyone's inbox. A team's archive page says when issues
+  arrive on their own. ([#107])
+- Over MCP, `get_workspace` gives each team's `archiveAfterMonths` and `closeAfterMonths`. ([#107])
+
+### Changed
+
+- The teams settings wrap a team's actions below its name on narrow screens. ([#107])
+
+## [0.15.0] - 2026-11-01
+
+Closed issues can be archived out of lists and boards. Updating a self-hosted copy applies a
+migration in each workspace's database, which runs on its own; there is no D1 migration and no
+new setting. The protocol goes to version 17, so open tabs reload and sync again. ([#105])
+
+### Added
+
+- Archive a completed or canceled issue from its page, and it leaves the lists and boards of its
+  team, project, cycle and saved views, and My issues. Search, its page, its history and the
+  progress of its project, cycle and parent keep it. ([#105])
+- Each team has an archive page, linked from the team page once something is in it and from the
+  command palette, where archived issues can be restored. Reopening an archived issue restores
+  it too. ([#105])
+- Over MCP, `search_issues` takes `archived`, every issue says whether it is archived, and
+  `update_issue` archives or restores an issue. Webhooks send it as `issue.updated`, with
+  `archivedAt`. ([#105])
+
+## [0.14.1] - 2026-11-01
+
+Webhook payloads name the issue's assignee. Updating a self-hosted copy needs no migration and no
+new setting. ([#103])
+
+### Added
+
+- Issues in webhook payloads carry `assignee`: the member's id and their name as of the event, or
+  null when no one is assigned, so a receiver can show who `assigneeId` is. ([#103])
+
+## [0.14.0] - 2026-11-01
+
+Each team has its own workflow statuses. Updating a self-hosted copy applies two migrations in
+each workspace's database, which run on their own and give every existing team the six statuses
+it had; there is no D1 migration and no new setting. The protocol goes to version 16, so open tabs
+reload and sync again. ([#100])
+
+### Added
+
+- Workflow statuses per team. Under Settings, Teams, Statuses, an admin adds statuses, renames,
+  recolors and reorders them, and removes one by moving its issues to another. Every status is
+  in one of five categories (backlog, unstarted, started, completed and canceled), and the
+  category decides what it means: completed and canceled statuses close an issue, and completed
+  ones count as done in cycles, projects and sub-issues. A team keeps at least one completed
+  status. ([#100])
+- Pages that show several teams' issues, such as My issues, give statuses that share a key one
+  column or group, so every team's built-in statuses line up. ([#100])
+- Webhook payloads name the issue's status as its team does (`statusName`) and say its category
+  (`statusCategory`). ([#100])
+- Over MCP, a status is named by its key or its name. `get_workspace` lists each team's
+  statuses in order, and issues come back with `statusName`. ([#100])
+
+### Changed
+
+- GitHub moves an issue to the status of the old key while the team has it in the same
+  category, and otherwise to the team's first status of that category. ([#100])
+- Imports match a status by name in the team, then take the team's first status of the same
+  category. JSON exports carry the teams' statuses. ([#100])
+- A new issue without a status gets its team's first status, Backlog unless the team changed it.
+  ([#100])
+
+### Fixed
+
+- A picker opened just as another one closes, such as a row's priority right after its status,
+  stays open instead of closing again. ([#102])
+
+## [0.13.1] - 2026-10-31
+
+Dialogs stay within a short window. Updating a self-hosted copy needs nothing: no migration, no
+new setting and no protocol change.
+
+### Fixed
+
+- A dialog taller than the window, such as a new issue with a long description or a webhook with
+  many events, scrolls inside itself, so its title and its buttons stay in reach. ([#97], [#98])
+
+## [0.13.0] - 2026-10-31
+
+The MCP server's `get_workspace` says who is calling, so an agent can find the issues assigned to
+it. Updating a self-hosted copy needs nothing: no migration, no new setting and no protocol
+change. ([#95])
+
+### Added
+
+- `get_workspace` names the caller as `you`: their member id, name and role in the workspace.
+  Issues assigned to them carry that id as their assignee. Gateweave Agents' ready-made "Work on
+  Track issues" reads it with an agent member's key, to start a run for each issue assigned to
+  that agent. ([#95])
+
+## [0.12.0] - 2026-10-31
+
+Mention people in descriptions and comments, and hear when an issue you are assigned is due.
+Updating a self-hosted copy applies a migration in each workspace's database, which runs on its
+own; there is no D1 migration and no new setting. The protocol goes to version 15, so open tabs
+reload and sync again. ([#93])
+
+### Added
+
+- @-mentions. Typing `@` in a description, a comment or the new-issue dialog offers the
+  workspace's members, people first, and picking one mentions them. Someone mentioned is
+  subscribed to the issue, unless they unsubscribed before, and hears of it in their inbox, once
+  per comment; editing a text tells only the people it adds. Mentions of agents and of oneself
+  tell nobody, and a mention inside code is text. Agents over MCP mention people with the same
+  Markdown, `[@Name](mention:<member id>)`, which the app shows with the member's current
+  name. ([#93])
+- Due-date reminders. On the day an open issue is due, from 09:00 in its team's time zone (the
+  one its cycles follow, or UTC), Track tells its assignee in their inbox, once per due date.
+  ([#93])
+- Mentions and due dates in Settings, Notifications. Both are emailed until you choose
+  otherwise, and someone who turns mentions off is neither subscribed nor told by one. ([#93])
+
+## [0.11.0] - 2026-10-31
+
+Inbox news you leave unread can follow you by email, and you choose what reaches your inbox and
+your email. Updating a self-hosted copy applies a migration in each workspace's database, which
+runs on its own; there is no D1 migration, no new setting and no protocol change. Email follows
+`EMAIL_FROM` as before. ([#91])
+
+### Added
+
+- Notification settings. Settings, Notifications lets each person choose, per workspace, where
+  each kind of news goes: being assigned or unassigned, comments, status changes and agents'
+  proposals reach the inbox and email, the inbox alone, or nowhere. Being assigned and comments
+  are emailed until you choose otherwise. News turned off stays out of the inbox, and you stay
+  subscribed to the issue. ([#91])
+- Inbox email. News you want by email that stays unread for ten minutes is emailed, with that
+  of other issues, at most once an hour per workspace. Reading, archiving or snoozing it in Track
+  first keeps it out of your email. Email goes only to verified addresses, and each one has a
+  link that turns it off without signing in, which mail clients offer as one-click unsubscribe
+  when Track is served over HTTPS. ([#91])
+
+## [0.10.0] - 2026-10-31
+
+GitHub: pull requests and commits that name an issue link to it and move it along. Also display
+options in saved views. Updating a self-hosted copy applies two migrations in each workspace's
+database, which run on their own; there is no D1 migration and no new setting. The protocol goes
+to version 14, so open tabs reload and sync again. ([#88], [#89])
+
+### Added
+
+- GitHub connections. An admin adds one in Settings, GitHub, and sets it as a webhook on a
+  repository or an organization. Pull requests link the issues their branch, title or
+  description names, and the issue page lists them with their state. A draft moves its issues to
+  In Progress and an open pull request to In Review. A merge moves the issues it fixes, named by
+  its branch or after "Fixes", "Closes" or "Resolves", to Done, as does a commit to the default
+  branch that says so. Track never moves an issue back, nor out of Done or Canceled, and each
+  move's activity links the pull request or commit. The issue page copies a branch name for the
+  issue, the inbox and webhooks name GitHub as the actor, and MCP's `get_issue` lists an issue's
+  pull requests. The public demo takes no deliveries. ([#89])
+- Display options. A Display menu groups the list and the board by status, priority, assignee,
+  project or nothing, orders them by hand, priority, due date, last update or creation, and
+  picks the properties rows and cards show. The options live in the page's URL and in saved
+  views, so everyone opening a view sees the same page. Dragging an issue into another group
+  sets that field. ([#88])
+
+### Changed
+
+- The table's columns and sort follow the page's URL and saved views instead of one browser's
+  storage, so columns hidden before this version show again. ([#88])
+
+## [0.9.0] - 2026-10-31
+
+An inbox of your own: people hear of assignments, comments, status changes and agents' proposals
+on the issues they follow. Updating a self-hosted copy applies two migrations in each workspace's
+database, which run on their own; there is no D1 migration. The protocol goes to version 12, so
+open tabs reload and sync again. ([#86])
+
+### Added
+
+- Subscriptions and an inbox. Filing, commenting on or being assigned an issue subscribes a
+  person, and anyone can subscribe or unsubscribe from the issue page; existing workspaces
+  subscribe the creators, assignees and commenters of their issues when they update. Subscribers
+  hear of comments, status changes and agents' proposals, and the assignee hears of being
+  assigned. The Inbox page keeps one row per issue with its latest news and unread count, to read,
+  snooze or archive, and news brings a snoozed or archived item back. Opening an issue reads it.
+  The sidebar and the installed app's icon show the unread count. Nobody hears of their own
+  changes, imports tell no one, and agents have no inbox: webhooks tell them. Each person's
+  subscriptions and inbox reach only their own browsers. ([#86])
+
+### Changed
+
+- The public demo and `pnpm dev:seed` plan a few Engineering issues into its current cycle. ([#85])
+
+## [0.8.0] - 2026-10-31
+
+Cycles: a team can work in fixed runs of one to four weeks, and Track moves them on by itself.
+Also webhook events for relations, and importing Track's own JSON export. Updating a self-hosted
+copy applies a migration in each workspace's database, which runs on its own; there is no D1
+migration. The protocol goes to version 11, so open tabs reload and sync again. ([#82])
+
+### Added
+
+- Cycles. An admin turns them on for a team, with a length of one to four weeks, the day the next
+  one starts and the time zone its days follow. The workspace keeps two cycles ahead, completes
+  each at midnight after its last day and moves its unfinished issues to the next one, as Track.
+  Issues are planned into a cycle from their page, the new-issue dialog or the table. A team's
+  cycles page lists the current, upcoming and completed ones with their progress, and each cycle
+  has a page with its dates, progress in issues and points, a burn-up and its issues. Filters and
+  saved views can follow the current or next cycle. MCP's `get_workspace` lists open cycles, and
+  `search_issues`, `create_issue` and `update_issue` take `cycle` as `"current"`, `"next"` or a
+  number. Webhook events for the moves Track makes carry an actor of type `system`. ([#82])
+- Webhook events for relations: `relation.created` and `relation.deleted`, with both issues and
+  the relation. New webhooks leave them off until chosen. ([#78])
+- Settings, Import reads Track's own JSON export as well as CSV, so a workspace or a team can move
+  to another workspace, such as from a self-hosted copy to Gateweave Cloud. Issues keep their
+  comments, parents, labels, projects and relations, and the file's teams can be kept. Repeating
+  an import skips what is already there. ([#81])
+
+### Changed
+
+- The JSON export includes cycles. ([#82])
+
+## [0.7.1] - 2026-10-30
+
+Gets v0.7.0 to production. Updating a self-hosted copy needs nothing beyond what v0.7.0 asks.
+
+### Fixed
+
+- `pnpm run deploy` no longer stops when the Cloudflare API token may not manage R2. If the
+  bucket for attached files already exists, as when it was made by hand, the deploy goes on with
+  a warning; if it is missing, Cloudflare refuses the deploy and says so. ([#79])
+
+## [0.7.0] - 2026-10-30
+
+Everything a team moving from another tracker needs on its first day: dates and estimates,
+sub-issues and relations, Markdown with attached files, filters and saved views, calendar, table
+and timeline layouts, and imports from CSV, GitHub and Linear. Updating a self-hosted copy applies
+migrations in each workspace's database, which run on their own; there is no D1 migration this
+time. Attached files need R2: turn it on in the Cloudflare dashboard before updating, and
+`pnpm run deploy` creates the bucket, or delete the `r2_buckets` lines from `wrangler.jsonc` to
+run without attachments. ([#68], [#69])
+
+### Added
+
+- Start dates, due dates and estimates in points on issues. Lists and boards show the due date,
+  in red once an open issue is overdue, and the issue page sets them (D and E). MCP's
+  `create_issue` and `update_issue` take `start_date`, `due_date` and `estimate`. ([#63])
+- Sub-issues: an issue can have a parent in any team, shown above its title, and lists its
+  sub-issues with their progress under the description. Deleting a parent keeps its sub-issues as
+  top-level issues. MCP takes and returns `parent`, and `get_issue` returns `subIssues`. ([#64])
+- Relations between issues in any teams: blocks, duplicate of and related. The issue page lists
+  them by kind, lists and boards mark a blocked issue, and an open duplicate offers "Close as
+  duplicate". MCP has `link_issues` and `unlink_issues`. Relations send no webhook events yet.
+  ([#66])
+- Descriptions and comments are GitHub-flavored Markdown, and files of up to 25 MB can be pasted,
+  dropped or picked into them. Files are kept in R2 and served only to members of the workspace.
+  Images from other sites show as links, so opening an issue tells no one who read it. ([#68])
+- Three more layouts for pages of issues: a calendar by due date, where dragging an issue to a day
+  sets its due date ([#67]); a table with a column per property, editing in place, sorting and a
+  choice of columns ([#73]); and a timeline from start to due date, where dragging a bar moves its
+  dates ([#74]).
+- One Filter menu for status, priority, assignee, project, labels, team and due date. The filters
+  in force show as chips and live in the URL, and an issue created on a filtered page takes them,
+  so it shows up there. ([#75])
+- Saved views: filters and a layout under a name in the sidebar, shared with the workspace or
+  personal. Changes on a view's page are saved into it or as a new view. Personal views are hidden
+  from others in the app but, like everything in a workspace, are in each member's local copy.
+  ([#76])
+- Import issues in Settings > Import from a CSV file (Track's own export, or another tracker's by
+  common column names), from GitHub Issues or from Linear, with their original creation dates. A
+  GitHub token or Linear key goes from the browser to GitHub or Linear only. Running an import
+  again skips what it already brought in. ([#70], [#71])
+- Export a workspace or one team as CSV or JSON, in Settings > Export or from the command palette.
+  ([#65])
+- A new workspace starts with a team and a few issues that show you around, unless that box is
+  unticked, and an empty workspace offers the same. ([#61])
+- MCP: `create_project` and `update_project`. ([#62])
+
+### Changed
+
+- The sync protocol is at version 10, for the new fields and entities. Open tabs fetch their
+  workspace again after the update. ([#63], [#64], [#66], [#76])
+- `issue.create` and `comment.create` take an optional `createdAt`, which only admins may send and
+  the server clamps to now. ([#70])
+
+## [0.6.0] - 2026-10-30
+
+Webhooks name each issue's labels. Updating a self-hosted copy needs no migration and no new
+setting.
+
+### Added
+
+- Webhooks: each issue in an issue, comment or proposal event carries `labels`, a list of
+  `{ id, name }` in the order of `labelIds`, with the names as of the event. A receiver can act on
+  a label by its name instead of looking up its id. `labelIds` is unchanged. ([#56])
+
+## [0.5.0] - 2026-10-29
+
+Projects group issues from any team toward a goal, and what agents propose has a page of its own.
+Updating a self-hosted copy applies a migration in each workspace's database, which runs on its
+own; there is no D1 migration this time.
+
+### Added
+
+- Projects. A project groups issues from any team toward a goal, with a description, a status
+  (planned, started, paused, completed or canceled), a lead, a target date and its progress: the
+  issues done out of all that are not canceled. Projects have a list and a page with their issues
+  as a list or a board, every issue has a Project property, and the command palette goes to them,
+  creates them and sets them. People create and edit projects, admins delete them, and an admin
+  can have an agent member only propose project changes. ([#53])
+- MCP: `create_issue`, `update_issue` and `search_issues` take a `project`, by name or id, and
+  `get_workspace` lists the projects. ([#53])
+- A Proposals page lists the workspace's open proposals by issue, with a count in the sidebar, a
+  filter by agent kept in the URL, and keys to move between them (J and K), accept (A) and dismiss
+  (D). ([#52])
+- Webhook events for proposals: `proposal.created`, `proposal.updated`, `proposal.accepted` and
+  `proposal.dismissed`. An agent's own webhook is sent a person's decision on what it proposed,
+  and not its own proposals. A new webhook leaves them off until they are chosen. ([#51])
+
+### Changed
+
+- The sync protocol is at version 6, for projects. Open tabs fetch their workspace again after
+  the update. ([#53])
+
+### Fixed
+
+- A tab left open on an older version no longer keeps a tab opened after an update on
+  "Loading…". Tabs now pick the one that holds the connection among tabs of the same version.
+  ([#54])
+
+## [0.4.0] - 2026-10-29
+
+People stay in control of what agents do: an admin chooses which kinds of change each agent member
+only proposes, and people accept or dismiss them. Updating a self-hosted copy applies a migration
+in each workspace's database, which runs on its own; there is no D1 migration this time.
+
+### Added
+
+- Proposals. Under Settings, Agents, an admin picks for each agent the kinds of change it only
+  proposes: title, description, status, closing (as Done or Canceled), priority, assignee and
+  labels. The server holds those back, even on a new issue the agent creates, and shows them on
+  the issue under "Proposed by agents" with Accept and Dismiss. Accepting makes the change as the
+  person who accepted it, and the history notes which agent proposed it. An agent has one open
+  proposal per field and issue, and agents never decide on proposals, their own included. An
+  agent proposes nothing until an admin sets it up, so existing agents work as before. ([#49])
+- MCP: `create_issue` and `update_issue` return what they proposed under `proposed`, so an
+  agent knows the change waits for a person, and `get_issue` lists an issue's open proposals.
+  ([#49])
+
+### Changed
+
+- The sync protocol is at version 5, for proposals. Open tabs fetch their workspace again after
+  the update. ([#49])
+
+## [0.3.0] - 2026-10-28
+
+Agents that work on their own: they join a workspace under their own name, and webhooks tell them
+about changes as they happen. Updating a self-hosted copy applies a new D1 migration (`pnpm run
+deploy` does it) and a migration in each workspace's database, which runs on its own.
+
+### Added
+
+- Agent members. An admin creates one under Settings, Agents for an AI agent that works on its
+  own, such as one that triages new issues. It joins the workspace with the new `agent` role,
+  connects to MCP with a key instead of signing in, and reaches that one workspace only. It can do
+  what members do and nothing only admins can, and everyone sees its changes as its own. ([#45])
+- Webhooks. Admins add them under Settings, Webhooks: each change (an issue created, changed or
+  deleted, a comment added, edited or deleted) is posted to a URL, signed per
+  [Standard Webhooks](https://www.standardwebhooks.com), and retried for about 17 hours while the
+  receiver fails. A webhook can be limited to one team, and one made for an agent is not sent the
+  agent's own changes. Each workspace's Durable Object sends them, so there is no new binding to
+  set up. ([#46])
+
+### Changed
+
+- The sync protocol is at version 4, for the new role. Open tabs fetch their workspace again
+  after the update. ([#45])
+
+## [0.2.0] - 2026-10-28
+
+### Added
+
+- Full-text search. The command palette (Ctrl+K) finds issues by words in their key, title,
+  description or comments, offline and as you type, and shows where a description or comment
+  matched. Typing an issue's key, such as `ENG-12`, puts that issue first. ([#42])
+- Each workspace's database keeps a full-text index of its issues, which MCP's `search_issues`
+  uses. A self-hosted copy builds the index for each workspace the first time it opens after the
+  update, so there is nothing to run. ([#43])
+
+### Changed
+
+- `search_issues` matches the start of words in any field and returns the best matches first,
+  where it used to match any part of the title. "auth" still finds "authentication", but
+  "thentication" no longer does. ([#43])
+
+### Fixed
+
+- On the public demo, a returning visitor goes straight back to their workspace. ([#41])
+- The demo counts new workspaces per network, so one IPv6 address can't get around the limit,
+  and allows more of them. ([#39])
+
+## [0.1.0] - 2026-10-28
+
+The first release. It brings together everything from the alphas below: realtime sync with a
+copy of each workspace on the device, offline use, issues with boards, labels, comments and
+history, invitations and roles, email, an MCP server for AI agents, and self-hosting with one
+deploy. Try it at [track-demo.gateweave.com](https://track-demo.gateweave.com).
+
+Changes since 0.1.0-alpha.13:
+
+### Added
+
+- This changelog. Each release's GitHub notes match its entry here. ([#35])
+- The README links the public demo. ([#37])
+
+### Fixed
+
+- `pnpm deploy:demo` built the top-level Worker instead of the demo's, because
+  `apps/web/.env.demo` was ignored by Git. A test now checks every environment build. ([#36])
+
+## [0.1.0-alpha.13] - 2026-10-28
+
+### Added
+
+- Track can run as a public demo, where each visitor gets a private sample workspace that is
+  deleted a day later. It is a separate deployment, the `demo` environment in `wrangler.jsonc`,
+  and the code does nothing where `TRACK_DEMO` is not `"1"`. Set `TRACK_DEMO=1` in `.dev.vars`
+  to try it locally. ([#34])
+- Performance budgets in CI: opening a 2,000-issue workspace from the local copy (1.5 s) and an
+  edit reaching another person (100 ms). Run them with `pnpm test:perf`. ([#33])
+
+### Changed
+
+- Creating workspaces is limited to 10 a minute per client, since each one is a Durable Object.
+  ([#34])
+- `pnpm dev:seed` and the demo build the sample workspace from the same module. ([#34])
+
+## [0.1.0-alpha.12] - 2026-10-28
+
+### Security
+
+- Sign-in, sign-up, password reset, invitation and OAuth limits are counted in a Durable Object
+  per client address, so they hold across every isolate and location. Each also has an hourly
+  allowance: sign-in attempts are held to 60 an hour per address. ([#32])
+- Any one address gets at most 5 emails at once and 10 a day, whoever asks for them. ([#32])
+
+Self-hosters: the deploy creates the new `RateLimiter` Durable Object on its own.
+
+## [0.1.0-alpha.11] - 2026-10-28
+
+### Added
+
+- Self-hosting in one step: the "Deploy to Cloudflare" button works, and `pnpm run deploy`
+  builds, applies D1 migrations and deploys, creating the database and session secret on a
+  first run. A new guide, [docs/self-hosting.md](/track/self-hosting/). ([#30])
+- `pnpm wrangler …` runs the pinned Wrangler from the right directory. ([#30])
+- End-to-end tests with Playwright: sign-up, realtime across tabs and people, working offline and
+  signing out. Run them with `pnpm test:e2e`. ([#29])
+
+### Changed
+
+- `wrangler.jsonc` and `.dev.vars` live at the repository root. Contributors run
+  `pnpm dev:setup` once to move their `.dev.vars`. ([#30])
+
+## [0.1.0-alpha.10] - 2026-10-28
+
+### Added
+
+- Track starts with no connection. A service worker keeps the app's files, the workspace opens
+  from the copy on your device, and edits made offline are sent once the server is reachable.
+  An installed app starts on the workspace you used last. ([#28])
+
+### Changed
+
+- Signing out forgets the device's copies of your workspaces. ([#28])
+
+### Fixed
+
+- The Worker no longer logs an error on every cold start. ([#27])
+
+## [0.1.0-alpha.9] - 2026-10-28
+
+### Added
+
+- Verified email addresses. When email is on, new accounts get a verification link, and joining
+  a workspace takes a verified address. ([#26])
+- The MCP `create_team` tool, for workspace admins. Reconnect your MCP client to see it. ([#25])
+
+## [0.1.0-alpha.8] - 2026-10-28
+
+### Added
+
+- Email through Cloudflare Email Service, on once `EMAIL_FROM` is set: password reset, and
+  invitations by email from admins with a verified address. ([#24])
+
+## [0.1.0-alpha.7] - 2026-10-28
+
+### Security
+
+- Rate limiting is on in the deployed Worker. Better Auth enabled its limiter only when
+  `NODE_ENV` was `production`, which a Worker never sets, so sign-in and password-reset attempts
+  were unlimited. ([#23])
+
+## [0.1.0-alpha.6] - 2026-10-28
+
+### Added
+
+- Pick labels when creating an issue, and filter lists and boards by label. The filter is kept
+  in the URL. ([#21])
+
+## [0.1.0-alpha.5] - 2026-10-28
+
+### Fixed
+
+- MCP tool results can gain fields without breaking agents that connected before an update.
+  Agents connected before this release need to reconnect once. ([#20])
+
+## [0.1.0-alpha.4] - 2026-10-28
+
+### Added
+
+- Comments and activity history on every issue. ([#19])
+- MCP: `get_issue` returns comments, and `add_comment` lets agents comment as you. ([#19])
+
+### Changed
+
+- Protocol version 3: clients re-sync once after updating. ([#19])
+
+## [0.1.0-alpha.3] - 2026-10-27
+
+### Fixed
+
+- MCP requests with a token failed with error 1101, because the server fetched its own signing
+  keys over the network. Bad tokens now get a 401 instead of a 500. ([#18])
+
+## [0.1.0-alpha.2] - 2026-10-27
+
+### Added
+
+- Workspace-wide labels with colors, on the issue page (`L`), lists and boards, and in
+  Settings › Labels. ([#17])
+- MCP: agents can create labels, label issues and search by label. ([#17])
+
+### Changed
+
+- Protocol version 2: open tabs reload and re-sync once. ([#17])
+
+## [0.1.0-alpha.1] - 2026-10-27
+
+The first pre-release.
+
+### Added
+
+- Realtime sync: one Durable Object per workspace, a local IndexedDB replica, optimistic edits
+  that survive reloads and offline periods, and field-level merging of concurrent edits.
+- Accounts and workspaces with Better Auth: roles, invitation links and member management.
+- Issue lists, boards with drag and drop, the issue page, a command palette and keyboard
+  shortcuts.
+- Installable as an app.
+- An MCP server at `/mcp`: AI agents sign in with your approval, then search, read, create and
+  update issues. ([#15])
+
+[0.39.3]: https://github.com/gateweavehq/track/releases/tag/v0.39.3
+[0.39.2]: https://github.com/gateweavehq/track/releases/tag/v0.39.2
+[0.39.1]: https://github.com/gateweavehq/track/releases/tag/v0.39.1
+[0.39.0]: https://github.com/gateweavehq/track/releases/tag/v0.39.0
+[0.38.0]: https://github.com/gateweavehq/track/releases/tag/v0.38.0
+[0.37.0]: https://github.com/gateweavehq/track/releases/tag/v0.37.0
+[0.36.0]: https://github.com/gateweavehq/track/releases/tag/v0.36.0
+[0.35.4]: https://github.com/gateweavehq/track/releases/tag/v0.35.4
+[0.35.3]: https://github.com/gateweavehq/track/releases/tag/v0.35.3
+[0.35.2]: https://github.com/gateweavehq/track/releases/tag/v0.35.2
+[0.35.1]: https://github.com/gateweavehq/track/releases/tag/v0.35.1
+[0.35.0]: https://github.com/gateweavehq/track/releases/tag/v0.35.0
+[0.34.1]: https://github.com/gateweavehq/track/releases/tag/v0.34.1
+[0.34.0]: https://github.com/gateweavehq/track/releases/tag/v0.34.0
+[0.33.0]: https://github.com/gateweavehq/track/releases/tag/v0.33.0
+[0.32.0]: https://github.com/gateweavehq/track/releases/tag/v0.32.0
+[0.31.0]: https://github.com/gateweavehq/track/releases/tag/v0.31.0
+[0.30.7]: https://github.com/gateweavehq/track/releases/tag/v0.30.7
+[0.30.6]: https://github.com/gateweavehq/track/releases/tag/v0.30.6
+[0.30.5]: https://github.com/gateweavehq/track/releases/tag/v0.30.5
+[0.30.4]: https://github.com/gateweavehq/track/releases/tag/v0.30.4
+[0.30.3]: https://github.com/gateweavehq/track/releases/tag/v0.30.3
+[0.30.2]: https://github.com/gateweavehq/track/releases/tag/v0.30.2
+[0.30.1]: https://github.com/gateweavehq/track/releases/tag/v0.30.1
+[0.30.0]: https://github.com/gateweavehq/track/releases/tag/v0.30.0
+[0.29.5]: https://github.com/gateweavehq/track/releases/tag/v0.29.5
+[0.29.4]: https://github.com/gateweavehq/track/releases/tag/v0.29.4
+[0.29.3]: https://github.com/gateweavehq/track/releases/tag/v0.29.3
+[0.29.2]: https://github.com/gateweavehq/track/releases/tag/v0.29.2
+[0.29.1]: https://github.com/gateweavehq/track/releases/tag/v0.29.1
+[0.29.0]: https://github.com/gateweavehq/track/releases/tag/v0.29.0
+[0.28.3]: https://github.com/gateweavehq/track/releases/tag/v0.28.3
+[0.28.2]: https://github.com/gateweavehq/track/releases/tag/v0.28.2
+[0.28.1]: https://github.com/gateweavehq/track/releases/tag/v0.28.1
+[0.28.0]: https://github.com/gateweavehq/track/releases/tag/v0.28.0
+[0.27.0]: https://github.com/gateweavehq/track/releases/tag/v0.27.0
+[0.26.6]: https://github.com/gateweavehq/track/releases/tag/v0.26.6
+[0.26.5]: https://github.com/gateweavehq/track/releases/tag/v0.26.5
+[0.26.4]: https://github.com/gateweavehq/track/releases/tag/v0.26.4
+[0.26.3]: https://github.com/gateweavehq/track/releases/tag/v0.26.3
+[0.26.2]: https://github.com/gateweavehq/track/releases/tag/v0.26.2
+[0.26.1]: https://github.com/gateweavehq/track/releases/tag/v0.26.1
+[0.26.0]: https://github.com/gateweavehq/track/releases/tag/v0.26.0
+[0.25.0]: https://github.com/gateweavehq/track/releases/tag/v0.25.0
+[0.24.0]: https://github.com/gateweavehq/track/releases/tag/v0.24.0
+[0.23.0]: https://github.com/gateweavehq/track/releases/tag/v0.23.0
+[0.22.0]: https://github.com/gateweavehq/track/releases/tag/v0.22.0
+[0.21.1]: https://github.com/gateweavehq/track/releases/tag/v0.21.1
+[0.21.0]: https://github.com/gateweavehq/track/releases/tag/v0.21.0
+[0.20.1]: https://github.com/gateweavehq/track/releases/tag/v0.20.1
+[0.20.0]: https://github.com/gateweavehq/track/releases/tag/v0.20.0
+[0.19.0]: https://github.com/gateweavehq/track/releases/tag/v0.19.0
+[0.18.0]: https://github.com/gateweavehq/track/releases/tag/v0.18.0
+[0.17.0]: https://github.com/gateweavehq/track/releases/tag/v0.17.0
+[0.16.0]: https://github.com/gateweavehq/track/releases/tag/v0.16.0
+[0.15.0]: https://github.com/gateweavehq/track/releases/tag/v0.15.0
+[0.14.1]: https://github.com/gateweavehq/track/releases/tag/v0.14.1
+[0.14.0]: https://github.com/gateweavehq/track/releases/tag/v0.14.0
+[0.13.1]: https://github.com/gateweavehq/track/releases/tag/v0.13.1
+[0.13.0]: https://github.com/gateweavehq/track/releases/tag/v0.13.0
+[0.12.0]: https://github.com/gateweavehq/track/releases/tag/v0.12.0
+[0.11.0]: https://github.com/gateweavehq/track/releases/tag/v0.11.0
+[0.10.0]: https://github.com/gateweavehq/track/releases/tag/v0.10.0
+[0.9.0]: https://github.com/gateweavehq/track/releases/tag/v0.9.0
+[0.8.0]: https://github.com/gateweavehq/track/releases/tag/v0.8.0
+[0.7.1]: https://github.com/gateweavehq/track/releases/tag/v0.7.1
+[0.7.0]: https://github.com/gateweavehq/track/releases/tag/v0.7.0
+[0.6.0]: https://github.com/gateweavehq/track/releases/tag/v0.6.0
+[0.5.0]: https://github.com/gateweavehq/track/releases/tag/v0.5.0
+[0.4.0]: https://github.com/gateweavehq/track/releases/tag/v0.4.0
+[0.3.0]: https://github.com/gateweavehq/track/releases/tag/v0.3.0
+[0.2.0]: https://github.com/gateweavehq/track/releases/tag/v0.2.0
+[0.1.0]: https://github.com/gateweavehq/track/releases/tag/v0.1.0
+[0.1.0-alpha.13]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.13
+[0.1.0-alpha.12]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.12
+[0.1.0-alpha.11]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.11
+[0.1.0-alpha.10]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.10
+[0.1.0-alpha.9]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.9
+[0.1.0-alpha.8]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.8
+[0.1.0-alpha.7]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.7
+[0.1.0-alpha.6]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.6
+[0.1.0-alpha.5]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.5
+[0.1.0-alpha.4]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.4
+[0.1.0-alpha.3]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.3
+[0.1.0-alpha.2]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.2
+[0.1.0-alpha.1]: https://github.com/gateweavehq/track/releases/tag/v0.1.0-alpha.1
+[#286]: https://github.com/gateweavehq/track/pull/286
+[#297]: https://github.com/gateweavehq/track/pull/297
+[#300]: https://github.com/gateweavehq/track/pull/300
+[#302]: https://github.com/gateweavehq/track/pull/302
+[#303]: https://github.com/gateweavehq/track/pull/303
+[#305]: https://github.com/gateweavehq/track/pull/305
+[#306]: https://github.com/gateweavehq/track/pull/306
+[#308]: https://github.com/gateweavehq/track/pull/308
+[#309]: https://github.com/gateweavehq/track/pull/309
+[#310]: https://github.com/gateweavehq/track/pull/310
+[#311]: https://github.com/gateweavehq/track/pull/311
+[#313]: https://github.com/gateweavehq/track/pull/313
+[#314]: https://github.com/gateweavehq/track/pull/314
+[#316]: https://github.com/gateweavehq/track/pull/316
+[#320]: https://github.com/gateweavehq/track/pull/320
+[#322]: https://github.com/gateweavehq/track/pull/322
+[#324]: https://github.com/gateweavehq/track/pull/324
+[#327]: https://github.com/gateweavehq/track/pull/327
+[#329]: https://github.com/gateweavehq/track/pull/329
+[#295]: https://github.com/gateweavehq/track/pull/295
+[#294]: https://github.com/gateweavehq/track/pull/294
+[#293]: https://github.com/gateweavehq/track/pull/293
+[#292]: https://github.com/gateweavehq/track/pull/292
+[#290]: https://github.com/gateweavehq/track/pull/290
+[#288]: https://github.com/gateweavehq/track/pull/288
+[#284]: https://github.com/gateweavehq/track/pull/284
+[#283]: https://github.com/gateweavehq/track/pull/283
+[#281]: https://github.com/gateweavehq/track/pull/281
+[#280]: https://github.com/gateweavehq/track/pull/280
+[#279]: https://github.com/gateweavehq/track/pull/279
+[#277]: https://github.com/gateweavehq/track/pull/277
+[#276]: https://github.com/gateweavehq/track/pull/276
+[#274]: https://github.com/gateweavehq/track/pull/274
+[#272]: https://github.com/gateweavehq/track/pull/272
+[#269]: https://github.com/gateweavehq/track/pull/269
+[#266]: https://github.com/gateweavehq/track/pull/266
+[#265]: https://github.com/gateweavehq/track/pull/265
+[#263]: https://github.com/gateweavehq/track/pull/263
+[#258]: https://github.com/gateweavehq/track/pull/258
+[#256]: https://github.com/gateweavehq/track/pull/256
+[#255]: https://github.com/gateweavehq/track/pull/255
+[#250]: https://github.com/gateweavehq/track/pull/250
+[#249]: https://github.com/gateweavehq/track/pull/249
+[#247]: https://github.com/gateweavehq/track/pull/247
+[#245]: https://github.com/gateweavehq/track/pull/245
+[#244]: https://github.com/gateweavehq/track/pull/244
+[#242]: https://github.com/gateweavehq/track/pull/242
+[#240]: https://github.com/gateweavehq/track/pull/240
+[#238]: https://github.com/gateweavehq/track/pull/238
+[#236]: https://github.com/gateweavehq/track/pull/236
+[#234]: https://github.com/gateweavehq/track/pull/234
+[#229]: https://github.com/gateweavehq/track/pull/229
+[#227]: https://github.com/gateweavehq/track/pull/227
+[#226]: https://github.com/gateweavehq/track/pull/226
+[#224]: https://github.com/gateweavehq/track/pull/224
+[#222]: https://github.com/gateweavehq/track/pull/222
+[#221]: https://github.com/gateweavehq/track/pull/221
+[#219]: https://github.com/gateweavehq/track/pull/219
+[#218]: https://github.com/gateweavehq/track/pull/218
+[#215]: https://github.com/gateweavehq/track/pull/215
+[#214]: https://github.com/gateweavehq/track/pull/214
+[#213]: https://github.com/gateweavehq/track/pull/213
+[#15]: https://github.com/gateweavehq/track/pull/15
+[#17]: https://github.com/gateweavehq/track/pull/17
+[#18]: https://github.com/gateweavehq/track/pull/18
+[#19]: https://github.com/gateweavehq/track/pull/19
+[#20]: https://github.com/gateweavehq/track/pull/20
+[#21]: https://github.com/gateweavehq/track/pull/21
+[#23]: https://github.com/gateweavehq/track/pull/23
+[#24]: https://github.com/gateweavehq/track/pull/24
+[#25]: https://github.com/gateweavehq/track/pull/25
+[#26]: https://github.com/gateweavehq/track/pull/26
+[#27]: https://github.com/gateweavehq/track/pull/27
+[#28]: https://github.com/gateweavehq/track/pull/28
+[#29]: https://github.com/gateweavehq/track/pull/29
+[#30]: https://github.com/gateweavehq/track/pull/30
+[#32]: https://github.com/gateweavehq/track/pull/32
+[#33]: https://github.com/gateweavehq/track/pull/33
+[#34]: https://github.com/gateweavehq/track/pull/34
+[#35]: https://github.com/gateweavehq/track/pull/35
+[#36]: https://github.com/gateweavehq/track/pull/36
+[#37]: https://github.com/gateweavehq/track/pull/37
+[#39]: https://github.com/gateweavehq/track/pull/39
+[#41]: https://github.com/gateweavehq/track/pull/41
+[#42]: https://github.com/gateweavehq/track/pull/42
+[#43]: https://github.com/gateweavehq/track/pull/43
+[#45]: https://github.com/gateweavehq/track/pull/45
+[#46]: https://github.com/gateweavehq/track/pull/46
+[#49]: https://github.com/gateweavehq/track/pull/49
+[#51]: https://github.com/gateweavehq/track/pull/51
+[#52]: https://github.com/gateweavehq/track/pull/52
+[#53]: https://github.com/gateweavehq/track/pull/53
+[#54]: https://github.com/gateweavehq/track/pull/54
+[#56]: https://github.com/gateweavehq/track/pull/56
+[#61]: https://github.com/gateweavehq/track/pull/61
+[#62]: https://github.com/gateweavehq/track/pull/62
+[#63]: https://github.com/gateweavehq/track/pull/63
+[#64]: https://github.com/gateweavehq/track/pull/64
+[#65]: https://github.com/gateweavehq/track/pull/65
+[#66]: https://github.com/gateweavehq/track/pull/66
+[#67]: https://github.com/gateweavehq/track/pull/67
+[#68]: https://github.com/gateweavehq/track/pull/68
+[#69]: https://github.com/gateweavehq/track/pull/69
+[#70]: https://github.com/gateweavehq/track/pull/70
+[#71]: https://github.com/gateweavehq/track/pull/71
+[#73]: https://github.com/gateweavehq/track/pull/73
+[#74]: https://github.com/gateweavehq/track/pull/74
+[#75]: https://github.com/gateweavehq/track/pull/75
+[#76]: https://github.com/gateweavehq/track/pull/76
+[#78]: https://github.com/gateweavehq/track/pull/78
+[#79]: https://github.com/gateweavehq/track/pull/79
+[#81]: https://github.com/gateweavehq/track/pull/81
+[#82]: https://github.com/gateweavehq/track/pull/82
+[#85]: https://github.com/gateweavehq/track/pull/85
+[#86]: https://github.com/gateweavehq/track/pull/86
+[#88]: https://github.com/gateweavehq/track/pull/88
+[#89]: https://github.com/gateweavehq/track/pull/89
+[#91]: https://github.com/gateweavehq/track/pull/91
+[#93]: https://github.com/gateweavehq/track/pull/93
+[#95]: https://github.com/gateweavehq/track/pull/95
+[#97]: https://github.com/gateweavehq/track/pull/97
+[#98]: https://github.com/gateweavehq/track/pull/98
+[#100]: https://github.com/gateweavehq/track/pull/100
+[#102]: https://github.com/gateweavehq/track/pull/102
+[#103]: https://github.com/gateweavehq/track/pull/103
+[#105]: https://github.com/gateweavehq/track/pull/105
+[#107]: https://github.com/gateweavehq/track/pull/107
+[#110]: https://github.com/gateweavehq/track/pull/110
+[#111]: https://github.com/gateweavehq/track/pull/111
+[#112]: https://github.com/gateweavehq/track/pull/112
+[#109]: https://github.com/gateweavehq/track/pull/109
+[#114]: https://github.com/gateweavehq/track/pull/114
+[#116]: https://github.com/gateweavehq/track/pull/116
+[#117]: https://github.com/gateweavehq/track/pull/117
+[#118]: https://github.com/gateweavehq/track/pull/118
+[#119]: https://github.com/gateweavehq/track/pull/119
+[#123]: https://github.com/gateweavehq/track/pull/123
+[#124]: https://github.com/gateweavehq/track/pull/124
+[#125]: https://github.com/gateweavehq/track/pull/125
+[#126]: https://github.com/gateweavehq/track/pull/126
+[#128]: https://github.com/gateweavehq/track/pull/128
+[#129]: https://github.com/gateweavehq/track/pull/129
+[#130]: https://github.com/gateweavehq/track/pull/130
+[#133]: https://github.com/gateweavehq/track/pull/133
+[#134]: https://github.com/gateweavehq/track/pull/134
+[#131]: https://github.com/gateweavehq/track/pull/131
+[#138]: https://github.com/gateweavehq/track/pull/138
+[#141]: https://github.com/gateweavehq/track/pull/141
+[#145]: https://github.com/gateweavehq/track/pull/145
+[#148]: https://github.com/gateweavehq/track/pull/148
+[#149]: https://github.com/gateweavehq/track/pull/149
+[#150]: https://github.com/gateweavehq/track/pull/150
+[#151]: https://github.com/gateweavehq/track/pull/151
+[#152]: https://github.com/gateweavehq/track/pull/152
+[#153]: https://github.com/gateweavehq/track/pull/153
+[#154]: https://github.com/gateweavehq/track/pull/154
+[#156]: https://github.com/gateweavehq/track/pull/156
+[#157]: https://github.com/gateweavehq/track/pull/157
+[#159]: https://github.com/gateweavehq/track/pull/159
+[#163]: https://github.com/gateweavehq/track/pull/163
+[#164]: https://github.com/gateweavehq/track/pull/164
+[#161]: https://github.com/gateweavehq/track/pull/161
+[#166]: https://github.com/gateweavehq/track/pull/166
+[#168]: https://github.com/gateweavehq/track/pull/168
+[#169]: https://github.com/gateweavehq/track/pull/169
+[#171]: https://github.com/gateweavehq/track/pull/171
+[#172]: https://github.com/gateweavehq/track/pull/172
+[#173]: https://github.com/gateweavehq/track/pull/173
+[#174]: https://github.com/gateweavehq/track/pull/174
+[#175]: https://github.com/gateweavehq/track/pull/175
+[#176]: https://github.com/gateweavehq/track/pull/176
+[#177]: https://github.com/gateweavehq/track/pull/177
+[#179]: https://github.com/gateweavehq/track/pull/179
+[#180]: https://github.com/gateweavehq/track/pull/180
+[#183]: https://github.com/gateweavehq/track/pull/183
+[#184]: https://github.com/gateweavehq/track/pull/184
+[#187]: https://github.com/gateweavehq/track/pull/187
+[#188]: https://github.com/gateweavehq/track/pull/188
+[#190]: https://github.com/gateweavehq/track/pull/190
+[#191]: https://github.com/gateweavehq/track/pull/191
+[#192]: https://github.com/gateweavehq/track/pull/192
+[#194]: https://github.com/gateweavehq/track/pull/194
+[#196]: https://github.com/gateweavehq/track/pull/196
+[#209]: https://github.com/gateweavehq/track/pull/209
+[#207]: https://github.com/gateweavehq/track/pull/207
+[#205]: https://github.com/gateweavehq/track/pull/205
+[#203]: https://github.com/gateweavehq/track/pull/203
+[#201]: https://github.com/gateweavehq/track/pull/201
+[#198]: https://github.com/gateweavehq/track/pull/198

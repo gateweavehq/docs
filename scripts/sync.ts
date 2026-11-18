@@ -13,6 +13,7 @@ import { convert, isAsset, type Repository, slugOf } from "./transform.ts";
 const root = join(import.meta.dirname, "..");
 const contentDir = join(root, "src/content/docs");
 const publicDir = join(root, "public");
+const markdownDir = join(publicDir, "markdown");
 const generatedDir = join(root, "src/generated");
 
 const headers: Record<string, string> = {
@@ -42,14 +43,23 @@ interface Fetched {
 	repository: Repository;
 	/** The release's tag, or `main`. */
 	version: string;
+	/** Last commit affecting each copied page at this version. */
+	pageDates: Map<string, string>;
 	files: Map<string, Uint8Array>;
 }
 
 async function read(product: Product): Promise<Fetched> {
-	const release = await github<{ tag_name: string }>(
+	const release = await github<{ tag_name: string; published_at: string }>(
 		`/repos/${OWNER}/${product.repo}/releases/latest`,
 	);
 	const ref = release?.tag_name ?? "main";
+	const commit = release
+		? null
+		: await github<{ commit: { committer: { date: string } } }>(
+				`/repos/${OWNER}/${product.repo}/commits/main`,
+			);
+	const versionDate = release?.published_at ?? commit?.commit.committer.date;
+	if (!versionDate) throw new Error(`${product.repo} has no source snapshot date`);
 	const tree = await github<{ tree: { path: string; type: string }[]; truncated: boolean }>(
 		`/repos/${OWNER}/${product.repo}/git/trees/${encodeURIComponent(ref)}?recursive=1`,
 	);
@@ -61,12 +71,21 @@ async function read(product: Product): Promise<Fetched> {
 		.map((entry) => entry.path)
 		.filter((path) => slugOf(path) !== null || isAsset(path));
 	const files = new Map<string, Uint8Array>();
-	for (const path of wanted) files.set(path, await raw(product.repo, ref, path));
+	const pageDates = new Map<string, string>();
+	for (const path of wanted) {
+		files.set(path, await raw(product.repo, ref, path));
+		if (slugOf(path) === null) continue;
+		const history = await github<{ commit: { committer: { date: string } } }[]>(
+			`/repos/${OWNER}/${product.repo}/commits?sha=${encodeURIComponent(ref)}&path=${encodeURIComponent(path)}&per_page=1`,
+		);
+		pageDates.set(path, history?.[0]?.commit.committer.date ?? versionDate);
+	}
 
 	const paths = [...files.keys()];
 	return {
 		product,
 		version: ref,
+		pageDates,
 		files,
 		repository: {
 			owner: OWNER,
@@ -168,8 +187,9 @@ for (const product of products) {
 }
 const all = fetched.map((f) => f.repository);
 const sidebar: SidebarGroup[] = [];
+await rm(markdownDir, { recursive: true, force: true });
 
-for (const { product, repository, version, files } of fetched) {
+for (const { product, repository, version, pageDates, files } of fetched) {
 	await rm(join(contentDir, product.key), { recursive: true, force: true });
 	await rm(join(publicDir, product.key), { recursive: true, force: true });
 	const labels = new Map<string, string>();
@@ -194,11 +214,17 @@ for (const { product, repository, version, files } of fetched) {
 			source: {
 				product: product.name,
 				version,
+				updatedAt: pageDates.get(path),
 				url: `https://github.com/${OWNER}/${product.repo}/blob/${version}/${path}`,
+				markdownUrl: `/markdown/${product.key}/${slug || "index"}.md`,
 			},
 		});
 		const file = slug === "" ? "index.md" : `${slug}.md`;
 		await write(join(contentDir, product.key, file), header + page.body);
+		await write(
+			join(markdownDir, product.key, file),
+			`# ${titleFor(page.title, product)}\n\n${page.body}`,
+		);
 	}
 	sidebar.push(sidebarFor(product, labels));
 }

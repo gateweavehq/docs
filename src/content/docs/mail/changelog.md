@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/mail/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Mail"
   version: "v0.2.0"
+  updatedAt: "2026-11-18T09:31:09Z"
   url: "https://github.com/gateweavehq/mail/blob/v0.2.0/CHANGELOG.md"
+  markdownUrl: "/markdown/mail/changelog.md"
 ---
 Notable changes to Gateweave Mail, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow

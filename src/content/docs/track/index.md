@@ -5,7 +5,9 @@ editUrl: "https://github.com/gateweavehq/track/edit/main/README.md"
 source:
   product: "Gateweave Track"
   version: "v0.39.7"
+  updatedAt: "2026-11-15T09:10:33Z"
   url: "https://github.com/gateweavehq/track/blob/v0.39.7/README.md"
+  markdownUrl: "/markdown/track/index.md"
 ---
 <p align="center">
   <a href="https://track-demo.gateweave.com"><strong>Try the demo</strong></a> ·

@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/spec.md"
 source:
   product: "Gateweave Agents"
   version: "v0.28.3"
+  updatedAt: "2026-11-16T00:01:07Z"
   url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/spec.md"
+  markdownUrl: "/markdown/agents/spec.md"
 ---
 > **Status: agreed.** Phases 1 to 3 (the registry, the library and setups, and the runtime) are
 > built; phase 4 (agents in Gateweave products) is next. Decisions are recorded at the end.

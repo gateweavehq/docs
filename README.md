@@ -6,9 +6,9 @@ files by a Cloudflare Worker.
 
 The docs themselves are written in each product's repository, not here. `pnpm sync` copies the
 `README.md`, `CHANGELOG.md` and `docs/` of [Track](https://github.com/gateweavehq/track),
-[Agents](https://github.com/gateweavehq/agents), [ID](https://github.com/gateweavehq/id) and
-[Mail](https://github.com/gateweavehq/mail) at their latest release (Mail: `main`, until it has
-one) and rewrites their links for this site. Fix a page in its product's repository; it arrives
+[Agents](https://github.com/gateweavehq/agents), [ID](https://github.com/gateweavehq/id),
+[Mail](https://github.com/gateweavehq/mail) and [Guard](https://github.com/gateweavehq/guard)
+at their latest release (or `main` until a product has one) and rewrites their links for this site. Fix a page in its product's repository; it arrives
 here with the next sync.
 
 ## Layout
@@ -22,8 +22,9 @@ here with the next sync.
 | `src/generated/`         | What the last sync read: versions and the sidebar                   |
 | `public/<product>/`      | Images copied from a product's `docs/`                              |
 | `src/components/`        | Starlight overrides: the title says which version a page describes  |
+| `public/markdown/`        | Same-site Markdown for each copied page and its copy action          |
 
-Everything under a product's folder in `src/content/docs/` and `public/`, and `src/generated/`,
+Everything under a product's folder in `src/content/docs/` and `public/`, `public/markdown/`, and `src/generated/`,
 is written by `pnpm sync`: don't edit it by hand.
 
 ## Commands

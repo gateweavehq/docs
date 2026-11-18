@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/docker-sandboxes.
 source:
   product: "Gateweave Agents"
   version: "v0.28.3"
+  updatedAt: "2026-11-02T09:28:06Z"
   url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/docker-sandboxes.md"
+  markdownUrl: "/markdown/agents/docker-sandboxes.md"
 ---
 A decision record for AGT-55: whether Gateweave Agents should run its sandboxes on Docker's
 cloud sandboxes, part of the Docker Agentic Platform, instead of or beside the Cloudflare

@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/id/edit/main/docs/conformance.md"
 source:
   product: "Gateweave ID"
   version: "v0.16.1"
+  updatedAt: "2026-11-06T03:53:14Z"
   url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/conformance.md"
+  markdownUrl: "/markdown/id/conformance.md"
 ---
 `pnpm test:conformance` runs the [OpenID Foundation's conformance suite](https://gitlab.com/openid/conformance-suite)
 against a local build of ID, plays the person in a browser, and compares what the suite says of every test

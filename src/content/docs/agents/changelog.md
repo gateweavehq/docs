@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/agents/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Agents"
   version: "v0.28.3"
+  updatedAt: "2026-11-18T10:02:35Z"
   url: "https://github.com/gateweavehq/agents/blob/v0.28.3/CHANGELOG.md"
+  markdownUrl: "/markdown/agents/changelog.md"
 ---
 Notable changes to Gateweave Agents, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow

@@ -4,7 +4,9 @@ editUrl: "https://github.com/gateweavehq/mail/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Mail"
   version: "v0.2.0"
+  updatedAt: "2026-11-18T09:16:22Z"
   url: "https://github.com/gateweavehq/mail/blob/v0.2.0/docs/self-hosting.md"
+  markdownUrl: "/markdown/mail/self-hosting.md"
 ---
 Gateweave Mail runs on your own Cloudflare account as one Worker. It is early: today it has
 accounts, workspaces, a directory of addresses, and mailboxes that keep the mail sent to them and
