@@ -3,9 +3,9 @@ title: "Connecting GitHub"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/github-app.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.3"
+  version: "v0.31.0"
   updatedAt: "2026-11-01T23:10:05Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.3/docs/github-app.md"
+  url: "https://github.com/gateweavehq/agents/blob/v0.31.0/docs/github-app.md"
   markdownUrl: "/markdown/agents/github-app.md"
 ---
 Gateweave Agents reads the agent configuration in each repository, and applies setups by pull

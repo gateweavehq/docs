@@ -3,9 +3,9 @@ title: "ID architecture"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/architecture.md"
 source:
   product: "Gateweave ID"
-  version: "v0.16.1"
-  updatedAt: "2026-11-18T10:36:13Z"
-  url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/architecture.md"
+  version: "v0.16.2"
+  updatedAt: "2026-11-18T14:33:41Z"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.2/docs/architecture.md"
   markdownUrl: "/markdown/id/architecture.md"
 ---
 Gateweave ID is an OpenID Connect provider that runs entirely on Cloudflare, with no server to run.
@@ -429,7 +429,11 @@ above proves it, and the invitation is waiting.
   mistyped address cannot hand a workspace to a stranger.
 - **The email can reach anyone, so it can say little of what a stranger chose.** The subject is fixed. The
   workspace's name cannot hold a link or characters that hide text, and the sender appears by the address
-  they proved, never by the name they chose.
+  they proved, never by the name they chose. When this workspace requires two-factor sign-in for its apps,
+  the email tells an invitee who already has a passkey or authenticator to sign in with it before opening
+  a connected app. Someone without either is sent to their account page to set one up after joining.
+  A workspace without that rule gets no extra step. A failed read of the rule omits the optional guidance
+  but still sends the invitation, so re-inviting does not cancel the old link without sending its replacement.
 - **Sending is limited** to 30 an hour and 100 a day per person and 3 a day per address, whoever sends
   them. That last one sits well under what an address can be sent in all, so nobody can use up what it has
   left for a sign-up code or a password reset by inviting it.

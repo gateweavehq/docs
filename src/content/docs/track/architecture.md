@@ -3,9 +3,9 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.39.7"
-  updatedAt: "2026-11-18T09:14:38Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.39.7/docs/architecture.md"
+  version: "v0.41.0"
+  updatedAt: "2026-11-18T21:16:43Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.41.0/docs/architecture.md"
   markdownUrl: "/markdown/track/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
@@ -64,28 +64,28 @@ different protocol versions in production. It also gives self-hosters one thing 
 
 ## Data ownership
 
-| Data                                 | Lives in     | Owner                                     |
-| ------------------------------------ | ------------ | ----------------------------------------- |
-| Users, sessions, OAuth accounts      | D1           | Better Auth                               |
-| Workspaces, members, invitations     | D1           | Better Auth organization plugin           |
-| OAuth clients, grants, signing keys  | D1           | Better Auth MCP plugin                    |
-| Agent members' keys (hashed)         | D1           | Track's agent members plugin              |
-| Who runs the server, sign-up setting | D1           | Track's deployment plugin                 |
-| Sign-up list (addresses, notes)      | D1           | Track's deployment plugin                 |
-| Where each workspace's object is     | D1           | Track ([below](#where-a-workspace-lives)) |
-| Teams, issues, labels, projects      | Workspace DO | `sync-server`                             |
-| Saved views                          | Workspace DO | `sync-server`                             |
-| Comments on issues                   | Workspace DO | `sync-server`                             |
-| Issue activity (history)             | Workspace DO | `sync-server`, from issue writes          |
-| Subscriptions and inbox items        | Workspace DO | `sync-server`, from issue writes          |
-| Notification settings                | Workspace DO | `sync-server`, each person's own          |
-| Due-date reminders sent              | Workspace DO | `sync-server`, from the alarm             |
-| Team automations' runs               | Workspace DO | `sync-server`, from the alarm             |
-| Webhooks, their secrets, deliveries  | Workspace DO | `sync-server`, managed by admins          |
-| GitHub connections and secrets       | Workspace DO | `sync-server`, managed by admins          |
-| Pull requests that mention issues    | Workspace DO | `sync-server`, from GitHub                |
-| Member replica (name, avatar, role)  | Workspace DO | Pushed from D1 by membership hooks        |
-| Attached files                       | R2           | The file gateway                          |
+| Data                                 | Lives in     | Owner                                       |
+| ------------------------------------ | ------------ | ------------------------------------------- |
+| Users, sessions, OAuth accounts      | D1           | Better Auth                                 |
+| Workspaces, members, invitations     | D1           | Better Auth organization plugin             |
+| OAuth clients, grants, signing keys  | D1           | Better Auth MCP plugin                      |
+| Agent members' keys (hashed)         | D1           | Track's agent members plugin                |
+| Who runs the server, sign-up setting | D1           | Track's deployment plugin                   |
+| Sign-up list (addresses, notes)      | D1           | Track's deployment plugin                   |
+| Where each workspace's object is     | D1           | Track ([below](#where-a-workspace-lives))   |
+| Teams, issues, labels, projects      | Workspace DO | `sync-server`                               |
+| Saved views                          | Workspace DO | `sync-server`                               |
+| Comments on issues                   | Workspace DO | `sync-server`                               |
+| Issue activity (history)             | Workspace DO | `sync-server`, from issue and comment edits |
+| Subscriptions and inbox items        | Workspace DO | `sync-server`, from issue writes            |
+| Notification settings                | Workspace DO | `sync-server`, each person's own            |
+| Due-date reminders sent              | Workspace DO | `sync-server`, from the alarm               |
+| Team automations' runs               | Workspace DO | `sync-server`, from the alarm               |
+| Webhooks, their secrets, deliveries  | Workspace DO | `sync-server`, managed by admins            |
+| GitHub connections and secrets       | Workspace DO | `sync-server`, managed by admins            |
+| Pull requests that mention issues    | Workspace DO | `sync-server`, from GitHub                  |
+| Member replica (name, avatar, role)  | Workspace DO | Pushed from D1 by membership hooks          |
+| Attached files                       | R2           | The file gateway                            |
 
 A backup Worker reads the workspace objects through the `Backup` entrypoint ([Backups](#backups)).
 
@@ -746,7 +746,13 @@ Each tool call resolves the workspace slug to the caller's membership in D1, as 
 does, and then reads or mutates through the Durable Object's RPC (see
 [Server-side clients](#server-side-clients)). A workspace the caller does not belong to is
 reported as not found. The tools themselves live in `apps/web/src/server/mcp/tools.ts`. Agents
-read an issue's comments with `get_issue` and write one with `add_comment`, as the person. They
+read an issue's comments with `get_issue`, write one with `add_comment`, and edit their own with
+`update_comment`, as the person. A comment edit records its previous text in the issue's activity
+history. Everyone who can see the issue can read that previous text, even after the comment is
+deleted. A secret pasted by mistake must be rotated; editing or deleting the comment does not
+remove it from history. `create_issue` and `update_issue` return a short summary: key, title, status,
+statusName, priority, assignee, labels, project, url, updatedAt and creator. They return the description
+only with `include: ["description"]`; `get_issue` still returns the full issue. They
 mention people as the app does, with `[@Name](mention:<member id>)`, which the tools' descriptions
 spell out. An
 agent sets up a fresh workspace's teams with `create_team`, which only admins may use. It makes
@@ -1948,7 +1954,8 @@ moves the issues already past the limit and leaves every other row as it is.
   frequencies differ, so they are not mixed in with the others'.
 
 Matching follows one set of rules, so that server-side clients and the browser find the same
-issues. Text is folded to lowercase without diacritics (NFKD, combining marks removed) and split
+issues. Text is folded to lowercase without diacritics (NFKD, combining marks removed, and dotless
+`ı` folded to `i`) and split
 into runs of letters and digits. An issue matches when every word of the query starts a word in
 one of its fields, so "auth" finds "authentication" and "resume" finds "Résumé". The server
 quotes each word as an FTS5 prefix query, so query syntax has no effect, and ranks matches with
@@ -2256,7 +2263,22 @@ renamed workspace keeps its cache). It holds the confirmed rows, the confirmed v
 pending mutations. A reload renders straight from storage and then catches up from the oplog,
 without downloading a snapshot. Pending mutations are written with strict durability, because
 until the server has them they exist nowhere else. The database version includes the protocol
-version, so a protocol change discards the old cache instead of misreading it. Signing out
+version, so a protocol or storage change discards the old cache instead of misreading it. Unsent
+mutations remain in insertion order with their original ids and client id. A changed mutation
+schema is checked when the stored mutation is read. A row this client cannot parse is quarantined,
+removed from the pending store and reported through the usual refusal callback, naming the change;
+it never reaches optimistic replay or resend, while readable rows keep syncing in their original
+order. The pending store has its own format version. Format
+1 is the only known format today. A future older known format needs an explicit migration that
+preserves mutation ids and order; until one exists, every other format (including unknown and newer
+ones) aborts the upgrade and leaves the old database intact. Only a pending store that cannot be
+read as a whole, including an unknown format or aborted upgrade, gets the unreadable status.
+The app shows any readable snapshot and offers a confirmed discard of this workspace's IndexedDB
+copy, including pending changes, before starting fresh. A blocked discard reports the other tab
+and stops waiting after ten seconds; cancellation prevents this tab's dialog from triggering a
+delayed reload if the delete later completes. An
+old tab on this build finishes queued writes before closing on `versionchange`.
+A tab still on a pre-fix build cannot be made to finish an in-memory write at that point. Signing out
 deletes every replica, and losing access deletes that workspace's: when the server reports that
 the user is no longer a member, or they leave, the app deletes the database, so a removed
 member's browser does not keep a copy.

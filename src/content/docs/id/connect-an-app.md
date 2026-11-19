@@ -3,9 +3,9 @@ title: "Connect an app"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/connect-an-app.md"
 source:
   product: "Gateweave ID"
-  version: "v0.16.1"
+  version: "v0.16.2"
   updatedAt: "2026-11-15T04:28:01Z"
-  url: "https://github.com/gateweavehq/id/blob/v0.16.1/docs/connect-an-app.md"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.2/docs/connect-an-app.md"
   markdownUrl: "/markdown/id/connect-an-app.md"
 ---
 Your own app can sign people in with Gateweave ID. It works with any library that speaks OpenID Connect,

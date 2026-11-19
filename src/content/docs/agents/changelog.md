@@ -3,9 +3,9 @@ title: "Agents changelog"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.28.3"
-  updatedAt: "2026-11-18T10:02:35Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.28.3/CHANGELOG.md"
+  version: "v0.31.0"
+  updatedAt: "2026-11-19T00:37:06Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.31.0/CHANGELOG.md"
   markdownUrl: "/markdown/agents/changelog.md"
 ---
 Notable changes to Gateweave Agents, newest first. The format follows
@@ -15,6 +15,98 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/agents/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.31.0] - 2026-11-19
+
+Three things that were awkward when setting agents up: a broken MCP connection now says so, an
+agent's model is chosen from a list, and a new library asset asks for its kind. There is no
+migration in this release.
+
+### Added
+
+- **An MCP server whose OAuth connection has stopped working says "needs reconnecting"** on the
+  MCP page and on the agents and teams that pin it. Before, the page went on saying it was
+  connected, and the first sign was a run that failed. The page checks each such connection when
+  it loads, at most once in five minutes per server (per agent, for a server whose headers use
+  a value from the agent's environment); a check never clears a connection, and a
+  provider that cannot be reached is reported as "could not check", not as broken.
+  ([#274](https://github.com/gateweavehq/agents/pull/274))
+- **An agent's model is picked from the provider's list**, with search, in the edit dialog as in
+  the new-agent dialog. A saved model the provider no longer offers is marked. Typing an id still
+  works. ([#273](https://github.com/gateweavehq/agents/pull/273))
+
+### Fixed
+
+- **A new library asset asks for its kind** and says what each kind is for, where the form
+  preselected Skill. ([#272](https://github.com/gateweavehq/agents/pull/272))
+- **Stored OAuth credentials of an MCP server are handled more strictly**, for runs as well as
+  for the new check: they are given only to the server address they were issued for; they are
+  cleared only if they are still the ones that were sent, so a late answer cannot erase a newer
+  sign-in; a refresh that was already sent saves its new token even if its caller gave up; a
+  sign-in left unfinished stops counting after ten minutes; and a tool call late in a long turn
+  can still renew its token. ([#274](https://github.com/gateweavehq/agents/pull/274))
+
+### If you run your own
+
+- **Update.** After updating, open the MCP page: a connection that needs reconnecting now shows
+  there.
+
+## [0.30.0] - 2026-11-18
+
+An agent's pull request can now be held to the repository's own checks before it exists. This
+release has one migration in the workspace registry, which adds a column with a default.
+
+### Added
+
+- **Checks before a pull request.** An owner or admin can give a repository up to five check
+  commands on its page, each one line, such as `pnpm check` or `pnpm test`. When an agent calls
+  `open_pull_request`, the tool runs them in the sandbox on the committed tree before anything is
+  pushed. If one fails, times out or cannot run, nothing is opened and the agent is told which
+  failed, with the end of its output, so it can fix it and try again. After three failed rounds in
+  a run the pull request is opened as a draft that says which check failed. If a run has used up
+  its time for checks before that, the next call opens a draft that says the checks were not run.
+  ([#267](https://github.com/gateweavehq/agents/pull/267))
+- **The pull request says what ran.** Its description ends with a section written by the tool,
+  not the model: each command, its exit code and how long it took. A copy of that section written
+  by the model is removed. ([#267](https://github.com/gateweavehq/agents/pull/267))
+
+### Worth knowing
+
+- **The checks are a first line before CI, not a replacement for it.** The list of commands comes
+  only from the repository's settings: an agent, a file in the repository or an issue's text
+  cannot change it. What the commands run is the repository's own code, which the agent has
+  edited, inside the agent's sandbox. ([#270](https://github.com/gateweavehq/agents/pull/270))
+- A check may take ten minutes, the checks of one call twenty, and those of one run forty. The
+  time counts as sandbox time.
+- A repository with no checks behaves as before, and its pull requests gain no section.
+
+### If you run your own
+
+- **Update.** The migration is in each workspace's registry and runs by itself when the workspace
+  is next used; there is no step for you.
+
+## [0.29.0] - 2026-11-18
+
+Library assets are easier to reuse in a coding agent, and a sign-in redirect stays on this site
+even when its path contains dot segments. There is no migration in this release.
+
+### Added
+
+- **Copy the text of a library asset.** A stored prompt has a Copy prompt button, a Markdown file
+  has Copy Markdown, and another stored text file has Copy file. An asset without stored content
+  has no copy action. A failed clipboard write tells the person to select the visible text.
+  ([#268](https://github.com/gateweavehq/agents/pull/268))
+
+### Fixed
+
+- **Sign-in cannot return to another site through a resolved path.** A path whose dot segments
+  become `//example.com` or `/\\example.com` is refused after resolution. Ordinary same-site
+  parent segments still work.
+  ([#266](https://github.com/gateweavehq/agents/pull/266))
+
+### If you run your own
+
+- **Update.** No database migration or new environment variable is required.
 
 ## [0.28.3] - 2026-11-18
 

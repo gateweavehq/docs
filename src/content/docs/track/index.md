@@ -4,9 +4,9 @@ description: "An open-source, realtime issue tracker that runs on one Cloudflare
 editUrl: "https://github.com/gateweavehq/track/edit/main/README.md"
 source:
   product: "Gateweave Track"
-  version: "v0.39.7"
+  version: "v0.41.0"
   updatedAt: "2026-11-15T09:10:33Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.39.7/README.md"
+  url: "https://github.com/gateweavehq/track/blob/v0.41.0/README.md"
   markdownUrl: "/markdown/track/index.md"
 ---
 <p align="center">
@@ -208,17 +208,17 @@ each release changed.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.39.7/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.39.7/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.39.7/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
-Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.39.7/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.41.0/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.41.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.41.0/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
+Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.41.0/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.39.7/LICENSE). You can
+Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.41.0/LICENSE). You can
 self-host, use and modify Track freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.39.7/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.41.0/CLA.md).
