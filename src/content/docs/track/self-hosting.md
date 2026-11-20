@@ -3,9 +3,9 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.41.0"
-  updatedAt: "2026-11-16T02:11:58Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.41.0/docs/self-hosting.md"
+  version: "v0.44.0"
+  updatedAt: "2026-11-19T23:13:13Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.44.0/docs/self-hosting.md"
   markdownUrl: "/markdown/track/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
@@ -110,7 +110,9 @@ on its own:
   `"jurisdiction": "eu"` on the `FILES` binding in `wrangler.jsonc`.
 - **Workspaces**: set `DURABLE_OBJECT_JURISDICTION` to `eu`. New workspaces are made there. Ones
   made before move there in the daily run at 03:23 UTC, three at a time, each paused for a few
-  seconds while it is copied. The copy each leaves behind is kept until the workspace is deleted.
+  seconds while it is copied. The old copy is sealed at once and refuses all workspace requests.
+  From seven days after the move the daily run deletes it, even if the setting is unset: up to
+  three copies a run, so with more, or after a failed try, some wait for a later run.
   Unsetting it later moves nothing back. Rate limits are counted there too.
 
 If your team works far from the database, the Worker can run near it instead of near each
@@ -306,6 +308,15 @@ the team's intake. Teams usually forward their support address to it. To turn ad
 Admins then turn on each team's address next to its form. Each sender can file 10 requests an
 hour and 30 a day, and each address takes at most 60 an hour and 300 a day. Attachments go into
 the bucket for attached files, where there is one.
+
+### AI-drafted replies
+
+When a team member approves an agent's drafted reply declining a request, Track adds a line to the
+comment and to the email sent to the requester. The line says that an AI agent drafted the reply
+and a team member approved it, and names the agent when its name is available. Replies written by
+people appear as written. Track also labels agent names in inbox emails and push notifications
+that quote their words. These disclosures support the transparency goals of
+[EU AI Act Article 50](https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng#art_50) and cannot be turned off.
 
 ### Sign in with GitHub
 

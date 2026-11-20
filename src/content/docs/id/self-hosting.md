@@ -3,9 +3,9 @@ title: "Self-hosting ID"
 editUrl: "https://github.com/gateweavehq/id/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave ID"
-  version: "v0.16.2"
+  version: "v0.16.3"
   updatedAt: "2026-11-15T04:28:01Z"
-  url: "https://github.com/gateweavehq/id/blob/v0.16.2/docs/self-hosting.md"
+  url: "https://github.com/gateweavehq/id/blob/v0.16.3/docs/self-hosting.md"
   markdownUrl: "/markdown/id/self-hosting.md"
 ---
 Gateweave ID runs on your own Cloudflare account as one Worker, with a D1 database for accounts, a Durable

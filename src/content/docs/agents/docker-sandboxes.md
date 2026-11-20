@@ -3,9 +3,9 @@ title: "Docker cloud sandboxes as a sandbox backend"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/docker-sandboxes.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.31.0"
+  version: "v0.34.0"
   updatedAt: "2026-11-02T09:28:06Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.31.0/docs/docker-sandboxes.md"
+  url: "https://github.com/gateweavehq/agents/blob/v0.34.0/docs/docker-sandboxes.md"
   markdownUrl: "/markdown/agents/docker-sandboxes.md"
 ---
 A decision record for AGT-55: whether Gateweave Agents should run its sandboxes on Docker's

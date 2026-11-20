@@ -3,9 +3,9 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.41.0"
-  updatedAt: "2026-11-18T21:16:43Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.41.0/docs/architecture.md"
+  version: "v0.44.0"
+  updatedAt: "2026-11-20T11:17:55Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.44.0/docs/architecture.md"
   markdownUrl: "/markdown/track/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
@@ -793,6 +793,25 @@ Settings has an Agents page for it.
 - **It goes with its workspace.** Deleting an agent deletes its user, membership and keys; the
   workspace keeps its profile, marked removed, for what it did. Deleting a workspace deletes its
   agents too, as does the demo's cleanup.
+- **It sends nothing to an address or host it names.** No tool or mutation open to an agent
+  takes a destination outside the workspace:
+  - issues, comments, labels and project updates stay in the workspace, though the webhooks an
+    admin set up receive an agent's changes as they receive anyone's;
+  - webhooks, integrations and teams are admin settings, which the object checks with
+    `isAdminRole`, so the `agent` role is refused;
+  - accepting or declining an intake request is the one action that emails someone outside, its
+    requester. An agent's decision comes back as a proposal, for a person to accept or dismiss
+    (`triage_request`), and the email follows only once a person has applied it;
+  - an image in Markdown shows only when it is a file attached in the workspace. So text an agent
+    writes cannot make a reader's browser fetch from elsewhere: any other image shows as a link.
+
+  Gateweave Agents and Gateweave Mail refuse a destination that an injected instruction may have
+  supplied. In Track that check would have nothing to act on.
+- **What it reads may be someone else's.** An issue's title, description and comments can come
+  from outside the workspace: a request form, an intake email, or a requester's emailed reply.
+  An agent should treat them as outside content, as data and never as instructions to follow.
+  Gateweave Agents does: a result from any tool, Track's included, marks the run as having read
+  outside content, and from then on it checks where each of the run's actions sends.
 
 ### Connecting an agent in one step
 
@@ -982,9 +1001,11 @@ aren't there yet.
   after the seal leaves it out of reach until the next run, which finds it sealed and only notes
   the new place; its last two steps are tried five times first. An object never takes a move's
   rows while it holds a workspace of its own.
-- **The sealed object** refuses sockets and writes and runs no alarm. It keeps what the workspace
-  held when it moved until the workspace is deleted, which destroys both. Clearing it sooner is
-  not built yet.
+- **The old copy** is sealed as soon as it moves and refuses all workspace requests. Once the move
+  is at least seven days old, the daily run may delete the copy, leaving a seal so the object
+  still refuses requests. Each run deletes at most three, picked at random so a copy that keeps
+  failing can't hold up the rest; the others wait for a later run. A workspace can move again once its previous copy has been
+  deleted. Deleting a workspace before then destroys both copies.
 - **Rate limits** are counted in the same jurisdiction. Their objects don't move: counts start
   again there.
 
@@ -1298,10 +1319,14 @@ team's intake page (`/$workspace/team/$teamKey/intake`), oldest first. Search fi
   the agent, with the status it would accept into or the reply it drafted (see
   [Proposals](#proposals)). An agent triages by working on requests through the ordinary
   mutations and by proposing decisions; a person accepts or declines. Accepting the proposal
-  makes the decision as that person, through the same handlers, with the agent in the history's
-  `proposedBy`; a drafted reply is posted as the person, who made it theirs. Once a request leaves
-  intake, however it does, the decisions agents proposed on it are dismissed by whoever took it
-  out. Deciding on what is no longer a
+  makes the decision as that person through the same handlers, with the agent in the history's
+  `proposedBy`; a drafted reply is posted as that person. Its text then ends with a line saying
+  that an AI agent (named while it is still a member) drafted it and a team member approved it,
+  so the comment and the email to the requester both say so. Replies people write themselves
+  appear as written. The line answers
+  [EU AI Act Article 50](https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng#art_50) and cannot be
+  turned off. Once a request leaves intake, whoever took it out dismisses the decisions agents
+  proposed on it. Deciding on what is no longer a
   request is a `conflict` ("Someone already decided on this request"), so whoever decides second
   hears it, and a reply they wrote is not lost unseen. A retried mutation id is answered as
   applied before that.
@@ -2104,6 +2129,31 @@ team, and optionally the agent member it sets off. The payload types and input s
   Management is admin-only twice over: the gateway checks membership in D1, and the object
   refuses a verified member who is not an admin. The public demo sends no webhooks.
 
+### Sources and signals
+
+A connected product sends JSON to `POST /api/events` (`apps/web/src/server/events.ts`).
+The gateway hashes the bearer key and looks it up in D1 before reading the body or counting
+a limit. The lookup identifies the workspace, its jurisdiction, the source and the key. The object
+admits the event only while the source exists and is active and the key is not revoked.
+Cookies confer no access.
+The public demo refuses events.
+
+Senders stamp events with ISO 8601 timestamps at millisecond precision. Equal timestamps are retries;
+the object rejects timestamps more than five minutes ahead of its clock.
+Each source reports into one team. A signal belongs to the source that supplied its key.
+A clear or dismissal for a key with no signal counts only toward the source's per-minute call limit.
+The object applies a change and records its issue, signal and oplog entries together.
+Source keys stay out of the workspace replica. Owners and admins manage them in
+the Sources page in Settings. To rotate a key, make a second key, switch the sender, then revoke the
+old key. The settings gateway checks D1 membership and the object checks the admin again.
+Removal seals the source so a key made during removal cannot write, deletes its keys in D1, then removes the signals and source
+through a gateway-only object call. Issues already filed remain in their teams.
+
+Revoking a key records its id in the object before D1 forgets the key, and the id stays until the
+source is removed. So a request that found the key before the revocation, and held its body back
+past it, is still refused. A newer report that repeats both state and severity moves the signal's ordering time
+without taking a version, so a clear sent before it, arriving late, changes nothing.
+
 ### GitHub
 
 A GitHub connection is a webhook on GitHub, on one repository or a whole organization, that tells
@@ -2125,13 +2175,20 @@ it has one. The code is `packages/sync-server/src/github.ts`, with the gateways 
 - **Linking.** Keys in a pull request's branch name, title and description link it to those
   issues, matched case-insensitively against team keys and live issues. A key in the branch name,
   or after a closing word (close, closes, closed, fix, fixes, fixed, resolve, resolves, resolved),
-  makes the link a closing one. A pull request that names no issue of the workspace is not kept.
+  makes the link a closing one. `Part of KEY` in the title or description says the pull request
+  is one slice of that issue: it links and moves the issue as one the pull request is about, and
+  never closes it, whatever the branch name or a closing word says, so the first slice of work
+  spread over several pull requests does not close its issue. A pull request that names no issue
+  of the workspace is not kept.
   Pull requests are an entity of their own (`pullRequest`), in every member's replica, with the
   ids of the issues they link and close; the snapshot leaves out those that only name deleted
   issues. The issue page lists them, and MCP's `get_issue` returns them.
 - **A plain mention moves nothing.** A key in a description can be there for any reason, even to
   say an issue is left out, so it only links. A pull request moves the issues its branch or title
-  names, and those a closing word names wherever it is.
+  names, those a closing word names wherever it is, and those it says it is `Part of`. A commit
+  on the default branch closes what a closing word in its message names, except an issue the
+  same message says it is `Part of`; a squash commit carries the pull request's title and often
+  its description, so put "Part of" where the commit will repeat it.
 - **Automation only moves forward.** A draft pull request moves its issues to In Progress, an
   open one to In Review, and a merged one moves the issues it closes to Done. A push to the
   default branch moves the issues its commits close to Done (commits GitHub marks as not

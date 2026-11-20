@@ -3,9 +3,9 @@ title: "Self-hosting Agents"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.31.0"
-  updatedAt: "2026-11-18T15:27:58Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.31.0/docs/self-hosting.md"
+  version: "v0.34.0"
+  updatedAt: "2026-11-20T11:17:51Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.34.0/docs/self-hosting.md"
   markdownUrl: "/markdown/agents/self-hosting.md"
 ---
 Agents runs on your own Cloudflare account as one Worker. It uses:
@@ -140,14 +140,17 @@ on its own:
   conversations, their sandboxes, the sandbox meter and the rate limits are kept there. New
   workspaces are made there. Ones made before move there in the daily run at 03:29 UTC, three at a
   time, each paused for a few seconds while it is copied; one with a turn under way waits for the
-  next day. The copy each leaves behind is kept until the workspace is deleted. Unsetting it later
-  moves nothing back. Leave it unset in `.dev.vars`: local runtimes have no jurisdictions.
+  next day. The old objects seal at once, refuse sockets and writes, and run no alarms. Seven days
+  after the move, the daily run erases their data and the old sandbox keys. Unsetting the
+  jurisdiction later leaves workspaces where they are and the cleanup still runs. Leave it unset
+  in `.dev.vars`: local runtimes have no jurisdictions.
 - **Repository wikis**: add `"jurisdiction": "eu"` to the Workflow in `wrangler.jsonc`. A Workflow's
   jurisdiction is fixed when it is made, so an existing one needs a new `name` as well.
-- **Sandboxes' containers** can't be kept there yet: Cloudflare starts a sandbox's container
-  wherever it has capacity, not necessarily where its Durable Object is, and offers no placement
-  for containers that a Durable Object starts. A turn's repository and commands may run outside
-  the jurisdiction.
+- **Sandboxes' containers** follow their Durable Objects, so the setting above covers them too.
+  A sandbox's container is started by its Durable Object, and Cloudflare runs such a container
+  [where the object runs](https://developers.cloudflare.com/containers/concepts/placement/#jurisdictional-constraints).
+  Gateweave Cloud's have run only in EU data centers since its move. The jurisdiction does not
+  cover where the container image is stored, and the sandbox's image holds only its code.
 
 If your team works far from the database, the Worker can run near it instead of near each
 visitor, so the queries a page makes one after another don't each cross an ocean. Find where the
@@ -392,6 +395,17 @@ list. Say so in your privacy notice if you publish one, and remove an address wh
 An upgrade changes nothing for a server that has accounts: it stays open, with its oldest account as
 the owner.
 
+### Tool destinations
+
+The Worker variable `TARGET_RULE` defaults to `log`. Calls with a destination the agent learned
+only from outside content still run, and the run page counts them. Set the variable to
+`enforce` to return a tool error before the call runs. Unrecognised values use `log`.
+
+In the agent form, an owner or admin can allow up to 100 exact email addresses, email domains
+such as `@example.net`, or hosts. Domain entries cover addresses at that exact domain. A member
+can also name a destination in chat. To exempt an agent, enable its option to allow any target.
+Both settings are recorded in the audit log.
+
 ### Sandboxes
 
 A sandbox is a Linux machine for each conversation with an agent that has one. The agent runs
@@ -420,7 +434,7 @@ Agents runs in the sandbox on an agent's work before it pushes it. They are set 
 repository's page under **Repositories**, one command to a line, and kept in the workspace's
 registry. There is no setting for whoever runs the server, and no file in the repository names
 them yet. [Work on Track issues](/agents/track-work/#checks-before-a-pull-request) says what happens
-when one fails and what the section **Checks run by Gateweave** at the end of a pull request
+when one fails and what the section **Checks run by Gateweave** near the end of a pull request
 means.
 
 A command may run for 10 minutes, the checks of one pull request call for 20 and those of one run
@@ -431,6 +445,19 @@ repository itself, nothing else.
 
 The update that adds checks changes each workspace's registry by itself when the workspace is
 next used (one column, empty for every repository). Nothing is to be done by hand.
+
+#### AI disclosure on GitHub
+
+To support EU AI Act Article 50 transparency, every pull request an agent opens or updates
+ends with ``Written and opened by `<agent name>`, an AI agent in Gateweave Agents.`` and the
+machine-readable comment `<!-- AI-Disclosure: mode=machine-generated -->`. If the cleaned name is
+empty, the sentence is `Written and opened by an AI agent in Gateweave Agents.` The disclosure
+follows the checks section when there is one.
+
+Agent commits carry the `Assisted-by: Gateweave Agents:<model id>` trailer and use the
+agent's bot identity as author and committer. If the engine chooses its own model, the
+trailer uses the engine's name. Commits already on a remote are never rewritten.
+The disclosure and trailer cannot be turned off.
 
 ### When Cloudflare removes a Workers AI model
 

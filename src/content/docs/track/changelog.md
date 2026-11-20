@@ -3,9 +3,9 @@ title: "Track changelog"
 editUrl: "https://github.com/gateweavehq/track/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Track"
-  version: "v0.41.0"
-  updatedAt: "2026-11-18T21:34:45Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.41.0/CHANGELOG.md"
+  version: "v0.44.0"
+  updatedAt: "2026-11-20T11:49:20Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.44.0/CHANGELOG.md"
   markdownUrl: "/markdown/track/changelog.md"
 ---
 Notable changes to Gateweave Track, newest first. The format follows
@@ -15,6 +15,101 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.44.0] - 2026-11-20
+
+Products that find things, such as Gateweave Guard, can now report them straight into Track, which
+files, closes and reopens issues from what they send. This release adds a D1 migration and one in
+each workspace, and changes the sync protocol, so open tabs reload their local copy; unsent edits
+are kept.
+
+### Added
+
+- **Sources.** An owner or admin makes a source in Settings, Sources, for a product that reports
+  findings, and gives it a key (`gws_…`). The product posts each finding's state to `/api/events`:
+  open, cleared or dismissed, with a severity. Track keeps one signal per finding, and:
+  - files an issue in the source's team once an open signal reaches the source's lowest severity
+    (high unless you choose), marked as reported by a connected product, not a member;
+  - assigns it to an agent member, if the source names one;
+  - raises its priority when the severity rises;
+  - completes it when the signal is cleared, or cancels it when the finding is dismissed, if the
+    source says so, and only while nobody has started it;
+  - reopens it with a comment when the signal comes back.
+
+  Events are ordered by when the product saw them, so one that arrives late changes nothing, and
+  a repeat is a no-op. Limits hold per source: 60 calls a minute, 300 writes and 30 issues a day,
+  and 500 live signals; a source that reaches one gets a single notice issue that day. A source
+  can be paused, hold two keys at once while you rotate them, and be deleted, which keeps its
+  issues. A key you take back is refused at once, even by an event already on its way.
+  ([#354](https://github.com/gateweavehq/track/pull/354))
+
+### If you run your own
+
+- **Update, and reload open tabs.** The protocol version rises from 27 to 28. A tab on 0.40.0 or
+  later keeps its unsent edits across the reload.
+- `pnpm run deploy` applies the D1 migration (`0016_source_key`). Each workspace adds its sources
+  and signals when it next wakes.
+- Nothing else changes until an admin makes a source. A product that reports needs Track's
+  address and a source key; Sources in `docs/architecture.md` describes what it sends and how
+  Track answers.
+
+## [0.43.0] - 2026-11-20
+
+A pull request can now be one part of a larger issue without closing it, and a deployment that
+moved its workspaces into a jurisdiction no longer keeps the old copies. There is no migration
+in this release, and the sync protocol is unchanged.
+
+### Added
+
+- **"Part of KEY" links an issue without closing it.** Write `Part of ENG-12` in a pull
+  request's title or description, or in a commit message, and the issue is linked and moves
+  with the pull request, but merging leaves it open, whatever the branch name or a closing word
+  says. Use it for each slice of a larger issue; the last one can still close it. ([#348](https://github.com/gateweavehq/track/pull/348))
+
+### Changed
+
+- **A moved workspace's old copy is deleted a week after the move.** When
+  `DURABLE_OBJECT_JURISDICTION` moves a workspace, its old Durable Object is sealed at once, as
+  before; from seven days after the move the daily run now deletes what it held, keeping only
+  the seal, so data you moved into a jurisdiction no longer stays outside it. Each run deletes
+  up to three copies, picked at random; the rest wait for a later run. A workspace isn't moved
+  again until its old copy is gone. ([#350](https://github.com/gateweavehq/track/pull/350))
+
+### Fixed
+
+- **An invitation page recovers from a network error.** Accepting or declining an invitation,
+  or switching account from it, while the request couldn't reach the server left the buttons
+  disabled; they come back now, with an error you can retry from. ([#349](https://github.com/gateweavehq/track/pull/349))
+
+### If you run your own
+
+- **Update.** Nothing else to do: no migration, variable or secret. If you moved workspaces
+  into a jurisdiction more than a week ago, the first daily run after the update starts
+  deleting their sealed old copies.
+
+## [0.42.0] - 2026-11-19
+
+A reply an AI agent drafted now says so when it reaches the person who asked. There is no
+migration in this release, and the sync protocol is unchanged.
+
+### Added
+
+- **A declined request's reply says when an AI agent drafted it.** When a team member accepts
+  an agent's proposal to decline a request, the reply ends with "Drafted by an AI agent (name)
+  and approved by a team member.", in the issue's comment and in the email to the person who
+  asked. This supports the transparency rules of the EU AI Act, Article 50. Only an accepted
+  proposal adds the line; a reply a person writes is posted as written. The agent's name can
+  form no link or mention, and a draft that is too long is shortened, never the line. ([#346](https://github.com/gateweavehq/track/pull/346))
+
+### Changed
+
+- **Inbox emails and push notifications name an agent as "name (agent)"**, also after the
+  agent has left the workspace. Webhooks already say `actor.type: "agent"` for an agent's own
+  writes; for an accepted reply the actor is the person who accepted it. ([#346](https://github.com/gateweavehq/track/pull/346))
+
+### If you run your own
+
+- **Update.** Nothing else to do: no migration, variable or secret.
 
 ## [0.41.0] - 2026-11-18
 

@@ -186,6 +186,20 @@ it, every connection needs a new token.
 
 ### Gateweave Track, and a fix from Agents
 
+For automatic reporting, make a source in Track's Settings > Sources for each Guard connection.
+Choose product `guard`, the destination team and a lowest severity (Track defaults to high). Add
+the exact Guard origin shown in Guard's Track settings to the source's link origins. Leave
+"close when cleared" off unless fixed findings should complete their issue. For a repository,
+you can set an assignee in Track.
+
+Paste the source key beside the corresponding connection in Guard's Track settings. Enter the
+Track HTTPS origin on first setup. Guard seals the key under `SECRETS_KEY`. Switching a workspace
+to automatic reporting removes its agent key and fix label while preserving existing issue links.
+Settings shows the last answer per connection. After seven days of unknown-key responses Guard
+stops sending for that connection. Paste a replacement key to resume. "Stop reporting" forgets every source key and the Track address, so the workspace can connect again with source keys or an agent key, to any address.
+
+#### Manual filing
+
 Findings can be filed as issues in a Gateweave Track, and dependency findings sent on to Gateweave
 Agents for a pull request. An owner or admin sets it up under Settings, Gateweave Track. It needs
 `SECRETS_KEY`, which seals the key, and nothing else on the server.
@@ -358,13 +372,47 @@ scheduled run that failed for the same reason has such a line too. See
 
 ## Updating
 
+**Command line:**
+
 ```sh
 git pull
 pnpm install
 pnpm run deploy
 ```
 
-The deploy applies new D1 migrations before the new code goes live. A copy made with the button
-shares no history with this repository, so `git pull` refuses there: a way to bring such a copy up
-to a release is planned and not built yet. Guard is in early development. Read
-[CHANGELOG.md](/guard/changelog/) before updating, as some releases change how things work.
+The deploy applies new D1 migrations before the new code goes live.
+
+**Button:** a copy made with the button has no history in common with this repository, so `git pull`
+refuses. To bring it to the latest release, run these commands from the copy:
+
+```sh
+git remote add upstream https://github.com/gateweavehq/guard.git   # once
+git fetch upstream
+git show upstream/main:scripts/update-copy.mjs | node --input-type=module
+git push
+```
+
+The script makes one local commit and pushes nothing. It keeps the copy's own changes, including
+its Worker and database names in `wrangler.jsonc` and its name in `package.json`. Workflows and
+Dependabot stay out if the copy left them out. A copy made between releases may conflict even in
+files you never edited: the button copied files from after the release named in `CHANGELOG.md`.
+When the script names conflicts, review those files, keep the changes you need, then run `git add -A`
+and `git commit -m "chore: update Guard to v1.2.3"` with the release you chose. To start over from
+a conflict or interrupted squash, run `git reset --hard` and then run the script again.
+
+The push triggers Workers Builds, which applies migrations before deploying. To undo a completed
+update before pushing, run `git reset --hard HEAD~1`. To choose an older release, end the third
+command with `node --input-type=module - --to v1.2.3`.
+
+If GitHub refuses the push with `push declined due to email privacy restrictions`, the update
+commit carries an address your GitHub settings keep private. Use the `noreply` address shown in
+those settings, amend the commit, and push again:
+
+```sh
+git config user.email "<your noreply address>"
+git commit --amend --reset-author --no-edit
+git push
+```
+
+Guard is in early development. Read [CHANGELOG.md](/guard/changelog/) before updating, as some
+releases change how things work.

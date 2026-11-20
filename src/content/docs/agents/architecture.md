@@ -3,9 +3,9 @@ title: "Agents architecture"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.31.0"
-  updatedAt: "2026-11-18T15:27:58Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.31.0/docs/architecture.md"
+  version: "v0.34.0"
+  updatedAt: "2026-11-20T11:17:51Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.34.0/docs/architecture.md"
   markdownUrl: "/markdown/agents/architecture.md"
 ---
 How Gateweave Agents is built today. [spec.md](/agents/spec/) describes where it is going; this file
@@ -294,10 +294,14 @@ aren't there yet. Track does the same for its workspaces (TRK-129); this is AGT-
   after the seal leaves it out of reach until the next run, which finds the registry sealed and
   only finishes; its last steps are tried five times first. An object never takes a move's rows
   while it holds a workspace of its own.
-- **The sealed objects** refuse sockets and writes and run no alarm. They keep what the workspace
-  held when it moved until it is deleted, which destroys them in each place, as deleting a
-  conversation does where its registry is and where it moved from. Clearing them sooner is not
-  built yet. A backup reads only where the workspace is now.
+- **The sealed objects** refuse sockets and writes and run no alarm as soon as they seal. Seven
+  days after the move, the daily run erases the old registry, conversations and sandbox keys.
+  Only the seals remain, so the old objects stay closed. An old conversation already emptied
+  by deletion counts as done and is left untouched. The old registry records which conversations
+  are done, so large workspaces can resume across daily runs without revisiting them. The daily
+  run forgets old copies before it starts new moves, even if the deployment has unset its
+  jurisdiction. A workspace can move again once its previous copy is gone. Workspace deletion
+  also erases any copies still waiting. A backup reads only where the workspace is now.
 - **The sandbox meter** moves first: the new one takes the old one's readings, each workspace's
   larger figure and every share of the budget either one told of, then the old one is cleared.
   Rate limits are counted in the same jurisdiction; their objects don't move, so counts start
@@ -305,12 +309,14 @@ aren't there yet. Track does the same for its workspaces (TRK-129); this is AGT-
 - **The wiki Workflow** keeps its instances in a jurisdiction of its own setting in
   `wrangler.jsonc`, fixed when the Workflow is made. Gateweave Cloud's moved to new Workflows
   named `…-wiki-eu`.
-- **Sandboxes' containers are not bound by it.** A sandbox's Durable Object, with what it keeps,
-  is in the jurisdiction, but Cloudflare starts its container wherever it has capacity, which
-  [need not be where the object is](https://developers.cloudflare.com/containers/concepts/architecture/#starting-a-container).
-  Placement constraints exist only for containers on the `default` scheduling policy, which
-  Wrangler refuses beside `durable_object`, and `start()` takes none. So a turn's repository and
-  commands may run outside it.
+- **Sandboxes' containers follow it.** A sandbox's container is started by its Durable Object,
+  and under the `durable_object` scheduling policy Cloudflare runs it
+  [where the object runs](https://developers.cloudflare.com/containers/concepts/placement/#jurisdictional-constraints),
+  so the container, with the repository it holds and the commands it runs, is in the jurisdiction
+  too. What a turn sends out goes where its destination is, such as pushes to GitHub and requests
+  to a model provider. The Containers API lists each instance's location: Gateweave Cloud's have
+  all been in EU data centers since the move. The
+  jurisdiction does not cover where container images are stored; the sandbox's image is code.
 - **Cost.** Each conversation takes about a dozen calls to its two objects, of the thousand a
   Worker on the Free plan may make to Cloudflare's services in one invocation (ten thousand on
   Paid); hence three workspaces a run. One that holds a repository's files (see "Files without
@@ -1124,7 +1130,9 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   of the workspace's: the key, the environment set and MCP headers stay in the Worker.
 - **The tools** (`packages/runtime/src/sandbox-tools.ts`): `run_command` (a bash line, in a
   directory, stopped by `timeout` after 120 seconds unless the model asks for up to 600, its
-  output clipped to its first and last 15 KB), `read_file` (numbered lines, 2,000 at a time),
+  output preview keeps up to 2 KiB from the start and 6 KiB from the end. A clipped command
+  may return a file containing its full output for the sandbox's lifetime), `read_file` (numbered lines,
+  up to 2,000 lines and 16 KiB per response, with the next unread line in the continuation hint),
   `write_file`, `edit_file` (an exact replacement, found once unless every place is asked for),
   `find_files` and `search` (ripgrep). File paths stay under `/workspace`; that keeps the tools on
   the work, not a wall, since a command reaches the whole machine, which holds nothing else. They
@@ -1304,17 +1312,21 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
     run pushes the work and opens the pull request as a draft; the run is not failed for it. An
     open pull request stays as it is: the REST API opens drafts but does not make one of an open
     pull request.
-  - The body ends with a section the tool writes (`checksSection`): each command, its exit code
-    and duration, and the commit. Its heading (`CHECKS_HEADING`) is the tool's: a line of the
+  - Before the AI disclosure, the body includes a section the tool writes (`checksSection`)
+    with each command, its exit code and duration, and the commit. Its heading (`CHECKS_HEADING`) is the tool's: a line of the
     model's body that is the heading, however it is marked up, is removed with what follows it up
     to the next heading, whether the repository has checks or not. That removal is by the line's
     letters, without its tags, links and character references (`withoutChecksSection`); it is not
     a Markdown renderer, and a heading made to look the same in some other way gets past it. So
     the guarantee is the section's place, which the section states: the tool's is appended after
-    everything the model wrote, and is the last one. For that to hold on the page, what the body
+    everything the model wrote and is the last section. For that to hold on the page, what the body
     left open is closed first (`closed`): a code fence, an HTML comment, processing instruction,
     CDATA or declaration, and a `<details>`, each of which would otherwise take the section in
-    and show it as code or not at all. Nothing of a command's output goes into the body.
+    and show it as code or not at all. A text with a tag in it is followed by the line
+    `<!-- " ' -->`: a tag left unfinished in an HTML block, such as `<div title="cut`, would take
+    what follows into an attribute, and the line ends it whatever quote is open, while it is a
+    comment, which shows nothing, where none is. The tool cannot tell which lines Markdown passes
+    on as HTML, so it does not try. Nothing of a command's output goes into the body.
   - A command gets 10 minutes, a call's checks 20 and a run's 40, counted where the tools are made
     for the turn. A command stopped at its limit is timed out, never passed. Checks a call has no
     time left for fail the round; when the run has none left before a round begins, the checks
@@ -1555,6 +1567,19 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   - A turn's CLI can end a moment before its last request is reported, so the turn waits up to
     five seconds for the requests still open before it closes the run.
 
+### AI disclosure on GitHub
+
+To support EU AI Act Article 50 transparency, every pull request an agent opens or updates
+ends with ``Written and opened by `<agent name>`, an AI agent in Gateweave Agents.`` and the
+machine-readable comment `<!-- AI-Disclosure: mode=machine-generated -->`. If the cleaned name is
+empty, the sentence is `Written and opened by an AI agent in Gateweave Agents.` The disclosure
+follows the checks section when there is one.
+
+Agent commits carry the `Assisted-by: Gateweave Agents:<model id>` trailer and use the
+agent's bot identity as author and committer. If the engine chooses its own model, the
+trailer uses the engine's name. Commits already on a remote are never rewritten.
+The disclosure and trailer cannot be turned off.
+
 ## Chat
 
 Members talk to agents run by Gateweave on the Chat page. Each conversation is a Durable Object
@@ -1608,6 +1633,69 @@ after a reconnect.
   call as its server and tool, running, done or failed; what went in and came back is in the
   messages, for the model, and not shown.
 
+### Where a tool call can send data
+
+Each turn keeps a private set of destinations mentioned by the person in the conversation, the
+agent's instructions, its configured MCP server hosts and allowed targets, and the workspace
+members' email addresses. A trigger also trusts the prompt in its definition, before any event
+values are substituted. A chat message from a person has no source marker. A marked delivery,
+including a trigger, team edge or outside MCP task, contributes no trusted text, even on replay.
+A later person turn starts tainted when its history contains such a delivery.
+Tool results, memory notes, the event body and model output supply no
+destinations. Nested turns inherit their caller's destinations and exposure to outside content.
+Even under an untainted parent, a nested turn never trusts its delegated message. This is
+deliberately stricter than first planned. The model wrote that message, and destinations from the
+person are already among the inherited sources.
+
+After a turn sees outside content in a tool result, Gateweave checks the destinations in each
+tool call, including memory writes and team edges. Trigger runs, replays and runs of unknown origin start with the
+check active. The sandbox's own tools (`run_command` and the file tools) are not checked: the
+sandbox's outbound rule decides what a command can reach, and a file is no destination.
+A built-in tool can name its content fields: those for a destination its configuration fixes.
+`open_pull_request` names its title and body, since it opens in the configured repository.
+A link in a content field is not checked, because a reader follows it only by choice. An image is
+checked, because the page that shows it fetches it. That covers Markdown and HTML images and
+reference definitions. Only a plain link counts as a link: no `!` before it, and text with no
+bracket, backslash, line break, backtick or angle bracket. An image's description may nest
+brackets, escapes, code spans and raw HTML, so any other bracketed destination is checked as an
+image's, a link with code in its text included. Every other field is checked whole, so
+a field added later is checked until someone decides otherwise. Connected MCP tools, including Track's, have their whole input
+checked. An MCP server can exempt a tool by explicitly marking it read-only and closed-world.
+Memory saves return Gateweave's confirmation and leave the turn's taint unchanged. A recall taints
+the turn. Claude Code, Codex and OpenCode use this check for Gateweave tools. Their own shell
+and fetch tools are governed by the sandbox outbound rule (`decideOutbound`), and their results
+still taint the run.
+
+The first release logs calls that would be refused so operators can measure the effect before
+enabling enforcement. Each flagged span records `target.decision = "would_refuse"` with the target
+kind and host or email domain. Its status records the execution outcome. Enforcement returns a
+tool error with the missing destination before execution.
+
+The rule checks where data goes. Data sent back to a trusted target can still disclose information.
+The check extracts destination-named fields, URLs with a scheme, email addresses and dotted IPs.
+A destination field holding a street address or another non-network value yields no target.
+In a tainted run, the rule checks `remember` and `recall` like any other call, so it flags a
+memory note naming an untrusted address.
+In a person's task, agent instructions and free-text tool arguments such as shell commands,
+a dotted name without a scheme counts when
+it is followed by a path or a port and its final label is 2 to 24 letters. The check skips the
+file extensions `js ts tsx jsx mjs cjs json md txt yaml yml toml lock html css scss py go rs rb
+java kt sh ps1 xml csv log png jpg jpeg gif svg webp pdf zip gz tar c h cc cpp hpp cs php sql vue
+svelte mdx ini conf cfg env map wasm jsonl tsv ipynb swift m mm scala dart lua r pl ex exs erl
+hs clj tf hcl proto gradle bat cmd`, regardless of case.
+In a free-text tool argument, a bare dotted name without a path or port is ignored, to avoid
+treating filenames as destinations. In a person's task and the agent's instructions, a bare
+dotted name names a host, as does `localhost`, unless its final label is one of those
+extensions. So `Edit deploy.sh` trusts nothing, while `check example.com` trusts
+`example.com`.
+Explicit URLs, authorities beginning with `//`, email addresses and bracketed IPs in trusted
+text always name destinations, including URLs whose host ends in a file extension.
+After `//` or a scheme with one slash, a single numeric IPv4 part must be at least 2^24,
+and a dotted numeric host must have a nonzero first part. A full `scheme://` accepts either.
+Outside text pasted into chat by a person becomes trusted. Destinations other than addresses or
+URL hosts can escape the check, as can base64, percent-encoding embedded in text, and a destination
+split across fields. JSON strings inside arguments are inspected as JSON.
+
 ## Runs
 
 Every turn that reaches the model is a run. The registry keeps a summary of each, and the
@@ -1626,9 +1714,10 @@ conversation's Durable Object keeps its trace (`packages/runtime/src/trace.ts`).
   to the conversation without being secret: it goes when the conversation is deleted, and admins
   can read it while it lasts.
 - **The runtime closes the run** once, from whichever of the AI SDK's `onEnd`, `onAbort` and
-  `onError` comes first: `succeeded`, `failed` (with our sentence, never the provider's),
-  or `stopped`. It sums the model spans and reports them with `finishRun`, which changes only a run
-  still `running`, so a late or repeated report changes nothing.
+  `onError` comes first. A run is `succeeded`, `failed` (with the app's own sentence), `stopped`, or
+  `step-limit` when its request budget prevents another model call. It sums the model spans and
+  reports them with `finishRun`, which changes only a run still `running`, so a late or repeated
+  report changes nothing.
 - **A restart can cut a run short.** When a conversation wakes, it closes the runs it finds still
   open as `interrupted`, at the last moment its trace saw them move, and reports them. A
   conversation nobody opens again never wakes, so the registry marks runs older than an hour

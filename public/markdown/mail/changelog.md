@@ -8,6 +8,120 @@ read its entry before updating a self-hosted copy.
 Each version's [GitHub release](https://github.com/gateweavehq/mail/releases) carries the same
 notes. Publishing a release deploys it.
 
+## [0.4.0] - 2026-11-20
+
+An agent whose mail goes out without approval now sends only to addresses it may reach, and
+its webhooks only to hosts it may use. This release has two D1 migrations.
+
+### Changed
+
+- **An agent under "Never" sends only to recipients it may reach.** Every To and Cc must be one
+  of these:
+  - inside the workspace;
+  - on the agent's allowed list;
+  - the From of mail still kept in a mailbox the agent can read, whether or not DMARC proved
+    it, so anyone who writes in can be answered.
+
+  Anything else is refused: no message is made, it uses none of the day's count, and the
+  activity page shows the subject and the refused addresses. Mail an agent has read can no longer
+  make it write to an address that never wrote to the mailbox. A message's From is not proved by
+  this rule, so a forged From can still name an address the agent may then answer; "Allow any
+  recipient" removes even this limit. ([#75](https://github.com/gateweavehq/mail/pull/75))
+- **An agent's replies go only where they may.** On mail whose sender was proved, a reply
+  follows Reply-To. On mail that was not proved, it goes to From, and each Cc must pass the same
+  check. A reply to mail the mailbox sent keeps its original To and each distinct Cc.
+  ([#75](https://github.com/gateweavehq/mail/pull/75))
+- **An agent's webhooks need an allowed host.** Making one, changing its address, resuming it
+  and sending a test all need a host on the agent's list. The hosts an agent already uses are
+  added to its list the first time its settings are read, so nothing that works today stops.
+  ([#75](https://github.com/gateweavehq/mail/pull/75))
+
+### Added
+
+- **"Allow any recipient and webhook host"**, per agent, for owners and admins, beside the
+  approval setting. It is off for every agent, new and existing, and each change is logged with
+  who made it. ([#75](https://github.com/gateweavehq/mail/pull/75))
+
+### Fixed
+
+- **Plain text made from HTML puts each link's words before its address**, and keeps a link whose
+  tag was never closed. This is the text part Mail writes when mail is sent as HTML only.
+  ([#74](https://github.com/gateweavehq/mail/pull/74))
+
+### If you run your own
+
+- **Update.** Two D1 migrations (`0027_agent_any_recipient`, `0028_agent_webhook_hosts`), which
+  `pnpm run deploy` applies before the new code goes live. Each mailbox upgrades its own storage
+  when it is next used.
+- **Older mailboxes.** A mailbox that holds mail from before Mail indexed every sender checks
+  that mail's sender against the stored original before trusting it. While a check cannot
+  finish, a send to that sender answers 503 for up to an hour, then the sender counts as unknown.
+- **An agent under "Never" that wrote to addresses outside these three kinds** is refused for
+  those addresses from now on; addresses already on its allowed list still work. Add the others
+  to its list, or turn on "Allow any recipient and webhook host" for it.
+
+## [0.3.0] - 2026-11-19
+
+Mail an agent sends now says that an AI agent wrote it, for people and for machines.
+
+### Added
+
+- **Agent mail says an AI agent wrote it.** Mail sent with an agent's key, by REST or MCP,
+  replies and messages made from templates included, starts with "This message was written by
+  an AI agent (agent name)." in the text, and in the HTML as its own paragraph before anything
+  the agent wrote. It also carries the header `X-AI-Disclosure: mode=machine-generated`, or
+  `mode=ai-originated` when it waited for a person's approval. Approval and sending again keep
+  the marks the message was made with. This supports the transparency rules of the EU AI Act,
+  Article 50, and cannot be turned off. A person's own mail is unchanged.
+  ([#72](https://github.com/gateweavehq/mail/pull/72))
+
+### Changed
+
+- **An agent's HTML is cleaned so it cannot hide that line.** It loses its `<style>` elements
+  and `<head>` (keeping the head's text), its `<html>` and `<body>` become plain blocks that
+  keep only `lang` and `dir`, and its inline styles keep ordinary formatting: colours, common
+  fonts, borders, spacing and table widths. Mail an agent wrote to rely on other styles may look
+  plainer. ([#72](https://github.com/gateweavehq/mail/pull/72))
+
+### If you run your own
+
+No migration, variable or secret. Deploy as usual.
+
+## [0.2.2] - 2026-11-19
+
+Better Auth, which runs sign-in, is updated to 1.7.25.
+
+### Changed
+
+- **Better Auth 1.7.25** (from 1.7.20), the version Gateweave ID runs. Among its fixes: a
+  sign-in code is no longer left hanging on Workers when an earlier request for it ended
+  mid-query, and a session's cookies are cleared when the session is revoked.
+  ([#69](https://github.com/gateweavehq/mail/pull/69))
+
+### If you run your own
+
+No migration, variable or secret. Deploy as usual.
+
+## [0.2.1] - 2026-11-19
+
+A security fix: after signing in, Mail could send a person on to another site.
+
+### Fixed
+
+- **The page to return to after signing in could be on another site.** A return path whose dot
+  segments resolved to `//example.com` or `/\example.com`, such as `/.//example.com/x`, passed
+  the check before resolution and was read by the browser as another site afterwards. Mail now
+  refuses such a path; an ordinary `..` that stays on the site still works.
+  ([#64](https://github.com/gateweavehq/mail/pull/64))
+
+### Changed
+
+- The icon is redrawn so the envelope's flap sits inside its frame.
+
+### If you run your own
+
+No migration, variable or secret. Deploy as usual.
+
 ## [0.2.0] - 2026-11-18
 
 ### Changed

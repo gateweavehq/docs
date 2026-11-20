@@ -3,9 +3,9 @@ title: "Guard changelog"
 editUrl: "https://github.com/gateweavehq/guard/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Guard"
-  version: "v0.3.2"
-  updatedAt: "2026-11-16T10:34:17Z"
-  url: "https://github.com/gateweavehq/guard/blob/v0.3.2/CHANGELOG.md"
+  version: "v0.5.0"
+  updatedAt: "2026-11-20T11:53:11Z"
+  url: "https://github.com/gateweavehq/guard/blob/v0.5.0/CHANGELOG.md"
   markdownUrl: "/markdown/guard/changelog.md"
 ---
 Notable changes to Gateweave Guard, newest first. The format follows
@@ -15,6 +15,95 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/guard/releases) carries the same
 notes. Publishing a release deploys it.
+
+## [0.5.0] - 2026-11-20
+
+Guard can now report its findings to Gateweave Track on its own, as a Track source, instead of
+someone filing each one. It needs Gateweave Track 0.44.0 or later. This release adds a D1
+migration.
+
+### Added
+
+- **Automatic reporting to Track.** In Track, make a source for each Guard connection (product
+  `guard`, Guard's address as a link origin) and paste its key beside the connection in Guard's
+  Track settings. From then on, after every scan and whenever someone dismisses or restores a
+  finding, Guard sends Track each finding whose state or severity changed: open, cleared or
+  dismissed. Track decides what becomes an issue, by the source's lowest severity, and can assign
+  it to an agent; the finding's "File in Track" becomes "Open in Track".
+  - Settings show each connection's last answer from Track, in words. After seven days of Track
+    not knowing a key, Guard stops sending for that connection and says so; a new key starts it
+    again.
+  - Saving the first source key switches the workspace from filing by hand to reporting, and
+    removes its agent key and fix label. Issues already filed keep their links. "Stop reporting"
+    removes every source key and lets the workspace connect again either way.
+  - Guard sends at most 50 events a minute per connection, clears and dismissals first, so a
+    refused open never holds them back.
+  - A workspace that saves no source key keeps filing by hand as before.
+    ([#37](https://github.com/gateweavehq/guard/pull/37))
+
+### If you run your own
+
+- `pnpm run deploy` applies the D1 migration (`0010_track_sources`).
+- Reporting needs Track 0.44.0 or later. Against an older Track, every event gets a 404, and
+  after seven days Guard stops sending for that connection until a new key is pasted.
+
+## [0.4.1] - 2026-11-19
+
+Better Auth, which runs sign-in and Guard's MCP server, is updated to 1.7.25. There is no migration
+in this release.
+
+### Changed
+
+- **Better Auth 1.7.25** (from 1.7.20), the version Gateweave ID runs. Among its fixes: an
+  assistant's token request that fails a check no longer uses up its code, and a session's
+  cookies are cleared when the session is revoked.
+  ([#33](https://github.com/gateweavehq/guard/pull/33))
+- **A bad or expired token at `/mcp` is answered with `error="invalid_token"`**, as RFC 6750
+  asks and Better Auth's own servers answer, so an assistant knows to refresh rather than start
+  over. A token whose access was taken back gets the same words. A request with no token is
+  answered as before.
+
+### If you run your own
+
+No migration, variable or secret. Deploy as usual.
+
+## [0.4.0] - 2026-11-19
+
+A copy made with the Deploy button can now be updated to a new release, and the sign-in page no
+longer sends anyone to another site. There is no migration in this release.
+
+### Added
+
+- **Update a copy made with the Deploy button.** Such a copy has no shared Git history, so
+  `git pull` cannot bring it to a new release. `scripts/update-copy.mjs` applies a release to it
+  and keeps the copy's own Worker, D1 binding and workflow; `docs/self-hosting.md` says how.
+  ([#24](https://github.com/gateweavehq/guard/pull/24))
+- **The script says why it stopped.** A refused merge stops with Git's own reason, a squash left
+  staged by an interrupted update tells you to reset first, and an `upstream` remote that is not
+  Guard is refused before anything is fetched.
+  ([#27](https://github.com/gateweavehq/guard/pull/27))
+
+### Fixed
+
+- **The page you return to after signing in stays on Guard.** A return path such as
+  `/.//example.com/x` passed the check and then, once its dot segments were resolved, pointed to
+  another site. Such a path is now refused, and an ordinary `..` that stays on Guard still works.
+  ([#26](https://github.com/gateweavehq/guard/pull/26))
+- **A scan that ran but could not be saved says so.** "Scan now" and an assistant's `start_scan`
+  used to answer that a scan was already running. They now say the scan ran and what it found
+  could not be saved. Such a connection waits an hour before its next scan, then a day if it
+  fails again, instead of coming back every hour ahead of the others. Connecting an account that
+  fails for another reason is no longer called a duplicate.
+  ([#25](https://github.com/gateweavehq/guard/pull/25))
+- **Guard has its own icon** in place of Mail's envelope, on the tab, the home screen and the
+  README.
+
+### If you run your own
+
+- **Update.** No migration, variable or secret is needed.
+- **A copy made with the Deploy button** can take this release with the commands under
+  "Updating" in `docs/self-hosting.md`. They run the script from Guard's repository, so the copy
+  does not need it first.
 
 ## [0.3.2] - 2026-11-16
 

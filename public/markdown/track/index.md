@@ -8,6 +8,15 @@
   <a href="https://gateweave.com/questions">Questions people ask</a>
 </p>
 
+<p align="center">
+  <a href="https://www.producthunt.com/products/gateweave?launch=gateweave">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1317565&theme=dark">
+      <img src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1317565&theme=light" width="250" height="54" alt="Gateweave on Product Hunt">
+    </picture>
+  </a>
+</p>
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/track/images/realtime-dark.gif">
   <img src="/track/images/realtime-light.gif" alt="Two browsers side by side on one workspace. A card dragged in one moves in the other, a new issue appears in both, and an edit made offline arrives when the browser reconnects.">
@@ -65,7 +74,8 @@ Cloudflare-native business tools. See [docs/ecosystem.md](/track/ecosystem/).
   [Standard Webhooks](https://www.standardwebhooks.com) and retried while the receiver is down.
 - **GitHub.** Pull requests and commits that name an issue link to it. A pull request whose branch
   or title names it, or that says "Fixes" it, moves it along: In Progress for a draft, In Review
-  when opened, Done when merged.
+  when opened. Merging closes it when the branch is named for it or the pull request says "Fixes"
+  it, and never when it says "Part of" it, so work spread over several pull requests stays open.
 - **Your data is yours.** Export a workspace or one team as CSV or JSON from Settings, Export. It
   is built in the browser from its local copy, so it works offline. Settings, Import reads either
   file back, into the same workspace or another, and brings issues in from GitHub, Linear and
@@ -199,17 +209,17 @@ each release changed.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.41.0/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.41.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.41.0/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
-Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.41.0/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.44.0/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.44.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.44.0/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
+Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.44.0/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.41.0/LICENSE). You can
+Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.44.0/LICENSE). You can
 self-host, use and modify Track freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.41.0/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.44.0/CLA.md).

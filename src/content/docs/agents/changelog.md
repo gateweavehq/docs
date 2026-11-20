@@ -3,9 +3,9 @@ title: "Agents changelog"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/CHANGELOG.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.31.0"
-  updatedAt: "2026-11-19T00:37:06Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.31.0/CHANGELOG.md"
+  version: "v0.34.0"
+  updatedAt: "2026-11-20T12:44:12Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.34.0/CHANGELOG.md"
   markdownUrl: "/markdown/agents/changelog.md"
 ---
 Notable changes to Gateweave Agents, newest first. The format follows
@@ -15,6 +15,161 @@ read its entry before updating a self-hosted copy.
 
 Each version's [GitHub release](https://github.com/gateweavehq/agents/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
+
+## [0.34.0] - 2026-11-20
+
+Once a run has read outside content, the destinations of its tool calls are checked, and the run
+page shows each call whose destination came from nowhere the agent trusts. This release only
+records them; the next one refuses them by default. A Gateweave Track source reopening an
+agent's issue now starts the agent again. This release has one migration in the workspace
+registry, which adds two columns with defaults.
+
+### Added
+
+- **Tool destinations are checked once a run has read outside content.** Outside content is a
+  trigger's event, a tool's result, or another agent's message. After a run has read any, each
+  tool call's network destinations (hosts, email addresses and URLs in its arguments) should
+  come from the person's task, the agent's settings or its allowed list.
+  ([#308](https://github.com/gateweavehq/agents/pull/308))
+  - **In this release the call still runs**, under the default `TARGET_RULE` of `log`. The run
+    page counts the calls that would be refused, and the trace records the destination's kind
+    and its host or domain, never the rest of the value.
+  - **The next release refuses them by default**, with a tool error that names the value and how
+    to allow it. Look at your agents' runs before then: an agent that rightly reaches addresses
+    it reads, such as one doing outreach, needs them on its allowed list, or its option to allow
+    any destination.
+  - Owners and admins set each agent's allowed list (up to 100 addresses, `@domains` or hosts)
+    and "allow any destination" in the agent form, and the audit log records both.
+  - It catches the common shapes, not every one: `docs/architecture.md` lists what it does not
+    read.
+
+### Fixed
+
+- **A Gateweave Track source reopening an agent's issue starts the agent again.** Track 0.44.0
+  lets a product such as Gateweave Guard file issues as a source, and reopen one when its
+  finding comes back. A trigger that takes only one member's issues let an update through only
+  when the issue had just been assigned, so the agent was never asked to look again.
+  ([#310](https://github.com/gateweavehq/agents/pull/310))
+  - The ready-made agent's instructions now say what to do: find out why the fix did not hold,
+    say so, and work on it again.
+  - An agent set up before keeps its older instructions. It treats the reopen like an
+    assignment and goes on from its earlier work. For the new section, bring its instructions up
+    to date from
+    [the current ones](https://github.com/gateweavehq/agents/blob/main/apps/web/src/server/track-work.md).
+- **The Mail setup's copy of Mail's skill** describes Mail 0.4.0's sending rules.
+  ([#309](https://github.com/gateweavehq/agents/pull/309))
+
+### If you run your own
+
+- **Update.** The migration is in each workspace's registry and runs by itself when the
+  workspace is next used; there is no step for you.
+- **`TARGET_RULE`** decides what happens to a flagged call: `log`, the default in this release,
+  records it, and `enforce` refuses it. To refuse now, set `enforce`; see "Tool destinations" in
+  `docs/self-hosting.md`.
+
+## [0.33.0] - 2026-11-20
+
+An MCP client can hand one of your agents a task and read the run's result, and a moved
+workspace's old copies are erased once a week has passed since the move. This release has one
+migration in the workspace registry, which adds a column with a default.
+
+### Added
+
+- **An MCP client can hand an agent a task and follow its run.** A new scope, `agents:run`,
+  sits beside `agents` on `/mcp`. Tokens issued before keep working unchanged, and the consent
+  page says what the wider scope allows.
+  ([#300](https://github.com/gateweavehq/agents/pull/300), [#301](https://github.com/gateweavehq/agents/pull/301), [#302](https://github.com/gateweavehq/agents/pull/302))
+  - With it, `run_agent` starts a run of an agent in the workspace. The agent must allow tasks
+    from outside (off by default), and its per-minute and per-day limits count the run like a
+    trigger's.
+  - A client's `requestId` makes a retry find the run it already started.
+  - `get_run` answers the run's state, steps, tokens and cost, and the agent's answer once it is
+    written. It shows a run only to whoever the Runs pages show it to.
+- **A turn that changed the repository sums it up under its reply**: each file changed, with
+  lines added and removed, opening to its diff. Diffs are capped, and anything that looks like a
+  secret is redacted before it is stored.
+  ([#294](https://github.com/gateweavehq/agents/pull/294))
+
+### Changed
+
+- **A moved workspace's old copies are erased once a week has passed since the move.** When a
+  deployment moves its objects into a jurisdiction, the old copies stay behind, sealed. The daily
+  run now erases them:
+  - **What goes:** the registry, the conversations and their sandboxes' saved keys.
+  - **Only sealed copies.** Each object checks its own seal first, and a live one refuses.
+  - **Over several runs if needed.** A workspace with many conversations finishes across runs.
+
+  ([#306](https://github.com/gateweavehq/agents/pull/306))
+
+### Fixed
+
+- **Large answers from a connected MCP server no longer fill the conversation**: the model
+  gets a bounded preview, and the trace records the full size.
+  ([#298](https://github.com/gateweavehq/agents/pull/298))
+- **Search results keep whole lines** when they are shortened, and say how many matches were
+  left out. ([#299](https://github.com/gateweavehq/agents/pull/299))
+- **The invitation page's buttons come back after a network error**, with an error you can
+  retry. ([#303](https://github.com/gateweavehq/agents/pull/303))
+- **Saving an agent's definition from an editor that is out of date is refused**, where it
+  could overwrite someone else's newer change. ([#304](https://github.com/gateweavehq/agents/pull/304))
+- **Only the owner and admin roles have admin rights.** A role Agents does not know, such as one
+  added later, gets none. ([#305](https://github.com/gateweavehq/agents/pull/305))
+
+### If you run your own
+
+- **Update.** The migration is in each workspace's registry and runs by itself when the workspace
+  is next used; there is no step for you.
+- **Old copies.** From a week after a move, the daily run erases the old copies, at its next
+  run; a copy it could not erase is tried again the day after. A deployment that never
+  moved its objects into a jurisdiction has nothing to erase.
+
+## [0.32.0] - 2026-11-19
+
+The chat shows what an agent did, not only what it said, and what an agent writes on GitHub
+says that an AI agent wrote it. There is no migration in this release.
+
+### Added
+
+- **A pull request an agent opens shows as a card in the chat**: title, repository, branch,
+  files and lines changed, state, and a link. Reasoning shows collapsed. Messages from before
+  render as they did. ([#282](https://github.com/gateweavehq/agents/pull/282))
+- **The chat says what a turn is doing before its first words**, such as "Connecting tools",
+  "Checking out the repository" or "Starting the sandbox", where it said "thinking…". ([#284](https://github.com/gateweavehq/agents/pull/284))
+- **Each reply shows its run underneath**: steps, tokens and cost, with a link to the run's page,
+  updated while the run is still going. ([#289](https://github.com/gateweavehq/agents/pull/289))
+- **A delegated turn opens to the member's answer**: "Delegated to …" expands to what the other
+  agent replied, with a link to its run. ([#292](https://github.com/gateweavehq/agents/pull/292))
+- **Pull requests and commits an agent writes say that an AI agent wrote them**, to support
+  the transparency rules of the EU AI Act, Article 50. A pull request ends with "Written and
+  opened by `<agent>`, an AI agent in Gateweave Agents." and a machine-readable comment, after
+  the checks section; nothing the model writes above it can hide or shorten it. Each commit
+  carries the trailer `Assisted-by: Gateweave Agents:<model>` and the agent's bot identity as
+  author and committer. Commits already on a remote are never rewritten, and a hook or a
+  signing rule in the repository no longer stops a push. This cannot be turned off; a person's
+  setup apply is unchanged. ([#295](https://github.com/gateweavehq/agents/pull/295))
+- **A sandbox command's whole output is kept**: the turn sees a short preview, and the complete
+  log is stored outside the checkout. ([#296](https://github.com/gateweavehq/agents/pull/296))
+
+### Changed
+
+- **Anthropic models use their own prompt cache** when called directly, which makes long turns
+  cheaper; the run's trace records the tokens written to the cache as well as those read.
+  ([#290](https://github.com/gateweavehq/agents/pull/290))
+
+### Fixed
+
+- **A run that reaches its step limit says so**, and keeps the last tool's result, where it
+  looked finished. ([#291](https://github.com/gateweavehq/agents/pull/291))
+- **`read_file` keeps its answers within the limit in bytes**, not characters, so text in
+  languages with longer characters no longer overruns it, and it resumes from the first line it
+  did not return. ([#293](https://github.com/gateweavehq/agents/pull/293))
+- **`/mcp` answers an expired or wrong token with `error="invalid_token"`**, so an assistant
+  knows to refresh it rather than sign in again. ([#285](https://github.com/gateweavehq/agents/pull/285))
+- **Dependencies are updated**, Better Auth to 1.7.25 among them. ([#275](https://github.com/gateweavehq/agents/pull/275))
+
+### If you run your own
+
+- **Update.** Nothing else to do: no migration, variable or secret.
 
 ## [0.31.0] - 2026-11-19
 

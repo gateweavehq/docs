@@ -99,7 +99,8 @@ Findings screens, and the schemas both agree on are in `apps/web/src/lib/connect
   changes no finding, and records its kind on the connection (`unauthorized`, `forbidden` and
   `not_found` mean it needs attention, and the page says what to fix; `rate_limited` and
   `unavailable` are tried again within the hour; `unreadable` means the stored token no longer
-  opens). The last 30 scans of a connection are kept, with how many problems were found, new and
+  opens; `unrecorded` is a scan that ran and whose result could not be written, see "When a query
+  of D1 fails"). The last 30 scans of a connection are kept, with how many problems were found, new and
   closed.
 - **Findings hold what a page shows and nothing of what was read:** the severity, a kind (the
   insight's class, or the advisory's id), the subject (hostname or zone, or `package@versions in
@@ -322,6 +323,46 @@ has no button and no unsubscribe link, and says where to change the setting inst
 
 ### Actions: a finding in Gateweave Track, and a fix from Agents
 
+Guard can report findings automatically to a Track source. An owner or admin saves one source key
+per repository or Cloudflare account connection. All sources use the workspace's Track HTTPS origin.
+Saving the first source switches the workspace to source mode and erases the sealed agent key, its
+hint and the fix label in the same D1 batch. Existing MCP issues and proposals keep their links.
+Manual filing and the Agents label action are available only in workspaces still using an agent key.
+
+Each source key is sealed under the workspace key with the connection id as additional data. The
+daily secret rotation includes these keys. A digest prevents accidental reuse of a key between
+connections. Only admins see its four-character hint. Guard stores its own origin at setup so an
+hourly scan can link to Findings without an incoming request.
+
+After setup, a recorded scan, a dismissal or a restore, Guard posts pending findings one at a time
+to Track's `/api/events`. The fingerprint names the signal. Dismissal takes precedence over
+resolution. Guard maps moderate to medium, sends plain-text facts and a link to the finding,
+and fits the serialized request within 16 KiB. Previously unseen findings start with an open
+observation. MCP claims, proposals and filings are excluded. A connection lease serializes sends,
+and the last minute's call times hold them to 50 a minute across scans: Track allows 60, counted
+when they arrive, and a call takes time. Clears and dismissals go first, since they never add to
+Track's limits and may free one, so an open that Track refuses cannot hold them back. Then come
+findings whose last send did not fail, by severity, and last those whose send failed, so one event
+Track keeps failing cannot hold back the rest. Remaining findings wait for another scan or change.
+A change made while another run is finishing also waits for the next scan or change.
+
+| Answer                                          | What Guard records and does                                                                                                                                                                                                                                 |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 200                                             | Saves the sent state and severity, keeps the returned issue link (an answer with no issue leaves the link Guard has), and clears the 404 timer. A link on another origin than the configured one confirms the state but is not kept.                        |
+| 400                                             | Logs the finding id, skips that state and severity until they change, and clears the 404 timer, since Track read the key.                                                                                                                                   |
+| An event too large to send                      | Logs the finding id and skips that state and severity until they change, without calling Track.                                                                                                                                                             |
+| 404                                             | Remembers the first 404 since the last success and waits an hour before asking again, since each unknown key counts against Track's limit for Guard's address. A 404 at least seven days after the first stops this connection until an admin pastes a key. |
+| 429                                             | Waits until the Retry-After deadline, at most a day, and defers this connection. A new key ends the wait.                                                                                                                                                   |
+| Network failure, invalid answer or server error | Leaves the attempt unconfirmed and retries the current observation at the next opportunity.                                                                                                                                                                 |
+
+Settings shows the latest outcome in words and its time. Guard marks an attempt unconfirmed before
+sending, so a lost response followed by a restore sends the open observation even if open was the
+last state Guard saw acknowledged. A replacement key replays known signals and keeps the rate
+window. "Stop reporting" removes every source key and the workspace's Track address, which lets it
+connect again either way, to any address; issue links stay on the findings.
+
+#### Manual filing over MCP
+
 A finding is fixed where a team plans its work. An owner or admin connects the workspace to **one
 Gateweave Track** in Settings, Gateweave Track (`/api/track/<workspace>`,
 `apps/web/src/server/track/gateway.ts`): Track's address, the Track workspace's slug, the key of the
@@ -526,17 +567,30 @@ object, with no network between a query and its answer.
   asks the failure's kind now (`refusedBy`), which names a trigger's refusal only where D1 put
   SQLite's words right after its code, so the list is called full exactly when the trigger
   refused. Counting the list again would not do: an insert that was written while its answer was
-  lost can leave the list full with the entry on it. Connecting an account catches whatever its
-  insert throws and says the account is connected already or the workspace full, without reading
-  it. So the answers are what they were.
+  lost can leave the list full with the entry on it. Connecting an account asks the kind too: it
+  says the account is connected already only when the unique index on the target (or on a
+  repository's id) refused (`refusedByUnique`, which names the index's columns), and that the
+  workspace is full only when the trigger did. Any other failure of that insert is thrown as it
+  came. It once answered "already connected, or this workspace is full" for whatever the insert
+  threw, an outage included.
   The error's cause is an error that says the kind only, which Better Auth's oauth-provider reads
   to tell a database not migrated yet (`no such table`) from a real failure when it seeds
   `oauth_resource`.
-- **A scan that cannot write records nothing and lets its connection go.** Everything a scan
-  writes is one batch, sent once, so a failure leaves the findings as they were. The scan logs
-  `scan: could not record DatabaseError` beside the `d1:` line, clears `scan_started_at`, and
-  leaves `next_scan_at` alone, so the next hour scans the connection again. What it found is the
-  batch's values and is in neither line. A failed read of the stored traffic or protection only
+- **A scan that cannot write records nothing, says so on its connection and backs off.**
+  Everything a scan writes is one batch, sent once, so a failure leaves the findings as they were.
+  The scan logs `scan: could not record DatabaseError` beside the `d1:` line. Then one small
+  statement of its own clears `scan_started_at`, sets `last_scan_outcome` to `unrecorded`, which
+  the Connections page puts into words, and moves `next_scan_at`: an hour ahead the first time,
+  since most failures of D1 pass, and a day ahead when the scan before it was `unrecorded` too.
+  Left due, such a connection was read every hour for nothing and came first in every hourly run,
+  so ten of them took a run's ten places from the rest. No row of `scan` is written for it. If
+  that statement fails as well, the connection is as a scan that died leaves it: taken until the
+  lease runs out, and due. `runScan` tells such a scan (`unrecorded`) from a connection nothing
+  was read from (`held`), so "Scan now" and an assistant's `start_scan` say that the scan ran and
+  could not be saved, where they once said that a scan was already running; the allowance of
+  "Scan now" stays spent, since the account or repository was read. Connecting and replacing a
+  token answer with `scanState` beside `scan`, for the same reason. What it found is the batch's
+  values and is in neither line. A failed read of the stored traffic or protection only
   leaves that part unjudged, as an upstream's failure does. The hourly run's own first read, and
   the daily run's deletes, fail the run, which the runtime records by the error's message.
 - **A page shows no error's message.** `RouteError` says that the page could not be loaded, and

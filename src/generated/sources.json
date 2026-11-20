@@ -4,35 +4,35 @@
 		"name": "Gateweave Track",
 		"summary": "A realtime issue tracker on one Cloudflare Worker, with a local copy that works offline and AI agents as members.",
 		"repo": "gateweavehq/track",
-		"version": "v0.41.0"
+		"version": "v0.44.0"
 	},
 	{
 		"key": "agents",
 		"name": "Gateweave Agents",
 		"summary": "See which coding agents work in which repositories, share their setups, run your own agents and keep a wiki of each repository.",
 		"repo": "gateweavehq/agents",
-		"version": "v0.31.0"
+		"version": "v0.34.0"
 	},
 	{
 		"key": "id",
 		"name": "Gateweave ID",
 		"summary": "An OpenID Connect provider with passkeys and access rules: one sign-in for Gateweave's products and your own apps.",
 		"repo": "gateweavehq/id",
-		"version": "v0.16.2"
+		"version": "v0.16.3"
 	},
 	{
 		"key": "mail",
 		"name": "Gateweave Mail",
 		"summary": "Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
 		"repo": "gateweavehq/mail",
-		"version": "v0.2.0"
+		"version": "v0.4.0"
 	},
 	{
 		"key": "guard",
 		"name": "Gateweave Guard",
 		"summary": "See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
 		"repo": "gateweavehq/guard",
-		"version": "v0.3.2"
+		"version": "v0.5.0"
 	},
 	{
 		"key": "backup",

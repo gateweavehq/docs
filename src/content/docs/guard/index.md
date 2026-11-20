@@ -3,9 +3,9 @@ title: "Gateweave Guard"
 editUrl: "https://github.com/gateweavehq/guard/edit/main/README.md"
 source:
   product: "Gateweave Guard"
-  version: "v0.3.2"
-  updatedAt: "2026-11-14T19:58:46Z"
-  url: "https://github.com/gateweavehq/guard/blob/v0.3.2/README.md"
+  version: "v0.5.0"
+  updatedAt: "2026-11-18T14:46:10Z"
+  url: "https://github.com/gateweavehq/guard/blob/v0.5.0/README.md"
   markdownUrl: "/markdown/guard/index.md"
 ---
 Security in one place for teams on Cloudflare. Guard reads your account's Security Insights, your
@@ -20,7 +20,7 @@ MCP client and sign in. See [docs/self-hosting.md](/guard/self-hosting/).
 > **Status: early.** It works end to end and Gateweave runs it for its own account, but it is new:
 > expect changes, and read [docs/architecture.md](/guard/architecture/) before you rely on it.
 
-To contribute, see [CONTRIBUTING.md](https://github.com/gateweavehq/guard/blob/v0.3.2/CONTRIBUTING.md). Report security problems privately, as
-[SECURITY.md](https://github.com/gateweavehq/guard/blob/v0.3.2/SECURITY.md) describes.
+To contribute, see [CONTRIBUTING.md](https://github.com/gateweavehq/guard/blob/v0.5.0/CONTRIBUTING.md). Report security problems privately, as
+[SECURITY.md](https://github.com/gateweavehq/guard/blob/v0.5.0/SECURITY.md) describes.
 
 Licensed under the GNU Affero General Public License v3.0 only.
