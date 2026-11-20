@@ -13,8 +13,7 @@ export default defineConfig({
 		mermaid({ autoTheme: true, enableLog: false }),
 		starlight({
 			title: "Gateweave Docs",
-			description:
-				"Documentation for Gateweave's open-source, Cloudflare-native business tools: Track, Agents, ID and Mail.",
+			description: "Documentation for Gateweave's open-source business tools on Cloudflare.",
 			logo: { src: "./src/assets/logo.svg", alt: "Gateweave" },
 			favicon: "/favicon.svg",
 			social: [{ icon: "github", label: "GitHub", href: "https://github.com/gateweavehq" }],

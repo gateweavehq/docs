@@ -33,5 +33,12 @@
 		"summary": "See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
 		"repo": "gateweavehq/guard",
 		"version": "v0.3.2"
+	},
+	{
+		"key": "backup",
+		"name": "Gateweave Backup",
+		"summary": "Scheduled, encrypted backups for Cloudflare data, with automatic restore tests.",
+		"repo": "gateweavehq/backup",
+		"version": "main"
 	}
 ]
