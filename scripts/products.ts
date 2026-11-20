@@ -94,4 +94,12 @@ export const products: Product[] = [
 			"See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
 		pages: ["self-hosting", "architecture"],
 	},
+	{
+		key: "backup",
+		repo: "backup",
+		name: "Gateweave Backup",
+		summary: "Scheduled, encrypted backups for Cloudflare data, with automatic restore tests.",
+		pages: ["deploy", "restore", "app-entrypoint", "architecture", "format"],
+		labels: { "app-entrypoint": "Backing up an app's Durable Objects" },
+	},
 ];

@@ -168,5 +168,38 @@
 				"slug": "guard/changelog"
 			}
 		]
+	},
+	{
+		"label": "Gateweave Backup",
+		"items": [
+			{
+				"label": "Overview",
+				"slug": "backup"
+			},
+			{
+				"label": "Deploying the Worker",
+				"slug": "backup/deploy"
+			},
+			{
+				"label": "Restoring",
+				"slug": "backup/restore"
+			},
+			{
+				"label": "Backing up an app's Durable Objects",
+				"slug": "backup/app-entrypoint"
+			},
+			{
+				"label": "Architecture",
+				"slug": "backup/architecture"
+			},
+			{
+				"label": "Repository format, version 1",
+				"slug": "backup/format"
+			},
+			{
+				"label": "Changelog",
+				"slug": "backup/changelog"
+			}
+		]
 	}
 ]
