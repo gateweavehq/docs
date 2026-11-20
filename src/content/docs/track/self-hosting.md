@@ -3,9 +3,9 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.44.0"
-  updatedAt: "2026-11-19T23:13:13Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.44.0/docs/self-hosting.md"
+  version: "v0.46.0"
+  updatedAt: "2026-11-20T16:23:22Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.46.0/docs/self-hosting.md"
   markdownUrl: "/markdown/track/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
@@ -157,7 +157,7 @@ updating. A site key missing there means the request forms were not open.
 | `PRIVACY_POLICY_URL`          | The address of your privacy policy.                                           |
 | `TERMS_URL`                   | The address of your terms.                                                    |
 | `SIGN_UP_REQUEST_URL`         | Where to ask for an account, shown while sign-up is closed. See below.        |
-| `CONNECT_ORIGINS`             | Origins shown as known when an agent is connected. See below.                 |
+| `CONNECT_ORIGINS`             | Origins shown as known when an agent or source is connected. See below.       |
 | `DURABLE_OBJECT_JURISDICTION` | Keeps workspaces in a jurisdiction, such as `eu`. See above.                  |
 
 ### Your legal pages
@@ -228,7 +228,7 @@ Webhooks need no setup either: each workspace's Durable Object sends them itself
 or other binding. Admins add them under Settings, Webhooks. They must use `https`, except when
 the app itself runs on plain `http`, and cannot point at the app's own host.
 
-### Connecting agents from another server
+### Connecting agents and sources from another server
 
 A server such as Gateweave Agents can send an admin to `/connect/agent` on your Track to make an
 agent member and its webhook in one step, instead of the admin copying a key and a secret by hand.
@@ -239,6 +239,10 @@ not an owner or admin. Set `CONNECT_ORIGINS` to a comma-separated list of origin
 allowed, with the line "Allow this only if you run or trust this address." The page works on an
 `https` Track, and on `http` only for local development. See "Connecting an agent in one step" in
 `docs/architecture.md` for what it makes and what it protects.
+
+A product can also send an admin to `/connect/source` to set up an event source for one team.
+Both pages use the same `CONNECT_ORIGINS` list. Listing an address identifies it as known to
+your deployment. The product name still comes from the asking server.
 
 ### GitHub pull requests and commits
 

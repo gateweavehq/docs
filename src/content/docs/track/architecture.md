@@ -3,9 +3,9 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.44.0"
-  updatedAt: "2026-11-20T11:17:55Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.44.0/docs/architecture.md"
+  version: "v0.46.0"
+  updatedAt: "2026-11-20T21:09:25Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.46.0/docs/architecture.md"
   markdownUrl: "/markdown/track/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
@@ -867,16 +867,15 @@ only configuration. The manual way, under Settings, stays.
    without opening the seal (see below). The key, the secret and the undo token stay sealed, and
    the challenge and the identifier stay bound into the seal's additional data. The code's own
    minute is `goodUntil` in the row, and the row's `expiresAt` is three days later
-   (`ROW_KEPT_MS`): Better Auth deletes every `verification` row past its `expiresAt` whenever it
-   looks one up, a sign-in for one, so a row that ran out with its code would usually be gone
-   before anyone could take back what it was made for. A row written by v0.39.0 has no such ids
-   and no `goodUntil`: its `expiresAt` is its minute, it goes with the general prune, and nothing
+   (`ROW_KEPT_MS`). That margin protects these rows during rollout to Workers that run
+   the connect sweep. Better Auth’s unfiltered bulk cleanup on lookup is disabled. A row written by v0.39.0 has no such ids
+   and no `goodUntil`: its `expiresAt` is its minute, the connect sweep deletes it, and nothing
    is taken back for it.
 5. **`POST /api/connect/exchange`** takes `{ code, verifier }` and no session; cookies are never
-   read. It deletes the row by its identifier, returning it, **before** looking at anything else:
-   the delete is what decides, so of two exchanges at once exactly one gets a row, and a code
-   that fails any check below is spent all the same. It then checks the code's minute is not over, that
-   `base64url(SHA-256(verifier))` equals the challenge, in constant time, and that the seal opens.
+   read. It checks the code's minute, compares `base64url(SHA-256(verifier))` to the challenge
+   in constant time and opens the seal. Success requires deleting the same unclaimed, unspent row
+   with `DELETE ... RETURNING`. A refusal claims the same row and marks it spent in one update.
+   Only the winner can hand out credentials or take them back.
    Answers `{ agentKey, webhookSecret, agent: { id, memberId, name }, workspace: { id, slug, name }, webhook: { id }, undo }`.
    Every way of failing, including a body of the wrong shape, is the same `400 {"error":"invalid_code"}`.
    A body of the wrong shape is refused before the delete: it spends nothing and takes nothing back.
@@ -896,16 +895,16 @@ only configuration. The manual way, under Settings, stays.
    by Track itself.
 7. **Codes never traded.** A code whose tab was closed, or whose asking server was down, expires
    and would leave its agent and webhook behind. So rows of this kind past their time are swept:
-   each is deleted with `DELETE ... RETURNING` (so a sweep and a late exchange cannot both act on
-   one row) and what its readable ids name is taken back with the same function undo uses (the
-   webhooks that name the agent, then the agent, then the membership sync), with an
+   each is claimed for ten minutes with a conditional update. An expired claim can be claimed
+   again. The D1 delete checks the exact claim and the unused key, and deletes the agent with
+   its membership and keys. Cleanup then syncs membership and removes the agent's webhooks, with an
    `agent.deleted` audit event by Track itself that names the asking origin and the reason. A
-   sweep acts only on ids read from a row it just deleted, so it never touches an agent whose
+   sweep deletes its claimed row after cleanup and acts only on ids read from that claim, so it never touches an agent whose
    code was traded (its row is gone) or one made by hand. Which rows are due is read from
-   `sweepAt` inside the row (`json_extract`), at first the code's own minute, never from
+   `sweepAt` inside the row (`json_extract`), at first the code's own minute. Older rows without a sweep time fall back to
    `expiresAt`. It runs on every Allow, for up to 5 rows so that Allow stays fast, and on the
    Worker's daily run, before the general prune of expired `verification` rows. When taking back
-   fails, which a workspace's object being restarted is enough for, the row goes back in with
+   fails, which a workspace's object being restarted is enough for, the claimed row is updated with
    only the ids, `goodUntil: 0` so that no code opens it, and a `sweepAt` an hour on; it is tried
    three times in all, then left to the log. That row's identifier is `track-connect:retry.` and
    a random id, which no code hashes to, so an asking server that exchanges again cannot spend
@@ -913,10 +912,10 @@ only configuration. The manual way, under Settings, stays.
    the sweep reads `sweepAt` only from a value that is (`json_valid`), and compares the prefix
    exactly. An agent that someone took over by hand in the meantime is left alone: the row names the key
    the connection made, and only while that is the agent's one key, never used, is the agent
-   taken back. After a rollback to v0.39.0, which
-   judges a code by `expiresAt`, delete the `track-connect:` rows: a row this version wrote
-   would otherwise be good there for three days instead of a minute (it still needs the code
-   and its verifier).
+   taken back. Before rolling back to v0.39.0, resolve unfinished connections and delete the
+   `track-connect:` verification rows as described under [Connecting a source in one step](#connecting-a-source-in-one-step).
+   That version judges a code by `expiresAt`, so a row this version wrote would otherwise be
+   good there for three days instead of a minute (it still needs the code and its verifier).
 
 Both routes count calls per client address in a `RateLimiter` Durable Object (20 at once,
 refilling over an hour, within 100 a day, shared by the two), by the zone a Worker comes from
@@ -945,6 +944,71 @@ Two limits are worth knowing. An admin who closes the tab after Allow leaves an 
 webhook whose secrets are lost once the code's minute is up: both are visible in Settings and can
 be removed there. And every caller that arrives from one Worker zone shares the exchange's rate
 limit, since that zone is the address it is counted by.
+
+### Connecting a source in one step
+
+A product such as Guard can send an admin to
+`/connect/source?product=guard&name=…&links=…&return=…&state=…&challenge=…`. The return
+address identifies the asker and follows the agent connection's address rules. Links default to
+that origin. The page shows the product, source name and up to five link origins, with a warning
+for each outside the asking origin. Agents and sources share `CONNECT_ORIGINS`: a known
+address says nothing about who makes the named product. The public demo refuses source connections.
+
+1. A signed-in owner or admin chooses a workspace, team, severity threshold, whether to close
+   issues when cleared, and an optional agent assignee. The initial threshold is high. Close
+   when cleared is on initially for Guard. Cancel returns the state and `error=denied`.
+2. Allow checks Track's own Origin and the person's membership in D1. It shares the agent
+   approval budget (ten per person per hour). Before making anything it records the workspace,
+   source and key ids in a pending `track-connect:` verification row. Its sweep time is also
+   the deadline for creation. The object refuses a reserved create past that time on its clock.
+   The D1 key insert requires the exact pending row and an unexpired deadline on the Worker's
+   clock in the insert itself. The transition from that pending value to ready starts the code's
+   minute. A sweep claims pending rows only after their deadline. If the object reports a source
+   absent, the sweep keeps the pending row if it asked within the following hour, allowing for clock skew.
+3. The asking server trades the code and verifier at `POST /api/connect/exchange`. Only a ready,
+   unspent, unclaimed row opens. A successful exchange deletes it with `RETURNING`. A refusal
+   durably marks it spent and claims it for cleanup. Sweeps also claim before cleanup, with a
+   ten-minute lease recoverable after a Worker restart. The winner deletes the row after cleanup.
+   The source answer gives the key, events endpoint, source, workspace, team, a three-day
+   `undo` token signed under its own purpose, and its UTC expiry `undoUntil`. At or after that
+   time undo answers `400 {"error":"invalid_undo"}`. Only code and state pass through the browser.
+   Exchange and undo count per client address, so all tenants of one Guard deployment share
+   the same allowance (about twenty calls an hour).
+4. Undo first inserts a durable claim naming the workspace, source and key. A second undo
+   during its ten-minute lease answers the same success. After expiry, another undo or the
+   daily sweep can take over, including when the object finished but the D1 key delete failed.
+   Each claim has a fresh random nonce and renews D1 retention. Every subsequent D1 write,
+   including deletion of a key whose source has gone, compares the exact approval or claim
+   value in the same statement. The connect sweep handles its verification rows oldest due first.
+   The general daily prune skips them. After 30 days the connect sweep discards a row and logs its ids.
+5. Failed Allow, take-back and undo seal the source in the object before reading its D1 keys.
+   In the seal transaction the object checks last-heard time, signals, usage and last-refused
+   time. Both seal and finish check whether the approval key has been revoked. A refusal may
+   already have filed a notice. A matching marker allows a retry to check again. The marker
+   combines key id and claim nonce (Allow's nonce during rollback). A different claimant backs
+   off until the next sweep. D1 claim ownership is separate from ownership of the object's seal.
+   A worker that detects it has lost the D1 claim releases its own seal. The object independently
+   checks its live seal and allows only its holder to release or finish. After two minutes on the
+   object's clock, the seal expires and restores the previous paused setting.
+   Settings removal can take over. An accepted event wins if it arrives first. During either
+   seal the gateway answers 503 with `Retry-After: 60` so the sender can try again. Only a
+   holder of the source's own key reaches this answer, so it reveals nothing to other callers.
+   Pending allows zero keys or just its own key. Ready and undo require exactly their own key.
+   If the keys differ, the gateway releases its seal by marker and restores the prior paused
+   setting. A Settings key issue that encounters the seal after inserting deletes its own key.
+6. Pending cleanup deletes its fenced key before finishing the object removal. Ready cleanup
+   and undo keep the key until the object finishes, so a retry can still check it. If the source
+   has gone, cleanup deletes only the key named by the approval. Issues stay in the workspace.
+
+**Threat model.** Anyone controlling the asking address who obtains approval can use the key to
+file, clear and reopen signals in the chosen team within its daily limits. With an agent assigned, a
+report can wake that agent and put the sender's text into its input. The approval page calls this
+out because that text can contain instructions. Before rolling back to an older Track, stop new
+connections (for example, block `/connect/source` and `/api/connect/exchange` at the edge) and wait
+for requests in flight to finish. Resolve approvals awaiting exchange and unfinished undos through
+the current Worker's daily run or reconcile their sources and keys in Settings. Then delete the
+`track-connect:` verification rows and roll back. Keep the block in place until the rollback is
+complete.
 
 ### Backups
 
@@ -2135,8 +2199,7 @@ A connected product sends JSON to `POST /api/events` (`apps/web/src/server/event
 The gateway hashes the bearer key and looks it up in D1 before reading the body or counting
 a limit. The lookup identifies the workspace, its jurisdiction, the source and the key. The object
 admits the event only while the source exists and is active and the key is not revoked.
-Cookies confer no access.
-The public demo refuses events.
+Cookies confer no access. The public demo refuses events.
 
 Senders stamp events with ISO 8601 timestamps at millisecond precision. Equal timestamps are retries;
 the object rejects timestamps more than five minutes ahead of its clock.
@@ -2147,12 +2210,35 @@ Source keys stay out of the workspace replica. Owners and admins manage them in
 the Sources page in Settings. To rotate a key, make a second key, switch the sender, then revoke the
 old key. The settings gateway checks D1 membership and the object checks the admin again.
 Removal seals the source so a key made during removal cannot write, deletes its keys in D1, then removes the signals and source
-through a gateway-only object call. Issues already filed remain in their teams.
+through a gateway-only object call. For a restored source, both the key deletion and the final
+object call are scoped to the generation named by the seal. Issues already filed remain in their
+teams.
+During a connection seal or Settings removal, a valid source key receives 503 with
+`Retry-After: 60`. Missing sources, workspaces and invalid keys receive 404.
 
 Revoking a key records its id in the object before D1 forgets the key, and the id stays until the
 source is removed. So a request that found the key before the revocation, and held its body back
 past it, is still refused. A newer report that repeats both state and severity moves the signal's ordering time
 without taking a version, so a clear sent before it, arriving late, changes nothing.
+
+A JSON export carries each selected team's source settings and signals from the replica, never a
+key. A restored source starts paused and keyless: make a key and resume it in Settings to continue
+reporting against the imported issues. Each restore puts a fresh generation prefix in the object's
+metadata. The object gives a rotation its key id with that prefix and checks it again when the key
+is made and on every event, so neither a pending rotation nor a delayed event of a deleted source
+reaches its replacement. Settings lists keys of earlier generations under “Keys for removed
+sources”, and a rotation removes the stale ids it observed before counting a restored source's
+keys. The file holds Track's receipt times, not the sender's. Restore caps them at the object's
+clock, moves a first report that is later than the last change back to it (as an object clock that
+stepped back can leave them), and uses the last change as an inactive signal's clear time. A restored signal's sender order
+starts five minutes after the file's `exportedAt` (or the restore, if that is earlier), the clock
+skew a live event is allowed. So an event sent before the export, even by a fast clock or replayed
+with the new key, receives the signal's current state, while one sent to the old workspace after
+the export, and replayed later, is newer than the file and applies. Within five minutes of the
+export, a new event can't be told from an old one, so it too receives the current state; the
+sender's next event after that applies. Restore believes the file's `exportedAt`, as it believes
+the file's issues: an earlier time only lets older events apply, as if the file were older, and
+only an owner or admin can import. The lifetime reopen count stops at 1,000,000.
 
 ### GitHub
 
@@ -2251,12 +2337,37 @@ Worker, and nothing stores it. Then `planImport` matches labels and projects by 
 the missing ones, and people by email, then name. A status is matched by name among the team's
 statuses, and otherwise becomes the team's first status of the same category, which each
 importer reads from its source (Linear's state types, GitHub's open and closed, a CSV's words). It writes parents before their sub-issues and
-the oldest issues first, so numbers follow the source's order. Nothing on the server knows about
-imports, so validation, permissions and fan-out are the ordinary ones.
+the oldest issues first, so numbers follow the source's order. These are ordinary mutations, with
+the ordinary validation, permissions and fan-out, and only owners and admins can import. Restoring
+sources, below, is the one step the server knows about.
 
 - **A JSON export moves a workspace or a team** to another workspace, such as from a self-hosted
   copy to Gateweave Cloud: issues with their comments, parents and relations, labels and
   projects with their colors and details, and the updates of the projects its issues are in.
+  Source settings and signals come with their team. After the issues are saved, the import
+  restores the sources through the object, paused and keyless, with their signals bound to the
+  imported issues. A signal binds only to an issue that is in the file and in its source's team
+  (checked before import too, when teams are combined), that still exists in that team, and that
+  has no signal yet; the first signal for an issue in the file wins. Repeated file issue ids,
+  including ids that encode to the same UTF-8 bytes, bind nothing, and with sources present the
+  planner submits at most one issue create per derived id. A restored signal is never larger than
+  one the event path can store, and a 16 KiB event can still name its key: the fields Track stores
+  as sent (key, type, subject, severity, state) must fit in the smallest event that carries them,
+  and the URL, which Track stores in its normal form, may take up to three bytes for each byte of
+  a 16 KiB event (`STORED_EVENT_URL_MAX_BYTES`). If a signal's issue has no row at all, as when
+  its create failed, the object refuses the whole source with nothing written, and importing the
+  same file again restores it; an issue deleted, in another team or already linked only drops
+  its signal. A file with sources must carry `exportedAt`. Each source restores in one transaction
+  of at most 2,000 signals and 8 MiB of serialized rows, and a restore adds signals only while the
+  workspace's signal field values stay within 8 MiB, measured in UTF-8 bytes inside the
+  transaction (live events have their own daily limits). Sources restore in the file's source
+  order, and each source's signals in file order; signals beyond the remaining budget are counted
+  as over the limit. The 16 KiB limit on serialized link origins applies only to restore. The
+  result counts repeated issue ids, missing issues, issues in another team, issues already linked,
+  invalid signals, signals over the limit, and sources skipped for a missing team (with the file's
+  own teams) or oversized settings. A repeated import skips existing sources before matching their
+  teams, even after a rename. An issue create refused for any reason but an existing id holds the
+  sources back, so the import can be repeated.
   The import can keep the file's teams, matched by key or created, instead of putting everything
   in one team; it then also adds each team's live statuses that the team here lacks. Otherwise
   statuses are matched as above: the file names each issue's status and its category. History

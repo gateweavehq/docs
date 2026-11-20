@@ -4,7 +4,7 @@
 		"name": "Gateweave Track",
 		"summary": "A realtime issue tracker on one Cloudflare Worker, with a local copy that works offline and AI agents as members.",
 		"repo": "gateweavehq/track",
-		"version": "v0.44.0"
+		"version": "v0.46.0"
 	},
 	{
 		"key": "agents",
@@ -32,7 +32,7 @@
 		"name": "Gateweave Guard",
 		"summary": "See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
 		"repo": "gateweavehq/guard",
-		"version": "v0.5.0"
+		"version": "v0.6.1"
 	},
 	{
 		"key": "backup",
