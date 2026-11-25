@@ -70,8 +70,8 @@ and changes many files; do not run it as part of an unrelated change.
 ## Conventions
 
 - `wrangler.jsonc` holds no account id. Wrangler reads `CLOUDFLARE_ACCOUNT_ID` from the
-  environment; the Deploy workflow sets it from the `CLOUDFLARE_ACCOUNT_ID` variable of the
-  `production` environment, and locally you set it yourself or log in with `wrangler login`.
+  environment; the Deploy workflow sets it from the repository's `CLOUDFLARE_ACCOUNT_ID` Actions
+  variable, and locally you set it yourself or log in with `wrangler login`.
 - Never commit a secret, token or `.dev.vars`/`.env` file.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org). The sync's own
   commits are `docs: sync from the products' repositories`.

@@ -16,7 +16,7 @@ Please report vulnerabilities privately, never in a public issue or pull request
 
 Include what an attacker could do, the steps to reproduce it, and the affected page or commit.
 We aim to reply within three working days, and will keep you updated while we work on a fix,
-and credit you in the release notes unless you would rather stay anonymous.
+and credit you in the fix's pull request unless you would rather stay anonymous.
 
 ## Scope
 
