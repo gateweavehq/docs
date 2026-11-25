@@ -209,17 +209,17 @@ each release changed.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.46.0/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.46.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.46.0/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
-Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.46.0/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.48.0/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.48.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.48.0/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
+Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.48.0/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.46.0/LICENSE). You can
+Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.48.0/LICENSE). You can
 self-host, use and modify Track freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.46.0/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.48.0/CLA.md).

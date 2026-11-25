@@ -3,9 +3,9 @@ title: "Track architecture"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Track"
-  version: "v0.46.0"
-  updatedAt: "2026-11-20T21:09:25Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.46.0/docs/architecture.md"
+  version: "v0.48.0"
+  updatedAt: "2026-11-25T14:51:58Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.48.0/docs/architecture.md"
   markdownUrl: "/markdown/track/architecture.md"
 ---
 Gateweave Track is a realtime issue tracker that runs entirely on Cloudflare's developer platform.
@@ -408,6 +408,30 @@ What stays, and the page says so before anyone confirms:
 - Point-in-time recovery, which Cloudflare provides and Track does not control: 30 days back for a
   Durable Object, and for D1 30 days on Workers Paid or 7 on Workers Free. Restoring a state from
   before the deletion brings the person back with it.
+
+### Deleting a workspace
+
+An owner deletes a workspace through Better Auth's `POST /api/auth/organization/delete`. Its data
+lives in three places D1 does not reach: its Durable Object, the sealed old copy if it moved less
+than a week ago, and its files. So the deletion is noted before any of it goes, and the note stays
+until all of it has.
+
+- **D1 goes in one batch.** `beforeDeleteOrganization` (`apps/web/src/server/auth/config.ts`)
+  writes a `workspace_deletion` row and deletes the organization row together. Members, keys,
+  invitations and the rest follow by cascade.
+- **The rest goes after the response.** `destroyWorkspace` (`apps/web/src/server/workspaces.ts`)
+  destroys the object, closing its sockets, then the old copy, then the files, a page of keys at a
+  time. Last, in one batch, it deletes the workspace's location row and its note. Every step can
+  run again, and a failure leaves both rows, so a retry still knows where the objects are. A move
+  that records another place meanwhile has made a copy there: the row it changed stays, and so
+  does the note, so the next try destroys that copy too.
+- **The daily run finishes what failed** (`apps/web/src/server/workspace-deletion.ts`), two a
+  run, those never tried first, after the general prune and before the moves. One that fails again goes to the back. Before that, it notes any
+  location row whose workspace is gone. That can be a deletion from before the notes existed, a row
+  deleted by hand, or a move that recorded a workspace deleted in the meantime. Location rows are
+  only written for workspaces that exist.
+- **A workspace that still exists is never destroyed**, whatever a note says. Its organization row
+  is what says it exists, so such a note is wrong: it is logged and dropped.
 
 ### Changing a name or password
 
@@ -944,6 +968,48 @@ Two limits are worth knowing. An admin who closes the tab after Allow leaves an 
 webhook whose secrets are lost once the code's minute is up: both are visible in Settings and can
 be removed there. And every caller that arrives from one Worker zone shares the exchange's rate
 limit, since that zone is the address it is counted by.
+
+### Scoped runner reports
+
+The local-runner pilot uses JSON POST endpoints under `/api/work-runs/`. They are off in
+the demo. `register` takes `workspace`, `issue`, `repository` (a GitHub `owner/repo`) and an
+Agents reporting `sourceId` for the issue's team. It requires an owner or admin's session and
+Track's own Origin. Track takes the runner and assignment version from the issue. The same
+approval returns its original request ID. An optional `executor` says who runs the work:
+`local-runner` (the default) or `cloud`, for a job a launcher on the host runs in a cloud
+sandbox. A second approval of the same assignment cannot change the repository, source or
+executor.
+
+The issue page approves it this way. When an issue is assigned to an agent member, owners and
+admins see a Runner row under Assignee (not on the demo). It reads the current approval from
+`approval`, which takes `workspace` and `issue` under the same session, Origin and admin checks and
+answers with the repository, `sourceId`, executor and the latest attempt, or 404 when the
+assignment has none. Without one, the row offers a form for the repository, one of the team's
+Agents sources and the executor, and posts it to `register`. Reassigning the issue starts a new
+assignment, which reads as not approved.
+
+After inspecting an interrupted run, a workspace owner or admin can POST `workspace`,
+`attemptId` and the verified terminal `state` to `reconcile` from the Track origin. This closes
+the claim, including when a reporting source was removed. An attempt that has already ended
+keeps its outcome: reconciling it again answers 409, and an attempt Track never issued, 404.
+
+The runner endpoints require a current Track agent member key. `find` takes an issue key under
+`issue` and returns the approval for the caller's current assignment, including the latest
+attempt ID and state. `claim` takes its
+`requestId` and a runner-generated UUID `claimId`, and the launcher's `executor`, again
+`local-runner` unless it says `cloud`. A claim from any executor but the registered one is
+refused with 409, so work registered for a cloud run never quietly runs on the local host, and
+the attempt's run shows the registered executor. An explicit retry names
+`previousAttemptId` after reconciliation. Track admits one active attempt for the issue, even
+across assignments, and a replay of the claim can recover the original handle.
+
+`report` takes `attemptId`, the attempt's `token`, an increasing `sequence` and a lifecycle
+`state`. It can carry short progress, a wait reason and detail, and a link from the approved
+source's origins. Track keeps only the token hash. A report for an earlier sequence has no
+effect, a terminal attempt cannot advance again, and the reports cannot change the binding
+or change the issue itself. The same signal appears on the existing issue Runs card, named
+"Attempt N" by its `attemptNo` rather than by its ID, which stays on hover. A source key cannot
+update a scoped attempt through `/api/events`.
 
 ### Connecting a source in one step
 

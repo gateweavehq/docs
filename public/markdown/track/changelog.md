@@ -8,6 +8,145 @@ read its entry before updating a self-hosted copy.
 Each version's [GitHub release](https://github.com/gateweavehq/track/releases) carries the same
 notes. Publishing a release deploys it to Gateweave Cloud.
 
+## [0.48.0] - 2026-11-25
+
+An owner or admin can now approve an agent's assignment for its runner on the issue page,
+instead of posting to the work-run gateway by hand. There is no protocol or migration change.
+
+### Added
+
+- **A Runner row on the issue page.** Owners and admins see it under Assignee when the issue is
+  assigned to an agent member. It is hidden on the demo, where work runs are off.
+  - **Reading it:** the row says whether the current assignment is approved, such as
+    "Cloud · acme/site" or "Not approved". Opened, an approval shows its repository, executor,
+    reporting source and how its last attempt went. The row asks Track again each time it opens.
+  - **Approving:** a short form takes the repository as `owner/repo`, one of the team's Agents
+    sources and the executor, Local runner or Cloud. A refusal from Track stays in the form, and
+    with no Agents source for the team, the row points to Settings → Sources.
+  - **Reassigning** the issue starts a new assignment, which reads as not approved.
+
+  ([#374](https://github.com/gateweavehq/track/pull/374))
+- **`POST /api/work-runs/approval`** reads an issue's current approval: its repository,
+  `sourceId`, executor and latest attempt, or `404` when the assignment has none. It takes an
+  owner or admin's session from Track's own origin, as `register` does.
+  ([#374](https://github.com/gateweavehq/track/pull/374))
+
+### If you run your own
+
+- **Nothing to do.** There is no protocol, migration or setting change, and rolling back to
+  0.47.1 only takes the row and the lookup away.
+
+## [0.47.1] - 2026-11-25
+
+Two fixes from the first runner pilot. The sync protocol goes to 30, and there are two workspace
+migrations.
+
+### Fixed
+
+- **The Runs card names a runner's attempt by its number.**
+  - **Before:** an approved assignment's attempt went by its ID, so an issue's attempts read as
+    long strings that were hard to tell apart.
+  - **Now:** the card reads "Attempt 2". The ID stays in the row's tooltip, for runner logs and
+    for reconciling. A run a product reports still goes by its key.
+  - **Export:** the number travels with a JSON export. A file from before this has none, and
+    restores as before.
+
+  ([#372](https://github.com/gateweavehq/track/pull/372))
+- **Reconciling an attempt that has already ended answers `409`.** It answered `404`, as if Track
+  had never issued the attempt. It now says "This attempt has already ended", as a report after
+  the end does. An attempt Track never issued still gets `404`.
+  ([#372](https://github.com/gateweavehq/track/pull/372))
+
+### If you run your own
+
+- **The protocol goes from 29 to 30.** Open tabs reload and sync again.
+- **Two workspace migrations** (`0037` and `0038`) run on their own when each workspace wakes.
+  They add the attempt number to signals and fill it in for attempts claimed before.
+- **Rolling back to 0.47.0** works, since it ignores the new column. Attempts claimed meanwhile
+  keep going by their ID after you update again.
+
+## [0.47.0] - 2026-11-25
+
+An issue now shows the runs that agents and runners report on it, beside its pull requests. A
+runner can report one approved assignment through a scoped handle instead of its agent key. The
+sync protocol goes to 29. There is one D1 migration and three workspace migrations.
+
+### Added
+
+- **Runs, reported beside alerts.** A connected product reports long-running work to
+  `POST /api/events` with `kind: "run"` on its existing source key. A run goes `queued`, then
+  `running`, then `passed`, `failed` or `cancelled`. It carries progress, the executor, the
+  agent's name, a wait reason and detail, its start and end, and when it was last heard from.
+  - **It never touches the issue.** A run names its issue by key and binds to it once. It never
+    files, comments on or moves an issue. A report Track cannot bind is answered with the reason
+    and writes nothing.
+  - **Keys:** alerts and runs have separate key spaces, so an alert and a run can share a key.
+  - **Retention:** a finished run leaves the replica after 30 days. A source keeps at most 200
+    unfinished runs.
+  - **Budgets:** runs count against the source's write budget and rate limit, but not its issue
+    limits.
+  - **Export:** runs travel with a JSON export. An older file restores its signals as alerts.
+
+  ([#364](https://github.com/gateweavehq/track/pull/364))
+- **A Runs card on the issue page**, beside Pull requests. For each run it shows:
+  - its state, its executor (Hosted, Local runner or Cloud) and its agent;
+  - what it last said, and while it waits, what would unblock it;
+  - when it started and ended, and when it was last heard from, so a stale live run reads as
+    stale;
+  - the link it reported.
+
+  Live runs and the latest finished one show, and older ones fold under "N earlier runs".
+  ([#365](https://github.com/gateweavehq/track/pull/365))
+- **Scoped runner reports** (`/api/work-runs/`):
+  - **Register:** an owner or admin approves one assignment of an issue to a runner, for one
+    GitHub repository and one Agents reporting source of the issue's team. It takes a session
+    from Track's own origin, and a repeated approval returns the same request.
+  - **Find and claim:** the runner uses its agent key. Track admits one active attempt per issue
+    and answers with a `gwh_` report token. It keeps only the token's hash. A replayed claim gets
+    the same token back, so the runner never has to store it.
+  - **Report:** each report has an increasing sequence. A repeat or an older sequence changes
+    nothing, and a finished attempt stays finished. A report can't change the issue, workspace or
+    repository, and its link must come from the source's approved origins. The attempt shows on
+    the Runs card.
+  - **Reconcile:** an admin records the verified outcome of an interrupted attempt, so the runner
+    can claim a retry.
+
+  The endpoints are off in the demo.
+  ([#369](https://github.com/gateweavehq/track/pull/369))
+- **Executors for scoped work.** A registration names who may claim it: `local-runner` (the
+  default) or `cloud`, for a launcher that runs the job in a cloud sandbox. A claim from another
+  executor is refused with `409`, so cloud work never quietly runs on the local host, and the Runs
+  card shows the executor the work was registered for. A repeated approval can't change it.
+  ([#370](https://github.com/gateweavehq/track/pull/370))
+
+### Fixed
+
+- **A run that could not start says why.** When a failed run never started, the Runs card now
+  shows its explanation, such as the model provider setup to fix.
+  ([#368](https://github.com/gateweavehq/track/pull/368))
+- **A deleted workspace's data is always removed.**
+  - **Before:** if destroying the workspace's object failed after its row was deleted, the
+    failure was only logged, and the object, holding every issue and comment, stayed.
+  - **Now:** each deletion is noted in a new `workspace_deletion` table, in the same batch as the
+    row. The note stays until the object, any sealed old copy and the files are gone. The daily
+    run finishes what a request left, and it also notes leftovers from before this change.
+
+  ([#366](https://github.com/gateweavehq/track/pull/366))
+
+### Changed
+
+- Dependency updates. ([#367](https://github.com/gateweavehq/track/pull/367))
+
+### If you run your own
+
+- **The protocol goes from 28 to 29.** Open tabs reload and sync again.
+- **One D1 migration** (`0017_workspace_deletion`, a new table). `pnpm run deploy` applies it
+  before the new code goes live.
+- **Three workspace migrations** (`0034` to `0036`) run on their own when each workspace wakes.
+  They add run fields to signals, the scoped work tables, and the executor column.
+- **Rolling back to 0.46.0:** workspace migrations do not run backwards, and 0.46.0 knows nothing
+  of runs. Roll forward instead.
+
 ## [0.46.0] - 2026-11-20
 
 A JSON export now carries each team's connected sources and their signals. A product's findings
