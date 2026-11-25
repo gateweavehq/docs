@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Fix the text of a product's page
+    url: https://github.com/gateweavehq
+    about: Product pages are copied from each product's repository. Open the issue or pull request there, so the fix reaches this site with the next sync.
+  - name: Report a security vulnerability
+    url: https://github.com/gateweavehq/docs/security/advisories/new
+    about: Please report security problems privately, not in a public issue.

@@ -1,0 +1,28 @@
+name: Site bug
+description: "The site itself does not work as it should: layout, search, links, the Markdown actions, llms.txt."
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Wrong or missing text on a product page belongs in that product's repository, which is linked at the bottom of the page.
+  - type: input
+    id: page
+    attributes:
+      label: Page
+      description: The address of the page where you saw it.
+      placeholder: https://docs.gateweave.com/track/
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser and OS
+      placeholder: Chrome 142 on macOS 16

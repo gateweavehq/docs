@@ -39,13 +39,19 @@ Node.js 24 and pnpm 12.
 | `pnpm sync`      | Copy the products' docs again (`GITHUB_TOKEN` raises GitHub's limit) |
 | `pnpm verify`    | Lint, type-check, test and build                                   |
 | `pnpm preview`   | Build and serve it as the Worker does, on port 4730                |
-| `pnpm run deploy`| Build and deploy to Cloudflare                                     |
+| `pnpm run deploy`| Build and deploy (needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`) |
 
 ## How it updates
 
 - **Every day**, and by hand from the Sync workflow after a release, GitHub Actions runs
   `pnpm sync`. When a page changed, it commits the change to `main` and deploys.
 - **Every push to `main`** that passes CI deploys.
+
+## Contributing
+
+Fix a product's page in that product's repository; change the site and the sync here. See
+[CONTRIBUTING.md](CONTRIBUTING.md). [AGENTS.md](AGENTS.md) is the guide for AI agents, and
+[SECURITY.md](SECURITY.md) says how to report a vulnerability.
 
 ## Licence
 
