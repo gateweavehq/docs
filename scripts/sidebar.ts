@@ -45,7 +45,7 @@ export function sidebarFor(product: Product, labels: Map<string, string>): Sideb
 	}
 
 	for (const slug of remaining) {
-		console.warn(`${product.key}: "${slug}" is not in its pages in scripts/products.ts`);
+		console.warn(`${product.key}: "${slug}" is not in its groups in scripts/products.ts`);
 		guides.items.push(link(slug));
 	}
 	items.push(...[concepts, guides, reference].filter((group) => group.items.length > 0));

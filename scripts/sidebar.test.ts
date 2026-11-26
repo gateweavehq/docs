@@ -59,7 +59,7 @@ describe("sidebarFor", () => {
 			],
 		});
 		expect(warn).toHaveBeenCalledExactlyOnceWith(
-			'example: "extra" is not in its pages in scripts/products.ts',
+			'example: "extra" is not in its groups in scripts/products.ts',
 		);
 	});
 
