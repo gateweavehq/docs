@@ -157,7 +157,7 @@ export function entryPointsMarkdown(origin: string): string {
 }
 
 export const llmsNotes: string = [
-	"## Notes",
+	"## Which file to use",
 	"",
 	"- `/llms.txt` (this file) is the index and lists the recommended entry points.",
 	"- `/llms-small.txt` is a compact tour of the products' usage pages without changelogs or architecture notes, for small context windows.",

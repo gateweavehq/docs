@@ -54,6 +54,10 @@ describe("llms.txt entry points", () => {
 		expect(llmsNotes).toContain("llms-small.txt");
 		expect(llmsNotes).toContain("llms-full.txt");
 	});
+
+	it("does not reuse the integration's own Notes heading", () => {
+		expect(llmsNotes).not.toMatch(/^## Notes\s*$/m);
+	});
 });
 
 describe("slugs", () => {
