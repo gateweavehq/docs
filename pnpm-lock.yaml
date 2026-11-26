@@ -224,6 +224,9 @@ importers:
       micromark-extension-gfm:
         specifier: 3.0.0
         version: 3.0.0
+      parse5:
+        specifier: 8.1.1
+        version: 8.1.1
       sax:
         specifier: 1.6.1
         version: 1.6.1

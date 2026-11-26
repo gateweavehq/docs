@@ -4,7 +4,7 @@ import { checkSocialCards } from "./social-cards.ts";
 import { SITE } from "./whats-new.ts";
 
 const root = join(import.meta.dirname, "..");
-const problems = checkSocialCards(join(root, "dist"), SITE);
+const problems = await checkSocialCards(join(root, "dist"), SITE);
 if (problems.length > 0) {
 	console.error(
 		`Social cards: ${problems.length} problem(s)\n${problems.map((p) => `  ${p}`).join("\n")}`,
