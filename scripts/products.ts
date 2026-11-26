@@ -11,10 +11,10 @@ export interface Product {
 	/** What the product is, for the home page and `llms.txt`. */
 	summary: string;
 	/**
-	 * The order of the pages after the overview, by slug. A directory's name (`recipes`) puts its
-	 * pages there as a group. Pages not listed come after these, then the changelog.
+	 * The page slugs in each sidebar group, in display order. A directory name (`recipes`) puts
+	 * its pages in a nested group. Unlisted pages appear at the end of Guides.
 	 */
-	pages: string[];
+	groups: { concepts?: string[]; guides?: string[]; reference?: string[] };
 	/** Shorter sidebar labels than the pages' titles, by slug. */
 	labels?: Record<string, string>;
 }
@@ -28,7 +28,10 @@ export const products: Product[] = [
 		name: "Gateweave Track",
 		summary:
 			"A realtime issue tracker on one Cloudflare Worker, with a local copy that works offline and AI agents as members.",
-		pages: ["self-hosting", "ecosystem", "roadmap", "architecture"],
+		groups: {
+			concepts: ["ecosystem", "roadmap", "architecture"],
+			guides: ["self-hosting"],
+		},
 		labels: { ecosystem: "The Gateweave ecosystem" },
 	},
 	{
@@ -37,17 +40,17 @@ export const products: Product[] = [
 		name: "Gateweave Agents",
 		summary:
 			"See which coding agents work in which repositories, share their setups, run your own agents and keep a wiki of each repository.",
-		pages: [
-			"first-pull-request",
-			"self-hosting",
-			"github-app",
-			"memory",
-			"track-triage",
-			"track-work",
-			"docker-sandboxes",
-			"spec",
-			"architecture",
-		],
+		groups: {
+			concepts: ["memory", "spec", "architecture"],
+			guides: [
+				"first-pull-request",
+				"self-hosting",
+				"github-app",
+				"track-triage",
+				"track-work",
+				"docker-sandboxes",
+			],
+		},
 		labels: {
 			"github-app": "Connecting GitHub",
 			"track-triage": "Triaging Track issues",
@@ -62,14 +65,11 @@ export const products: Product[] = [
 		name: "Gateweave ID",
 		summary:
 			"An OpenID Connect provider with passkeys and access rules: one sign-in for Gateweave's products and your own apps.",
-		pages: [
-			"connect-an-app",
-			"recipes",
-			"cloudflare-access",
-			"self-hosting",
-			"conformance",
-			"architecture",
-		],
+		groups: {
+			concepts: ["architecture"],
+			guides: ["connect-an-app", "recipes", "cloudflare-access", "self-hosting"],
+			reference: ["conformance"],
+		},
 		labels: {
 			"cloudflare-access": "Cloudflare Access",
 			conformance: "OpenID conformance",
@@ -84,7 +84,10 @@ export const products: Product[] = [
 		name: "Gateweave Mail",
 		summary:
 			"Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
-		pages: ["self-hosting", "architecture"],
+		groups: {
+			concepts: ["architecture"],
+			guides: ["self-hosting"],
+		},
 	},
 	{
 		key: "guard",
@@ -92,14 +95,21 @@ export const products: Product[] = [
 		name: "Gateweave Guard",
 		summary:
 			"See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
-		pages: ["self-hosting", "architecture"],
+		groups: {
+			concepts: ["architecture"],
+			guides: ["self-hosting"],
+		},
 	},
 	{
 		key: "backup",
 		repo: "backup",
 		name: "Gateweave Backup",
 		summary: "Scheduled, encrypted backups for Cloudflare data, with automatic restore tests.",
-		pages: ["deploy", "restore", "app-entrypoint", "architecture", "format"],
+		groups: {
+			concepts: ["architecture"],
+			guides: ["deploy", "restore", "app-entrypoint"],
+			reference: ["format"],
+		},
 		labels: { "app-entrypoint": "Backing up an app's Durable Objects" },
 	},
 ];

@@ -16,7 +16,8 @@ arrives here with the next sync.
 
 | Path                     | What lives there                                                    |
 | ------------------------ | ------------------------------------------------------------------- |
-| `scripts/products.ts`    | The products, and the order and labels of their pages               |
+| `scripts/products.ts`    | The products, and their pages' groups, order and labels             |
+| `scripts/sidebar.ts`     | Each product's sidebar group, built from those lists                |
 | `scripts/sync.ts`        | Reads each repository and writes the pages (`pnpm sync`)            |
 | `scripts/transform.ts`   | Titles, descriptions and links, with tests beside it                |
 | `src/content/docs/`      | The home page, the 404 page and the copied pages (one folder each)  |

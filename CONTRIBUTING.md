@@ -24,7 +24,7 @@ release yet is read from `main`).
 
 - The site: layout, components, styles, search, the Markdown and copy actions, `llms.txt`.
 - The sync and its link rewriting: `scripts/`.
-- Which products there are and the order of their pages: `scripts/products.ts`.
+- Which products there are, and how their pages are grouped and ordered: `scripts/products.ts`.
 - The pages that belong to this site: the home page, "Agent setup", "Community rules" and the 404
   page.
 
