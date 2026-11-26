@@ -63,7 +63,7 @@ commenting on the closed pull request or issue; the project owner answers with a
 | --- | --- |
 | Out of scope | Show how it fits the project's stated scope, or propose a change of scope in a new issue. |
 | Duplicate | Show how it differs from the item it duplicates. |
-| Claimed by someone else | Ask on the claimed task. Once the claim expires or is released, claim it yourself. |
+| Claimed by someone else | If the claim is wrong, or has expired, say so in a comment and ask the project owner to reopen the item. A claim lapses after 7 days without a linked pull request, and the project owner can override a claim. |
 | Checks fail | Fix the failure and push, or show that the change did not cause it. |
 | Misses the brief | Point to the part of the brief it meets, or ask for the brief to be made clearer. |
 | Author cannot explain the change | Answer the review questions in the thread yourself. |
