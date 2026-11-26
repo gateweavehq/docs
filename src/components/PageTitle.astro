@@ -10,6 +10,9 @@ const markdownUrl = source?.markdownUrl;
 const prompt = source
 	? `Read the current ${source.product} documentation page at https://docs.gateweave.com${source.markdownUrl} before making changes. The page describes ${source.version}. Follow the source repository's AGENTS.md, verify current behavior, and run its checks before proposing a change.`
 	: undefined;
+const assistantPrompt = `Read https://docs.gateweave.com${markdownUrl} and answer questions about it.`;
+const chatgptUrl = `https://chatgpt.com/?q=${encodeURIComponent(assistantPrompt)}`;
+const claudeUrl = `https://claude.ai/new?q=${encodeURIComponent(assistantPrompt)}`;
 ---
 
 <Default />
@@ -27,6 +30,8 @@ const prompt = source
 				<a href={markdownUrl}>View as Markdown</a>
 				<button type="button" data-doc-markdown={markdownUrl}>Copy as Markdown</button>
 				<button type="button" data-doc-prompt={prompt}>Copy prompt</button>
+				<a href={chatgptUrl} target="_blank" rel="noopener">Open in ChatGPT</a>
+				<a href={claudeUrl} target="_blank" rel="noopener">Open in Claude</a>
 			</div>
 		</>
 	)
