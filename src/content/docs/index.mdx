@@ -83,8 +83,7 @@ flowchart TD
 	ID -- "OpenID Connect sign-in" --> Apps["Your apps"]
 	Cloudflare["Your Cloudflare account"] -- "Security findings" --> Guard
 	Repositories -- "Security findings" --> Guard
-	Guard -- "Files findings as issues" --> Track
-	Guard -- "Sends dependency findings for fixes" --> Agents
+	Guard -- "Files findings and fix requests as issues" --> Track
 	Track -- "Issues to work on" --> Agents
 	Agents -- "Opens pull requests, including fixes" --> Repositories
 	AI["AI agents"] -- "MCP" --> Track
@@ -93,7 +92,12 @@ flowchart TD
 	Backup -- "Backs up D1, Durable Object and R2 data" --> Cloudflare
 ```
 
-ID provides OpenID Connect sign-in for Track, Agents, Mail, Guard and your apps, Guard files security findings in Track and sends dependency findings to Agents for fixes, Agents works from Track issues and opens repository pull requests, AI agents connect to Track, Mail and Guard over MCP, and Backup copies your Cloudflare account's D1, Durable Object and R2 data.
+- ID signs people in to Track, Agents, Mail, Guard and your own apps over OpenID Connect.
+- Guard reads your Cloudflare account and your repositories' lockfiles. It files what it finds as
+  Track issues, and a dependency finding can ask Agents for a fix through Track.
+- Agents works from Track issues and opens pull requests in your repositories.
+- AI agents connect to Track, Mail and Guard over MCP.
+- Backup copies your Cloudflare account's D1, Durable Object and R2 data.
 
 ## Where these pages come from
 
