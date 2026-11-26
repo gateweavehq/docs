@@ -157,6 +157,45 @@ describe("checkSocialCards", () => {
 		}
 	});
 
+	it("reports an og:image written as name instead of property", async () => {
+		write("track/index.html", page().replace('property="og:image"', 'name="og:image"'));
+		write("og/track.png", await png(1200, 630));
+		expect(await checkSocialCards(dist, site)).toEqual([
+			"/track/index.html: missing <meta og:image>",
+		]);
+	});
+
+	it("reports a twitter tag written as property instead of name", async () => {
+		write("track/index.html", page().replace('name="twitter:image"', 'property="twitter:image"'));
+		write("og/track.png", await png(1200, 630));
+		expect(await checkSocialCards(dist, site)).toEqual([
+			"/track/index.html: missing <meta twitter:image>",
+		]);
+	});
+
+	it("reports a page that points at another page's card", async () => {
+		write("track/index.html", page({}, "/og/index.png"));
+		write("og/index.png", await png(1200, 630));
+		expect(await checkSocialCards(dist, site)).toEqual([
+			`/track/index.html: og:image is ${site}/og/index.png, not this page's own card ${site}/og/track.png`,
+		]);
+	});
+
+	it("holds every page to its own card, home page and nested pages included", async () => {
+		write("index.html", page({}, "/og/index.png"));
+		write("track/self-hosting/index.html", page({}, "/og/track/self-hosting.png"));
+		write("404.html", page({}, "/og/404.png"));
+		for (const card of ["index", "track/self-hosting", "404"]) {
+			write(`og/${card}.png`, await png(1200, 630));
+		}
+		expect(await checkSocialCards(dist, site)).toEqual([]);
+		write("track/self-hosting/index.html", page({}, "/og/track.png"));
+		write("og/track.png", await png(1200, 630));
+		expect(await checkSocialCards(dist, site)).toEqual([
+			`/track/self-hosting/index.html: og:image is ${site}/og/track.png, not this page's own card ${site}/og/track/self-hosting.png`,
+		]);
+	});
+
 	it("reports a page whose head lacks og:image", async () => {
 		write("track/index.html", page({ "og:image": null }));
 		write("og/track.png", await png(1200, 630));
@@ -214,27 +253,27 @@ describe("helpers", () => {
 
 	it("reads meta tags, unescaping entities", () => {
 		const tags = metaTags(
-			`<html><head><meta property="og:url" content="https://x/?a=1&amp;b=2"/><meta name="a" content=""/></head></html>`,
+			`<html><head><meta property="og:url" content="https://x/?a=1&amp;b=2"/><meta name="twitter:a" content=""/></head></html>`,
 		);
 		expect(tags.get("og:url")).toBe("https://x/?a=1&b=2");
-		expect(tags.get("a")).toBe("");
+		expect(tags.get("twitter:a")).toBe("");
 	});
 
 	it("ignores meta-like text in comments, scripts and styles in the head", () => {
 		const tags = metaTags(
-			`<html><head><!-- <meta name="a" content="c"/> --><script>"<meta name='b' content='s'>"</script><style>/* <meta name="c" content="t"> */</style><meta name="d" content="real"/></head></html>`,
+			`<html><head><!-- <meta name="twitter:a" content="c"/> --><script>"<meta name='twitter:b' content='s'>"</script><style>/* <meta name="twitter:c" content="t"> */</style><meta name="twitter:d" content="real"/></head></html>`,
 		);
-		expect([...tags.keys()]).toEqual(["d"]);
+		expect([...tags.keys()]).toEqual(["twitter:d"]);
 	});
 
 	it("reads meta tags only from the head", () => {
 		const tags = metaTags(
-			`<html><head><meta name="a" content="head"/></head><body><meta name="a" content="body"/><meta name="b" content="body"/></body></html>`,
+			`<html><head><meta name="twitter:a" content="head"/></head><body><meta name="twitter:a" content="body"/><meta name="twitter:b" content="body"/></body></html>`,
 		);
-		expect(tags.get("a")).toBe("head");
-		expect(tags.has("b")).toBe(false);
+		expect(tags.get("twitter:a")).toBe("head");
+		expect(tags.has("twitter:b")).toBe(false);
 		expect(
-			metaTags('<html><head></head><body><meta name="a" content="x"/></body></html>').size,
+			metaTags('<html><head></head><body><meta name="twitter:a" content="x"/></body></html>').size,
 		).toBe(0);
 	});
 

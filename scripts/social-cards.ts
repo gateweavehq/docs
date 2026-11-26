@@ -8,7 +8,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { parse } from "parse5";
 import sharp from "sharp";
-import { CARD_HEIGHT, CARD_WIDTH } from "../src/social-card.ts";
+import { CARD_HEIGHT, CARD_WIDTH, cardPath } from "../src/social-card.ts";
 
 /** Parse5 nodes as far as this file reads them. */
 interface Node {
@@ -36,8 +36,8 @@ export async function pngSize(
 }
 
 /**
- * Every `<meta>` element that is a direct child of the page's `<head>`, as name-or-property to
- * content (the first one wins). The HTML is parsed, so text that only looks like a tag, in a
+ * Every Open Graph (`property="og:*"`) and Twitter (`name="twitter:*"`) `<meta>` element that is a
+ * direct child of the page's `<head>`, as key to content (the first one wins). The HTML is parsed, so text that only looks like a tag, in a
  * comment, a script, a style, a title or the body, is not metadata and is ignored.
  */
 export function metaTags(html: string): Map<string, string> {
@@ -48,7 +48,10 @@ export function metaTags(html: string): Map<string, string> {
 	for (const node of head?.childNodes ?? []) {
 		if (node.nodeName !== "meta") continue;
 		const attr = (name: string) => node.attrs?.find((a) => a.name === name)?.value;
-		const key = attr("property") ?? attr("name");
+		// Open Graph tags are `property`, Twitter tags are `name`; the other attribute does not count.
+		const property = attr("property");
+		const name = attr("name");
+		const key = property?.startsWith("og:") ? property : name?.startsWith("twitter:") ? name : "";
 		const content = attr("content");
 		if (key && content !== undefined && !tags.has(key)) tags.set(key, content);
 	}
@@ -63,6 +66,11 @@ function htmlFiles(dir: string): string[] {
 	});
 }
 
+/** The route id Starlight gives a built page: `track/self-hosting/index.html` is `track/self-hosting`, the home page is empty. */
+function pageId(file: string): string {
+	return file.replace(/(^|\/)index\.html$/, "").replace(/\.html$/, "");
+}
+
 /** What is wrong with the social cards of the site built in `dist`, one line each. */
 export async function checkSocialCards(dist: string, site: string): Promise<string[]> {
 	const problems: string[] = [];
@@ -70,7 +78,8 @@ export async function checkSocialCards(dist: string, site: string): Promise<stri
 	if (pages.length === 0) return [`no pages found in ${dist}`];
 
 	for (const file of pages) {
-		const page = `/${relative(dist, file).replaceAll("\\", "/")}`;
+		const route = relative(dist, file).replaceAll("\\", "/");
+		const page = `/${route}`;
 		const meta = metaTags(readFileSync(file, "utf8"));
 		const need = (key: string, expected?: string) => {
 			const value = meta.get(key);
@@ -97,7 +106,12 @@ export async function checkSocialCards(dist: string, site: string): Promise<stri
 			problems.push(`${page}: og:image "${image}" is not an absolute URL under ${site}`);
 			continue;
 		}
-		const cardFile = join(dist, new URL(image).pathname);
+		const own = new URL(cardPath(pageId(route)), site).href;
+		if (image !== own) {
+			problems.push(`${page}: og:image is ${image}, not this page's own card ${own}`);
+			continue;
+		}
+		const cardFile = join(dist, new URL(own).pathname);
 		if (!existsSync(cardFile)) {
 			problems.push(`${page}: og:image ${image} has no file in dist`);
 			continue;
