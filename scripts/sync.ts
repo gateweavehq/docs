@@ -2,7 +2,8 @@
  * Copies each product's docs from its repository into this site: `README.md`, `CHANGELOG.md` and
  * `docs/`, at the product's latest release, or `main` while it has none. Pages go to
  * `src/content/docs/<product>/`, other files under `docs/` to `public/<product>/`, and what was
- * read, with the sidebar, to `src/generated/`. Run it with `pnpm sync`; set `GITHUB_TOKEN` to
+ * read, with the sidebar, to `src/generated/`. It also writes the "What's new" page and its Atom
+ * feed from the changelogs (`scripts/whats-new.ts`). Run it with `pnpm sync`; set `GITHUB_TOKEN` to
  * raise GitHub's limit on unauthenticated requests.
  */
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -10,6 +11,7 @@ import { dirname, join } from "node:path";
 import { OWNER, type Product, products } from "./products.ts";
 import { type SidebarGroup, sidebarFor } from "./sidebar.ts";
 import { convert, isAsset, type Repository, slugOf } from "./transform.ts";
+import { buildWhatsNew, FEED_PATH, PAGE_PATH, type WhatsNewSource } from "./whats-new.ts";
 
 const root = join(import.meta.dirname, "..");
 const contentDir = join(root, "src/content/docs");
@@ -143,6 +145,7 @@ for (const product of products) {
 }
 const all = fetched.map((f) => f.repository);
 const sidebar: SidebarGroup[] = [];
+const changelogs: WhatsNewSource[] = [];
 await rm(markdownDir, { recursive: true, force: true });
 
 for (const { product, repository, version, pageDates, files } of fetched) {
@@ -163,6 +166,15 @@ for (const { product, repository, version, pageDates, files } of fetched) {
 			fallback,
 		);
 		labels.set(slug, slug === "" ? "Overview" : page.title);
+		if (slug === "changelog") {
+			changelogs.push({
+				key: product.key,
+				name: product.name,
+				repo: product.repo,
+				version,
+				changelog: page.body,
+			});
+		}
 		const header = frontMatter({
 			title: titleFor(page.title, product),
 			description: page.description,
@@ -194,3 +206,7 @@ const sources = fetched.map(({ product, version }) => ({
 }));
 await write(join(generatedDir, "sources.json"), `${JSON.stringify(sources, null, "\t")}\n`);
 await write(join(generatedDir, "sidebar.json"), `${JSON.stringify(sidebar, null, "\t")}\n`);
+
+const whatsNew = buildWhatsNew(changelogs);
+await write(join(root, PAGE_PATH), whatsNew.page);
+await write(join(root, FEED_PATH), whatsNew.feed);

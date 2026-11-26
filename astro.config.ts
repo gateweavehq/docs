@@ -20,6 +20,17 @@ export default defineConfig({
 				"Documentation for Gateweave's open-source business tools on Cloudflare: Track, Agents, ID, Mail, Guard and Backup.",
 			logo: { src: "./src/assets/logo.svg", alt: "Gateweave" },
 			favicon: "/favicon.svg",
+			head: [
+				{
+					tag: "link",
+					attrs: {
+						rel: "alternate",
+						type: "application/atom+xml",
+						title: "Gateweave: what's new",
+						href: `${site}/changelog.xml`,
+					},
+				},
+			],
 			social: [{ icon: "github", label: "GitHub", href: "https://github.com/gateweavehq" }],
 			customCss: ["@fontsource-variable/inter", "./src/styles/theme.css"],
 			components: {
@@ -29,6 +40,7 @@ export default defineConfig({
 				{ label: "Home", link: "/" },
 				{ label: "Agent setup", link: "/agent-setup/" },
 				{ label: "Community rules", link: "/community-rules/" },
+				{ label: "What's new", link: "/changelog/" },
 				...sidebar,
 			],
 			lastUpdated: false,

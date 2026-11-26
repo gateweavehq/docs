@@ -27,6 +27,10 @@ github.com/gateweavehq, and `pnpm sync` copies them in.
 4. Writes pages to `src/content/docs/<product>/`, assets to `public/<product>/`, plain Markdown
    copies to `public/markdown/<product>/`, and the versions read and the sidebar to
    `src/generated/`.
+5. Builds the What's new page (`src/content/docs/changelog.md`) and its Atom feed
+   (`public/changelog.xml`) from each changelog at the version read: the latest five releases per
+   product, with date, release link and upgrade note (`scripts/whats-new.ts`). `pnpm whats-new`
+   rebuilds both from the changelog pages already here, without the network.
 
 It deletes and rewrites each product's folders on every run. The Sync workflow runs it daily and
 by hand; when something changed it runs `pnpm verify`, commits to `main` and starts the Deploy
@@ -36,9 +40,9 @@ workflow.
 
 | Path | Edit here? |
 | --- | --- |
-| `src/content/docs/<product>/`, `public/<product>/`, `public/markdown/`, `src/generated/` | No. Written by `pnpm sync`; a hand edit is lost on the next run. Fix the page in the product's repository. |
+| `src/content/docs/<product>/`, `public/<product>/`, `public/markdown/`, `src/generated/`, `src/content/docs/changelog.md`, `public/changelog.xml` | No. Written by `pnpm sync`; a hand edit is lost on the next run. Fix the page in the product's repository. |
 | `scripts/products.ts` | Yes: which products, their summaries, and which of their pages go under Concepts, Guides and Reference, in what order and with what labels. A page not listed there still appears, at the end of Guides, with a warning from the sync. |
-| `scripts/sync.ts`, `scripts/sidebar.ts`, `scripts/transform.ts` | Yes, with a test in `scripts/sidebar.test.ts` or `scripts/transform.test.ts`. |
+| `scripts/sync.ts`, `scripts/sidebar.ts`, `scripts/transform.ts`, `scripts/whats-new.ts` | Yes, with a test in `scripts/sidebar.test.ts`, `scripts/transform.test.ts` or `scripts/whats-new.test.ts`. |
 | `src/content/docs/index.mdx`, `agent-setup.mdx`, `community-rules.md`, `404.md` | Yes: the pages that belong to this site. |
 | `src/components/`, `src/styles/`, `src/assets/`, `astro.config.ts` | Yes: the site's look and behavior. |
 | `public/_headers`, `public/robots.txt`, `public/favicon.svg`, `public/apple-touch-icon.png` | Yes. |
@@ -57,6 +61,7 @@ Node.js 24 and pnpm 12 (`packageManager` in `package.json`).
 | `pnpm install` | Install dependencies |
 | `pnpm dev` | Run the site on http://localhost:4730 |
 | `pnpm sync` | Copy the products' docs again (set `GITHUB_TOKEN` to raise GitHub's limit) |
+| `pnpm whats-new` | Rebuild the What's new page and feed from the changelog pages already here (no network) |
 | `pnpm check` | Biome lint and format, and Astro's type check (`pnpm format` fixes most Biome findings) |
 | `pnpm test` | Run the tests for `scripts/` |
 | `pnpm build` | Build the site into `dist/` |
