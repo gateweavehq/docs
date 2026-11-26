@@ -45,6 +45,7 @@ workflow.
 | `scripts/sync.ts`, `scripts/sidebar.ts`, `scripts/transform.ts`, `scripts/whats-new.ts` | Yes, with a test in `scripts/sidebar.test.ts`, `scripts/transform.test.ts` or `scripts/whats-new.test.ts`. |
 | `src/content/docs/index.mdx`, `agent-setup.mdx`, `community-rules.md`, `404.md` | Yes: the pages that belong to this site. |
 | `src/components/`, `src/styles/`, `src/assets/`, `astro.config.ts` | Yes: the site's look and behavior. |
+| `src/pages/og/`, `src/routeData.ts`, `src/social-card.ts`, `src/footerLinks.ts` | Yes: the social card each page gets (built with astro-og-canvas, tags added in `routeData.ts`) and the footer links. `pnpm build` fails when a page lacks its card or tags (`scripts/social-cards.ts`, tested in `scripts/social-cards.test.ts`). |
 | `public/_headers`, `public/robots.txt`, `public/favicon.svg`, `public/apple-touch-icon.png` | Yes. |
 | `.github/workflows/`, `wrangler.jsonc` | Yes, carefully: Deploy runs from `main` with the Cloudflare token. |
 
@@ -64,7 +65,7 @@ Node.js 24 and pnpm 12 (`packageManager` in `package.json`).
 | `pnpm whats-new` | Rebuild the What's new page and feed from the changelog pages already here (no network) |
 | `pnpm check` | Biome lint and format, and Astro's type check (`pnpm format` fixes most Biome findings) |
 | `pnpm test` | Run the tests for `scripts/` |
-| `pnpm build` | Build the site into `dist/` |
+| `pnpm build` | Build the site into `dist/`, then check every page's social card and tags |
 | `pnpm verify` | Everything CI runs: check, test, build |
 | `pnpm preview` | Build and serve it as the Worker does, on port 4730 |
 | `pnpm run deploy` | Build and deploy to Cloudflare (CI does this; needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`) |
