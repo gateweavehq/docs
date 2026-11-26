@@ -8,6 +8,7 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { OWNER, type Product, products } from "./products.ts";
+import { type SidebarGroup, sidebarFor } from "./sidebar.ts";
 import { convert, isAsset, type Repository, slugOf } from "./transform.ts";
 
 const root = join(import.meta.dirname, "..");
@@ -111,51 +112,6 @@ function titleFor(title: string, product: Product): string {
 		default:
 			return title;
 	}
-}
-
-interface SidebarLink {
-	label: string;
-	slug: string;
-}
-interface SidebarGroup {
-	label: string;
-	collapsed?: boolean;
-	items: (SidebarLink | SidebarGroup)[];
-}
-
-function sidebarFor(product: Product, labels: Map<string, string>): SidebarGroup {
-	const link = (slug: string): SidebarLink => ({
-		label: product.labels?.[slug] ?? labels.get(slug) ?? slug,
-		slug: slug === "" ? product.key : `${product.key}/${slug}`,
-	});
-	const slugs = [...labels.keys()].filter((slug) => slug !== "" && slug !== "changelog");
-	const placed = new Set<string>();
-	const items: (SidebarLink | SidebarGroup)[] = [{ ...link(""), label: "Overview" }];
-	const take = (slug: string) => {
-		placed.add(slug);
-		return link(slug);
-	};
-
-	for (const entry of product.pages) {
-		if (labels.has(entry)) {
-			items.push(take(entry));
-			continue;
-		}
-		const inside = slugs.filter((slug) => slug.startsWith(`${entry}/`)).sort();
-		if (inside.length === 0) {
-			console.warn(`${product.key}: no page "${entry}"`);
-			continue;
-		}
-		const label = entry.charAt(0).toUpperCase() + entry.slice(1);
-		items.push({ label, items: inside.map(take) });
-	}
-	for (const slug of slugs.sort()) {
-		if (placed.has(slug)) continue;
-		console.warn(`${product.key}: "${slug}" is not in its pages in scripts/products.ts`);
-		items.push(take(slug));
-	}
-	if (labels.has("changelog")) items.push(link("changelog"));
-	return { label: product.name, items };
 }
 
 function frontMatter(fields: Record<string, unknown>): string {

@@ -7,24 +7,39 @@
 				"slug": "track"
 			},
 			{
-				"label": "Self-hosting",
-				"slug": "track/self-hosting"
+				"label": "Concepts",
+				"items": [
+					{
+						"label": "The Gateweave ecosystem",
+						"slug": "track/ecosystem"
+					},
+					{
+						"label": "Roadmap",
+						"slug": "track/roadmap"
+					},
+					{
+						"label": "Architecture",
+						"slug": "track/architecture"
+					}
+				]
 			},
 			{
-				"label": "The Gateweave ecosystem",
-				"slug": "track/ecosystem"
-			},
-			{
-				"label": "Roadmap",
-				"slug": "track/roadmap"
-			},
-			{
-				"label": "Architecture",
-				"slug": "track/architecture"
+				"label": "Guides",
+				"items": [
+					{
+						"label": "Self-hosting",
+						"slug": "track/self-hosting"
+					}
+				]
 			},
 			{
 				"label": "Changelog",
-				"slug": "track/changelog"
+				"items": [
+					{
+						"label": "Changelog",
+						"slug": "track/changelog"
+					}
+				]
 			}
 		]
 	},
@@ -36,44 +51,59 @@
 				"slug": "agents"
 			},
 			{
-				"label": "From zero to a first pull request",
-				"slug": "agents/first-pull-request"
+				"label": "Concepts",
+				"items": [
+					{
+						"label": "Memory",
+						"slug": "agents/memory"
+					},
+					{
+						"label": "Product spec",
+						"slug": "agents/spec"
+					},
+					{
+						"label": "Architecture",
+						"slug": "agents/architecture"
+					}
+				]
 			},
 			{
-				"label": "Self-hosting",
-				"slug": "agents/self-hosting"
-			},
-			{
-				"label": "Connecting GitHub",
-				"slug": "agents/github-app"
-			},
-			{
-				"label": "Memory",
-				"slug": "agents/memory"
-			},
-			{
-				"label": "Triaging Track issues",
-				"slug": "agents/track-triage"
-			},
-			{
-				"label": "Working on Track issues",
-				"slug": "agents/track-work"
-			},
-			{
-				"label": "Docker cloud sandboxes",
-				"slug": "agents/docker-sandboxes"
-			},
-			{
-				"label": "Product spec",
-				"slug": "agents/spec"
-			},
-			{
-				"label": "Architecture",
-				"slug": "agents/architecture"
+				"label": "Guides",
+				"items": [
+					{
+						"label": "From zero to a first pull request",
+						"slug": "agents/first-pull-request"
+					},
+					{
+						"label": "Self-hosting",
+						"slug": "agents/self-hosting"
+					},
+					{
+						"label": "Connecting GitHub",
+						"slug": "agents/github-app"
+					},
+					{
+						"label": "Triaging Track issues",
+						"slug": "agents/track-triage"
+					},
+					{
+						"label": "Working on Track issues",
+						"slug": "agents/track-work"
+					},
+					{
+						"label": "Docker cloud sandboxes",
+						"slug": "agents/docker-sandboxes"
+					}
+				]
 			},
 			{
 				"label": "Changelog",
-				"slug": "agents/changelog"
+				"items": [
+					{
+						"label": "Changelog",
+						"slug": "agents/changelog"
+					}
+				]
 			}
 		]
 	},
@@ -85,45 +115,65 @@
 				"slug": "id"
 			},
 			{
-				"label": "Connect an app",
-				"slug": "id/connect-an-app"
-			},
-			{
-				"label": "Recipes",
+				"label": "Concepts",
 				"items": [
 					{
-						"label": "Gitea",
-						"slug": "id/recipes/gitea"
-					},
-					{
-						"label": "Grafana",
-						"slug": "id/recipes/grafana"
-					},
-					{
-						"label": "Outline",
-						"slug": "id/recipes/outline"
+						"label": "Architecture",
+						"slug": "id/architecture"
 					}
 				]
 			},
 			{
-				"label": "Cloudflare Access",
-				"slug": "id/cloudflare-access"
+				"label": "Guides",
+				"items": [
+					{
+						"label": "Connect an app",
+						"slug": "id/connect-an-app"
+					},
+					{
+						"label": "Recipes",
+						"items": [
+							{
+								"label": "Gitea",
+								"slug": "id/recipes/gitea"
+							},
+							{
+								"label": "Grafana",
+								"slug": "id/recipes/grafana"
+							},
+							{
+								"label": "Outline",
+								"slug": "id/recipes/outline"
+							}
+						]
+					},
+					{
+						"label": "Cloudflare Access",
+						"slug": "id/cloudflare-access"
+					},
+					{
+						"label": "Self-hosting",
+						"slug": "id/self-hosting"
+					}
+				]
 			},
 			{
-				"label": "Self-hosting",
-				"slug": "id/self-hosting"
-			},
-			{
-				"label": "OpenID conformance",
-				"slug": "id/conformance"
-			},
-			{
-				"label": "Architecture",
-				"slug": "id/architecture"
+				"label": "Reference",
+				"items": [
+					{
+						"label": "OpenID conformance",
+						"slug": "id/conformance"
+					}
+				]
 			},
 			{
 				"label": "Changelog",
-				"slug": "id/changelog"
+				"items": [
+					{
+						"label": "Changelog",
+						"slug": "id/changelog"
+					}
+				]
 			}
 		]
 	},
@@ -135,16 +185,31 @@
 				"slug": "mail"
 			},
 			{
-				"label": "Self-hosting",
-				"slug": "mail/self-hosting"
+				"label": "Concepts",
+				"items": [
+					{
+						"label": "Architecture",
+						"slug": "mail/architecture"
+					}
+				]
 			},
 			{
-				"label": "Architecture",
-				"slug": "mail/architecture"
+				"label": "Guides",
+				"items": [
+					{
+						"label": "Self-hosting",
+						"slug": "mail/self-hosting"
+					}
+				]
 			},
 			{
 				"label": "Changelog",
-				"slug": "mail/changelog"
+				"items": [
+					{
+						"label": "Changelog",
+						"slug": "mail/changelog"
+					}
+				]
 			}
 		]
 	},
@@ -156,16 +221,31 @@
 				"slug": "guard"
 			},
 			{
-				"label": "Self-hosting",
-				"slug": "guard/self-hosting"
+				"label": "Concepts",
+				"items": [
+					{
+						"label": "Architecture",
+						"slug": "guard/architecture"
+					}
+				]
 			},
 			{
-				"label": "Architecture",
-				"slug": "guard/architecture"
+				"label": "Guides",
+				"items": [
+					{
+						"label": "Self-hosting",
+						"slug": "guard/self-hosting"
+					}
+				]
 			},
 			{
 				"label": "Changelog",
-				"slug": "guard/changelog"
+				"items": [
+					{
+						"label": "Changelog",
+						"slug": "guard/changelog"
+					}
+				]
 			}
 		]
 	},
@@ -177,28 +257,48 @@
 				"slug": "backup"
 			},
 			{
-				"label": "Deploying the Worker",
-				"slug": "backup/deploy"
+				"label": "Concepts",
+				"items": [
+					{
+						"label": "Architecture",
+						"slug": "backup/architecture"
+					}
+				]
 			},
 			{
-				"label": "Restoring",
-				"slug": "backup/restore"
+				"label": "Guides",
+				"items": [
+					{
+						"label": "Deploying the Worker",
+						"slug": "backup/deploy"
+					},
+					{
+						"label": "Restoring",
+						"slug": "backup/restore"
+					},
+					{
+						"label": "Backing up an app's Durable Objects",
+						"slug": "backup/app-entrypoint"
+					}
+				]
 			},
 			{
-				"label": "Backing up an app's Durable Objects",
-				"slug": "backup/app-entrypoint"
-			},
-			{
-				"label": "Architecture",
-				"slug": "backup/architecture"
-			},
-			{
-				"label": "Repository format, version 1",
-				"slug": "backup/format"
+				"label": "Reference",
+				"items": [
+					{
+						"label": "Repository format, version 1",
+						"slug": "backup/format"
+					}
+				]
 			},
 			{
 				"label": "Changelog",
-				"slug": "backup/changelog"
+				"items": [
+					{
+						"label": "Changelog",
+						"slug": "backup/changelog"
+					}
+				]
 			}
 		]
 	}
