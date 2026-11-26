@@ -39,7 +39,7 @@ workflow.
 | `src/content/docs/<product>/`, `public/<product>/`, `public/markdown/`, `src/generated/` | No. Written by `pnpm sync`; a hand edit is lost on the next run. Fix the page in the product's repository. |
 | `scripts/products.ts` | Yes: which products, their summaries, and the order and labels of their pages. A page not listed there still appears, at the end, with a warning from the sync. |
 | `scripts/sync.ts`, `scripts/transform.ts` | Yes, with a test in `scripts/transform.test.ts`. |
-| `src/content/docs/index.mdx`, `agent-setup.mdx`, `404.md` | Yes: the pages that belong to this site. |
+| `src/content/docs/index.mdx`, `agent-setup.mdx`, `community-rules.md`, `404.md` | Yes: the pages that belong to this site. |
 | `src/components/`, `src/styles/`, `src/assets/`, `astro.config.ts` | Yes: the site's look and behavior. |
 | `public/_headers`, `public/robots.txt`, `public/favicon.svg`, `public/apple-touch-icon.png` | Yes. |
 | `.github/workflows/`, `wrangler.jsonc` | Yes, carefully: Deploy runs from `main` with the Cloudflare token. |

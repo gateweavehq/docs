@@ -25,6 +25,7 @@ export default defineConfig({
 			sidebar: [
 				{ label: "Home", link: "/" },
 				{ label: "Agent setup", link: "/agent-setup/" },
+				{ label: "Community rules", link: "/community-rules/" },
 				...sidebar,
 			],
 			lastUpdated: false,
@@ -38,11 +39,19 @@ export default defineConfig({
 					// The short version is for using the products: changelogs and architecture notes, which make
 					// up most of the text, stay in llms-full.txt and in each product's own file.
 					exclude: ["*/changelog", "*/architecture"],
-					customSets: products.map((p) => ({
-						label: p.name,
-						paths: [`${p.key}/**`, p.key],
-						description: p.summary,
-					})),
+					customSets: [
+						...products.map((p) => ({
+							label: p.name,
+							paths: [`${p.key}/**`, p.key],
+							description: p.summary,
+						})),
+						{
+							label: "Community rules",
+							paths: ["community-rules"],
+							description:
+								"How contributions earn standing, what is never for sale, who decides, and the close reasons with their appeals.",
+						},
+					],
 				}),
 			],
 		}),
