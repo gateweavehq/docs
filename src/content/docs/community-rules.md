@@ -57,7 +57,7 @@ Moderation is based on each repository's Code of Conduct:
 
 Every close, and every withdrawn privilege, names one reason from this list and its appeal path. A
 withdrawn privilege never erases merged work. Unless the reason says otherwise, appeal by
-commenting on the closed pull request or issue; the project owner answers with a reason.
+commenting on the closed pull request or issue.
 
 | Reason | Appeal |
 | --- | --- |
