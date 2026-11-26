@@ -103,3 +103,65 @@ export const products: Product[] = [
 		labels: { "app-entrypoint": "Backing up an app's Durable Objects" },
 	},
 ];
+
+export interface EntryPoint {
+	path: string;
+	title: string;
+	use: string;
+}
+
+export const entryPoints: EntryPoint[] = [
+	{
+		path: "/markdown/track/index.md",
+		title: "Gateweave Track overview",
+		use: "what Track is and what it does, before you touch it",
+	},
+	{
+		path: "/markdown/track/self-hosting.md",
+		title: "Self-hosting Track",
+		use: "run Track on your own Cloudflare account",
+	},
+	{
+		path: "/markdown/agents/first-pull-request.md",
+		title: "From zero to a first pull request (Agents)",
+		use: "the route from an empty Cloudflare account to an agent that opens a pull request",
+	},
+	{
+		path: "/markdown/id/connect-an-app.md",
+		title: "Connect an app to Gateweave ID",
+		use: "add OpenID Connect sign-in to your own app",
+	},
+	{
+		path: "/markdown/backup/restore.md",
+		title: "Restoring a backup",
+		use: "restore Cloudflare data from an encrypted backup",
+	},
+	{
+		path: "/markdown/guard/self-hosting.md",
+		title: "Self-hosting Guard",
+		use: "run Guard and connect Cloudflare accounts and repositories",
+	},
+	{
+		path: "/markdown/mail/self-hosting.md",
+		title: "Self-hosting Mail",
+		use: "run Mail on your own Cloudflare account",
+	},
+];
+
+export function entryPointsMarkdown(origin: string): string {
+	return [
+		"## Recommended entry points",
+		"",
+		...entryPoints.map(({ path, title, use }) => `- [${title}](${origin}${path}): ${use}`),
+	].join("\n");
+}
+
+export const llmsNotes: string = [
+	"## Notes",
+	"",
+	"- `/llms.txt` (this file) is the index and lists the recommended entry points.",
+	"- `/llms-small.txt` is a compact tour of the products' usage pages without changelogs or architecture notes, for small context windows.",
+	"- `/llms-full.txt` has every page, including changelogs and architecture notes. Use it when the answer needs them.",
+	"- The sets listed below include one per product plus Community rules. Each product set contains only that product's pages. Use it for tasks about a single product.",
+	"- Every product page also has a Markdown copy at `/markdown/<product>/<page>.md`.",
+].join("\n");
