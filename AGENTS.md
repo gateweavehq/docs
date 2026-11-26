@@ -45,7 +45,7 @@ workflow.
 | `scripts/sync.ts`, `scripts/sidebar.ts`, `scripts/transform.ts`, `scripts/whats-new.ts` | Yes, with a test in `scripts/sidebar.test.ts`, `scripts/transform.test.ts` or `scripts/whats-new.test.ts`. |
 | `src/content/docs/index.mdx`, `agent-setup.mdx`, `community-rules.md`, `404.md` | Yes: the pages that belong to this site. |
 | `src/components/`, `src/styles/`, `src/assets/`, `astro.config.ts` | Yes: the site's look and behavior. |
-| `src/pages/og/`, `src/routeData.ts`, `src/social-card.ts`, `src/footerLinks.ts` | Yes: the social card each page gets (built with astro-og-canvas, tags added in `routeData.ts`) and the footer links. `pnpm build` fails when a page lacks its card or tags (`scripts/social-cards.ts`, tested in `scripts/social-cards.test.ts`). |
+| `src/pages/og/`, `src/routeData.ts`, `src/social-card.ts`, `src/social-card-image.ts`, `src/footerLinks.ts` | Yes: the social card each page gets (built with astro-og-canvas, text fitted by `social-card-image.ts`, tags added in `routeData.ts`) and the footer links. `pnpm build` fails when a page lacks its card or tags (`scripts/social-cards.ts`, tested in `scripts/social-cards.test.ts`). |
 | `public/_headers`, `public/robots.txt`, `public/favicon.svg`, `public/apple-touch-icon.png` | Yes. |
 | `.github/workflows/`, `wrangler.jsonc` | Yes, carefully: Deploy runs from `main` with the Cloudflare token. |
 

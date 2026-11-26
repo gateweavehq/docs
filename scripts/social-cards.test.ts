@@ -1,26 +1,36 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { deflateSync } from "node:zlib";
+import { crc32, deflateSync } from "node:zlib";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { cardDescription, cardPath } from "../src/social-card.ts";
 import { checkSocialCards, metaTags, pngSize } from "./social-cards.ts";
 
 const site = "https://docs.gateweave.com";
 
-/** The first bytes of a PNG: signature and an IHDR chunk of the given size. */
+/** A PNG that decodes: signature, IHDR, one IDAT of blank 8-bit grey rows, IEND. */
 function png(width: number, height: number): Buffer {
+	return pngFrom(width, height, deflateSync(Buffer.alloc(height * (1 + width))));
+}
+
+function chunk(type: string, body: Buffer): Buffer {
+	const length = Buffer.alloc(4);
+	length.writeUInt32BE(body.length);
+	const crc = Buffer.alloc(4);
+	crc.writeUInt32BE(crc32(Buffer.concat([Buffer.from(type), body])));
+	return Buffer.concat([length, Buffer.from(type), body, crc]);
+}
+
+function pngFrom(width: number, height: number, idat: Buffer): Buffer {
 	const header = Buffer.alloc(13);
 	header.writeUInt32BE(width, 0);
 	header.writeUInt32BE(height, 4);
-	const length = Buffer.alloc(4);
-	length.writeUInt32BE(13);
+	header.writeUInt8(8, 8); // bit depth; colour type 0 (grey), not interlaced
 	return Buffer.concat([
 		Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-		length,
-		Buffer.from("IHDR"),
-		header,
-		deflateSync(Buffer.alloc(0)),
+		chunk("IHDR", header),
+		chunk("IDAT", idat),
+		chunk("IEND", Buffer.alloc(0)),
 	]);
 }
 
@@ -98,8 +108,51 @@ describe("checkSocialCards", () => {
 		]);
 		write("og/track.png", "not a png");
 		expect(checkSocialCards(dist, site)).toEqual([
-			`/track/index.html: ${site}/og/track.png is not a PNG`,
+			`/track/index.html: ${site}/og/track.png is not a PNG that decodes`,
 		]);
+	});
+
+	it("reports a card that is only a 24-byte PNG fragment, or cut short", () => {
+		write("track/index.html", page());
+		const whole = png(1200, 630);
+		for (const bytes of [whole.subarray(0, 24), whole.subarray(0, whole.length - 20)]) {
+			write("og/track.png", bytes);
+			expect(checkSocialCards(dist, site)).toEqual([
+				`/track/index.html: ${site}/og/track.png is not a PNG that decodes`,
+			]);
+		}
+	});
+
+	it("reports a card whose image data is damaged or too short for its size", () => {
+		write("track/index.html", page());
+		const damaged = Buffer.from(png(1200, 630));
+		damaged.writeUInt8(0xff ^ damaged.readUInt8(damaged.length - 20), damaged.length - 20); // inside IDAT: the CRC no longer matches
+		write("og/track.png", damaged);
+		expect(checkSocialCards(dist, site)).toEqual([
+			`/track/index.html: ${site}/og/track.png is not a PNG that decodes`,
+		]);
+		write("og/track.png", pngFrom(1200, 630, deflateSync(Buffer.alloc(100))));
+		expect(checkSocialCards(dist, site)).toEqual([
+			`/track/index.html: ${site}/og/track.png is not a PNG that decodes`,
+		]);
+	});
+
+	it("does not count metadata outside the head", () => {
+		const tags =
+			page()
+				.match(/<meta [^>]*>/g)
+				?.join("") ?? "";
+		write("og/track.png", png(1200, 630));
+		const outside = [
+			`<html><head></head><body>${tags}</body></html>`,
+			`<html><head><title>x</title></head>${tags}</html>`,
+			`<html><head><script>var s = '${tags}';</script></head><body></body></html>`,
+			`<html><head><!-- ${tags} --></head><body></body></html>`,
+		];
+		for (const html of outside) {
+			write("track/index.html", html);
+			expect(checkSocialCards(dist, site)).toContain("/track/index.html: missing <meta og:image>");
+		}
 	});
 
 	it("reports a relative og:image and a wrong twitter:card", () => {
@@ -123,14 +176,24 @@ describe("helpers", () => {
 	it("reads a PNG's size and refuses other bytes", () => {
 		expect(pngSize(png(1200, 630))).toEqual({ width: 1200, height: 630 });
 		expect(pngSize(Buffer.from("GIF89a"))).toBeUndefined();
+		expect(pngSize(png(1200, 630).subarray(0, 24))).toBeUndefined();
 	});
 
 	it("reads meta tags, unescaping entities", () => {
 		const tags = metaTags(
-			`<meta property="og:url" content="https://x/?a=1&amp;b=2"/><meta name="a" content=""/>`,
+			`<html><head><meta property="og:url" content="https://x/?a=1&amp;b=2"/><meta name="a" content=""/></head></html>`,
 		);
 		expect(tags.get("og:url")).toBe("https://x/?a=1&b=2");
 		expect(tags.get("a")).toBe("");
+	});
+
+	it("reads meta tags only from the head", () => {
+		const tags = metaTags(
+			`<html><head><meta name="a" content="head"/></head><body><meta name="a" content="body"/><meta name="b" content="body"/></body></html>`,
+		);
+		expect(tags.get("a")).toBe("head");
+		expect(tags.has("b")).toBe(false);
+		expect(metaTags('<meta name="a" content="x"/>').size).toBe(0);
 	});
 
 	it("names the card by page id, with the home page as index", () => {
