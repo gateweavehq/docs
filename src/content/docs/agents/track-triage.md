@@ -3,9 +3,9 @@ title: "Triaging Gateweave Track issues"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/track-triage.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.35.0"
+  version: "v0.35.1"
   updatedAt: "2026-11-20T15:04:49Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.35.0/docs/track-triage.md"
+  url: "https://github.com/gateweavehq/agents/blob/v0.35.1/docs/track-triage.md"
   markdownUrl: "/markdown/agents/track-triage.md"
 ---
 An agent run by Gateweave can triage each new issue in a

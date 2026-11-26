@@ -3,9 +3,9 @@ title: "Self-hosting Agents"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.35.0"
-  updatedAt: "2026-11-20T23:08:01Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.35.0/docs/self-hosting.md"
+  version: "v0.35.1"
+  updatedAt: "2026-11-26T15:23:55Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.35.1/docs/self-hosting.md"
   markdownUrl: "/markdown/agents/self-hosting.md"
 ---
 Agents runs on your own Cloudflare account as one Worker. It uses:
@@ -491,8 +491,9 @@ as `USAGE` in `wrangler.jsonc`:
 ```
 
 The dataset is created on the first write. From then on, each run that closes writes one event,
-indexed by its workspace's id. Without the binding, nothing is written. The fields are in this
-order (`packages/registry/src/usage.ts`):
+indexed by its workspace's id, with its agent, model, tokens, cost, sandbox time and would-refuse
+counts. Without the binding, nothing is written. The fields follow the order in
+`packages/registry/src/usage.ts`.
 
 | Field       | What it holds                                                                   |
 | ----------- | ------------------------------------------------------------------------------- |
@@ -507,6 +508,15 @@ order (`packages/registry/src/usage.ts`):
 | `double7`   | Seconds the turn took                                                           |
 | `double8`   | Sandbox seconds, with the idle minutes after the turn (an upper bound summed)   |
 | `double9`   | Their estimated cost in US dollars                                              |
+| `double10`  | Calls that would be refused by the target rule                                  |
+| `double11`  | Of those calls, ones with an email target                                       |
+| `double12`  | Of those calls, ones with a URL target                                          |
+| `double13`  | Of those calls, ones with an IP target                                          |
+
+The dataset records only counts for the target rule, keeping the destination, its host or domain,
+the tool arguments and the message text in the workspace, where members can see flagged hosts on
+the run page and an owner or admin can allow a destination under **Allowed targets** on the agent's
+page.
 
 Query them with the [SQL API](https://developers.cloudflare.com/analytics/analytics-engine/sql-api/)
 and an API token with Account Analytics Read. Analytics Engine samples heavy traffic, so weigh each
@@ -524,6 +534,23 @@ FROM gateweave_agents_usage
 WHERE timestamp >= toStartOfMonth(NOW())
 GROUP BY workspace
 ORDER BY model_dollars DESC
+```
+
+Would-refuse counts by workspace and agent over the last 30 days:
+
+```sql
+SELECT
+  index1 AS workspace,
+  blob2 AS agent_id,
+  argMax(blob3, timestamp) AS agent_name,
+  SUM(_sample_interval * double10) AS would_refuse,
+  SUM(_sample_interval * double11) AS would_refuse_email,
+  SUM(_sample_interval * double12) AS would_refuse_url,
+  SUM(_sample_interval * double13) AS would_refuse_ip
+FROM gateweave_agents_usage
+WHERE timestamp >= NOW() - INTERVAL '30' DAY
+GROUP BY workspace, agent_id
+ORDER BY would_refuse DESC
 ```
 
 The events are a copy, kept for Analytics Engine's retention (three months). The registry's runs

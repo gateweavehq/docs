@@ -49,6 +49,13 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 
 ## Gateweave Agents
 
+- 2026-11-26 · [v0.35.1](https://github.com/gateweavehq/agents/releases/tag/v0.35.1)
+
+  - **Update.** There is no migration. If the usage dataset is bound, each run's point gains
+    `double10` to `double13` after the existing fields, so queries that name the earlier fields
+    keep working. "Usage across workspaces" in `docs/self-hosting.md` has a query that sums the
+    counts by workspace and agent.
+
 - 2026-11-26 · [v0.35.0](https://github.com/gateweavehq/agents/releases/tag/v0.35.0)
 
   - **Update.** `pnpm run deploy` applies the D1 migration (`0013_workspace_deletion`, a new table)
@@ -85,11 +92,6 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 - 2026-11-19 · [v0.32.0](https://github.com/gateweavehq/agents/releases/tag/v0.32.0)
 
   - **Update.** Nothing else to do: no migration, variable or secret.
-
-- 2026-11-19 · [v0.31.0](https://github.com/gateweavehq/agents/releases/tag/v0.31.0)
-
-  - **Update.** After updating, open the MCP page: a connection that needs reconnecting now shows
-    there.
 
 [Full Gateweave Agents changelog](/agents/changelog/)
 

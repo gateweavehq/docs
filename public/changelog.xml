@@ -14,6 +14,13 @@
 		<summary type="text">The protocol stays at 31. Open tabs keep their copy. Two workspace migrations (0041 and 0042) run on their own when each workspace wakes. They add the reopen count to signals and the tables that keep panels. There is no D1 migration. Nothing to set. Upload addresses are signed with your existing BETTER_AUTH_SECRET and the files go to the existing FILES bucket. Without a FILES bucket, attach_file answers that this Track keeps no files. Rolling back to 0.50.0 works, since it ignores the new columns and tables. The three panel tools and attach_file go away, and an open panel is not revealed until you update again.</summary>
 	</entry>
 	<entry>
+		<id>https://github.com/gateweavehq/agents/releases/tag/v0.35.1</id>
+		<title>Gateweave Agents 0.35.1</title>
+		<updated>2026-11-26T00:00:00Z</updated>
+		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/agents/releases/tag/v0.35.1"/>
+		<summary type="text">Update. There is no migration. If the usage dataset is bound, each run's point gains double10 to double13 after the existing fields, so queries that name the earlier fields keep working. &quot;Usage across workspaces&quot; in docs/self-hosting.md has a query that sums the counts by workspace and agent.</summary>
+	</entry>
+	<entry>
 		<id>https://github.com/gateweavehq/agents/releases/tag/v0.35.0</id>
 		<title>Gateweave Agents 0.35.0</title>
 		<updated>2026-11-26T00:00:00Z</updated>
@@ -96,13 +103,6 @@
 		<updated>2026-11-19T00:00:00Z</updated>
 		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/agents/releases/tag/v0.32.0"/>
 		<summary type="text">Update. Nothing else to do: no migration, variable or secret.</summary>
-	</entry>
-	<entry>
-		<id>https://github.com/gateweavehq/agents/releases/tag/v0.31.0</id>
-		<title>Gateweave Agents 0.31.0</title>
-		<updated>2026-11-19T00:00:00Z</updated>
-		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/agents/releases/tag/v0.31.0"/>
-		<summary type="text">Update. After updating, open the MCP page: a connection that needs reconnecting now shows there.</summary>
 	</entry>
 	<entry>
 		<id>https://github.com/gateweavehq/id/releases/tag/v0.16.3</id>

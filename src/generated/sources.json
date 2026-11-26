@@ -11,7 +11,7 @@
 		"name": "Gateweave Agents",
 		"summary": "See which coding agents work in which repositories, share their setups, run your own agents and keep a wiki of each repository.",
 		"repo": "gateweavehq/agents",
-		"version": "v0.35.0"
+		"version": "v0.35.1"
 	},
 	{
 		"key": "id",
