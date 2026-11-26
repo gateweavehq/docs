@@ -56,8 +56,9 @@ export default defineConfig({
 						llmsNotes,
 					].join("\n\n"),
 					// The short version is for using the products: changelogs and architecture notes, which make
-					// up most of the text, stay in llms-full.txt and in each product's own file.
-					exclude: ["*/changelog", "*/architecture"],
+					// up most of the text, stay in llms-full.txt and in each product's own file. The matcher
+					// is anchored, so the root "What's new" page needs its own entry.
+					exclude: ["changelog", "*/changelog", "*/architecture"],
 					customSets: [
 						...products.map((p) => ({
 							label: p.name,

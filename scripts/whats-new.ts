@@ -246,7 +246,10 @@ export function bodyOf(file: string): string {
 	return match ? file.slice(match[0].length) : file;
 }
 
-/** The sources as the last sync left them: `src/generated/sources.json` and the changelog pages. */
+/**
+ * The sources as the last sync left them: `src/generated/sources.json` and the changelog pages.
+ * A product without a changelog page is left out, as the sync leaves it out.
+ */
 export function readLocalSources(root: string): WhatsNewSource[] {
 	const sources = JSON.parse(readFileSync(join(root, "src/generated/sources.json"), "utf8")) as {
 		key: string;
@@ -254,13 +257,22 @@ export function readLocalSources(root: string): WhatsNewSource[] {
 		repo: string;
 		version: string;
 	}[];
-	return sources.map((source) => ({
-		key: source.key,
-		name: source.name,
-		repo: source.repo.slice(`${OWNER}/`.length),
-		version: source.version,
-		changelog: bodyOf(
-			readFileSync(join(root, "src/content/docs", source.key, "changelog.md"), "utf8"),
-		),
-	}));
+	const found: WhatsNewSource[] = [];
+	for (const source of sources) {
+		let file: string;
+		try {
+			file = readFileSync(join(root, "src/content/docs", source.key, "changelog.md"), "utf8");
+		} catch (error) {
+			if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+			throw error;
+		}
+		found.push({
+			key: source.key,
+			name: source.name,
+			repo: source.repo.slice(`${OWNER}/`.length),
+			version: source.version,
+			changelog: bodyOf(file),
+		});
+	}
+	return found;
 }

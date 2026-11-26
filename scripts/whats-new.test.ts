@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import sax from "sax";
 import { describe, expect, it } from "vitest";
@@ -234,6 +235,35 @@ describe("the committed What's new page and feed", () => {
 		const dates = entries.map((e) => child(e, "updated").text);
 		expect(dates).toEqual([...dates].sort().reverse());
 		expect(child(parsed, "updated").text).toBe(dates[0]);
+	});
+
+	it("reads the same sources when a product has no changelog page", () => {
+		// A fixture tree: the committed sources plus one product the sync read no changelog for.
+		const fixture = mkdtempSync(join(tmpdir(), "whats-new-"));
+		try {
+			mkdirSync(join(fixture, "src/generated"), { recursive: true });
+			cpSync(join(root, "src/content/docs"), join(fixture, "src/content/docs"), {
+				recursive: true,
+			});
+			const committed = JSON.parse(
+				readFileSync(join(root, "src/generated/sources.json"), "utf8"),
+			) as { key: string }[];
+			const bare = {
+				key: "bare",
+				name: "Gateweave Bare",
+				repo: "gateweavehq/bare",
+				version: "main",
+			};
+			writeFileSync(
+				join(fixture, "src/generated/sources.json"),
+				JSON.stringify([...committed, bare]),
+			);
+			mkdirSync(join(fixture, "src/content/docs/bare"), { recursive: true });
+			expect(readLocalSources(fixture)).toEqual(sourcesNow);
+			expect(buildWhatsNew(readLocalSources(fixture))).toEqual({ page, feed });
+		} finally {
+			rmSync(fixture, { recursive: true, force: true });
+		}
 	});
 
 	it("strips only the front matter from a changelog page", () => {
