@@ -25,7 +25,8 @@ release yet is read from `main`).
 - The site: layout, components, styles, search, the Markdown and copy actions, `llms.txt`.
 - The sync and its link rewriting: `scripts/`.
 - Which products there are and the order of their pages: `scripts/products.ts`.
-- The pages that belong to this site: the home page, "Agent setup" and the 404 page.
+- The pages that belong to this site: the home page, "Agent setup", "Community rules" and the 404
+  page.
 
 Never edit these by hand, since `pnpm sync` rewrites them: the product folders in
 `src/content/docs/`, `public/<product>/`, `public/markdown/` and `src/generated/`.
