@@ -34,8 +34,11 @@ export default defineConfig({
 			social: [{ icon: "github", label: "GitHub", href: "https://github.com/gateweavehq" }],
 			customCss: ["@fontsource-variable/inter", "./src/styles/theme.css"],
 			components: {
+				Footer: "./src/components/Footer.astro",
 				PageTitle: "./src/components/PageTitle.astro",
 			},
+			// Adds each page's social card to its head (cards are built by `src/pages/og/`).
+			routeMiddleware: "./src/routeData.ts",
 			sidebar: [
 				{ label: "Home", link: "/" },
 				{ label: "Agent setup", link: "/agent-setup/" },
