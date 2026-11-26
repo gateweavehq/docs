@@ -777,6 +777,16 @@ mutations as the app, so the server's rules apply: an agent member cannot, and a
 person. Statuses are named by key or by name, ignoring case; `get_workspace` lists each team's
 in order, and issues come back with `status` (the key) and `statusName`.
 
+`attach_file` takes a workspace and a file's name, type and size, and returns an upload address
+that works for ten minutes, when it stops working, and the Markdown that shows the file. The agent
+`PUT`s the bytes there, from its shell for instance, and puts the Markdown in the issue with
+`update_issue` or `add_comment`. [Markdown and attached files](#markdown-and-attached-files) says
+what the address admits. The tool never takes the file's content itself: a model cannot write a
+large file's bytes.
+
+The panel tools are `open_panel`, `submit_position` and `get_panel`. Their visibility rules and
+reveal timing are described in [Panels](#panels).
+
 Tokens must name one canonical URL, so the endpoint, and the authorization server, exist only
 when `BETTER_AUTH_URL` pins the base URL. Without it `/mcp` answers `404`.
 
@@ -1000,8 +1010,10 @@ across assignments, and a replay of the claim can recover the original handle.
 source's origins. Track keeps only the token hash. A report for an earlier sequence has no
 effect, a terminal attempt cannot advance again, and the reports cannot change the binding
 or change the issue itself. The same signal appears on the existing issue Runs card, named
-"Attempt N" by its `attemptNo` rather than by its ID, which stays on hover. A source key cannot
-update a scoped attempt through `/api/events`.
+"Attempt N" by its `attemptNo` rather than by its ID, which stays on hover. The signal also
+carries the registration's `repository`, which the workspace's Runs page filters by; a run a
+product reports through `/api/events` has none. A source key cannot update a scoped attempt
+through `/api/events`.
 
 ### Connecting a source in one step
 
@@ -1890,6 +1902,21 @@ workspace's files are one prefix in the bucket.
   Uploads must come from the app's origin, name a length up to 25 MB, and use a name the browser
   cleaned (`attachmentName` in `apps/web/src/lib/attachments.ts`), so the key has no path
   tricks. An id in use is refused, so a file never changes under its link.
+- **An agent uploads to an address it is given.** An agent working over MCP has no session, so
+  the `attach_file` tool, after checking the caller's membership as every tool does, hands it an
+  upload address: the file's path with `?upload=<token>`. The token is signed with
+  `BETTER_AUTH_SECRET` under a key of its own purpose (`track-file-upload`, through HKDF, as the
+  undo token's is) and names the workspace, a new file id, the cleaned name, the type, the size,
+  the member who asked and an expiry ten minutes out. A `PUT` that carries one reads no cookies
+  and needs no Origin: it is refused with 403 when the signature, the expiry or the path fails,
+  with 400 when its length is not the size, with 404 when D1 no longer has the member in the
+  workspace, and with 413 past 25 MB or the quota, as people's uploads are. The file is stored
+  with the token's type and `uploadedBy` its member, so a second upload to the address gets 409.
+  A `PUT` with a token is never taken on a session's word, and one without a token is a
+  session's upload as before. The tool also returns `attachmentMarkdown`, which the agent puts in
+  a description or comment: an image shows in place, and other files, a video among them, are a
+  link that opens and plays in a tab of its own. The demo and a deployment without a bucket hand
+  out no addresses.
 - **An upload belongs to whoever stored it.** Members see a link before its file is up, so the
   gateway stores a file with R2's conditional put (`If-None-Match: *`): of uploads to one id, only
   the first is kept, however close together they come. The object records `uploadedBy`, and an
@@ -1909,6 +1936,29 @@ workspace's files are one prefix in the bucket.
   needed. Without a quota nothing is counted, so each isolate drops a workspace's count the first
   time it stores a file there, and a quota turned on again starts from the bucket. Past the quota
   an upload gets 413, and an emailed request comes in without the files that do not fit.
+
+### Panels
+
+Through MCP, an owner or admin can use `open_panel` to ask up to five workspace members
+for independent positions on an issue. A workspace can have three open panels. Each seat uses
+`submit_position` once. While open, `get_panel` shows seats and admins who has submitted,
+and shows a seat its own text. Other members cannot read the panel yet. Positions live only
+in the workspace object's panel tables until reveal. Opening a panel posts a Track comment on the
+issue that names the panel id, the seats and the deadline, so a seat can find the panel and
+people can see that one is open. It holds no position text.
+
+The final submission or the deadline reveals all positions together, as one atomic write: one
+transaction and one broadcast. Several comments cannot share one version number, so the reveal
+comments get consecutive versions. The alarm can publish up to a minute after the deadline, but
+submissions close at the deadline itself.
+Track posts a summary naming absent seats, then comments under randomly assigned aliases.
+Any member can then read the aliased positions. If the issue was archived or deleted, the
+reveal is available through `get_panel` alone.
+
+The panel tables are server-only: they are not entities, so no snapshot, delta, oplog row, search
+index or webhook holds a position before the reveal, and `PROTOCOL_VERSION` is unchanged. The one
+deliberate exception is a backup: a backup Worker that reads the object reads these tables like
+every other, so a backup taken while a panel is open contains the submitted positions.
 
 ### Proposals
 

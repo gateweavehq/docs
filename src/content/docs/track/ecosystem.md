@@ -3,9 +3,9 @@ title: "The Gateweave ecosystem"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/ecosystem.md"
 source:
   product: "Gateweave Track"
-  version: "v0.48.0"
+  version: "v0.51.0"
   updatedAt: "2026-11-20T14:55:28Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.48.0/docs/ecosystem.md"
+  url: "https://github.com/gateweavehq/track/blob/v0.51.0/docs/ecosystem.md"
   markdownUrl: "/markdown/track/ecosystem.md"
 ---
 > **Status:** The product table shows where each product stands. The sections that follow also

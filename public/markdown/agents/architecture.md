@@ -229,15 +229,25 @@ not synced to the browser yet (see "Decisions" in the spec).
 
 - **Deleting a workspace** (AGT-76). An owner deletes it in Settings > Workspace, after typing
   its name; Better Auth's organization plugin lets only an owner, and deletes its D1 rows
-  (members, invitations, and its GitHub installation link, by cascade). Its
-  `afterDeleteOrganization` hook then deletes what it held elsewhere
+  (members, invitations, and its GitHub installation link, by cascade). The same D1 batch that
+  deletes its row writes a note in `workspace_deletion`, so what it held elsewhere is deleted
+  even when the request can't finish. Its `afterDeleteOrganization` hook then deletes that
   (`apps/web/src/server/workspace-deletion.ts`): each conversation the registry knows, nested ones
   too and those waiting to be destroyed, with its messages, traces and sandbox, ten at a time, then
-  the registry's storage with its
-  sealed keys and secrets. A conversation that fails is logged and the rest go on; nothing is
-  reachable either way, since no member is left. The GitHub App installation stays on GitHub
-  until someone uninstalls it there. A workspace that moved ([below](#where-a-workspace-lives))
-  has objects in more than one place, and each is emptied.
+  the registry's storage with its sealed keys and secrets. A workspace that moved
+  ([below](#where-a-workspace-lives)) has objects in more than one place, and each is emptied, as
+  is the deployment's own jurisdiction, where a first move that gave up leaves a copy no row
+  records.
+  Last, one batch deletes the location row, only as it was read, and the note, only when no
+  location row is left: a move that recorded a new place meanwhile keeps both, and its copy goes
+  on the next try. A conversation that fails is logged and the rest go on, but its registry
+  stays, since it is what lists the conversations, and the note stays too; nothing is reachable
+  meanwhile, since no member is left. The daily run, after the prune and before the moves, notes
+  any location row whose workspace is gone, then finishes two notes a run, those never tried
+  first; deleting a conversation or registry twice is harmless. Every try starts again from the
+  registry's list, so a workspace with thousands of conversations can need more calls than one run
+  has. A note for a workspace that still exists is dropped and nothing is deleted. The GitHub App installation stays on GitHub until
+  someone uninstalls it there.
 
 ### Where a workspace lives
 
@@ -293,7 +303,13 @@ aren't there yet. Track does the same for its workspaces (TRK-129); this is AGT-
   are done, so large workspaces can resume across daily runs without revisiting them. The daily
   run forgets old copies before it starts new moves, even if the deployment has unset its
   jurisdiction. A workspace can move again once its previous copy is gone. Workspace deletion
-  also erases any copies still waiting. A backup reads only where the workspace is now.
+  also erases any copies still waiting, retrying a refused forget a few times and leaving the
+  copy's registry, row and deletion note to the daily run when it still refuses, rather than
+  dropping it. A
+  conversation's own deletion erases what its sandbox keeps of it — the repository it cloned,
+  what it pushed, the CLIs' sessions — through the conversation, which marks the sandbox as
+  being erased first; an unmarked sandbox refuses to forget its keys, so no caller can wipe a
+  live conversation's by mistake (AGT-156). A backup reads only where the workspace is now.
 - **The sandbox meter** moves first: the new one takes the old one's readings, each workspace's
   larger figure and every share of the budget either one told of, then the old one is cleared.
   Rate limits are counted in the same jurisdiction; their objects don't move, so counts start
@@ -1106,8 +1122,8 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   Durable Object with a container, named like its conversation and reached only by it, over RPC.
   It has no route. The container starts on the first call, from `sandbox/Dockerfile` (Debian
   with Node.js 24, Python 3, git, ripgrep, curl, jq and the shim `@cloudflare/sandbox` 1.0 talks
-  to), as a `standard-1` instance (`SANDBOX_INSTANCE`), and stops after 15 minutes without a
-  call; its disk goes with it. Deleting the conversation stops it at once. pnpm and Yarn come
+  to), as a `standard-1` instance (`SANDBOX_INSTANCE`), and stops after `SANDBOX_IDLE_MINUTES`
+  (5 by default) without a call; its disk goes with it. Deleting the conversation stops it at once. pnpm and Yarn come
   through Corepack, in the version a repository's `packageManager` names, downloaded from npm on
   first use, Yarn 2 and later included; the image carries pnpm's current version
   (`PNPM_VERSION`). Corepack never asks, and never writes `packageManager` into the repository.
@@ -1227,7 +1243,8 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   (`#sandboxLimitRefusal`), with the same refusal (AGT-63).
 - **Sandbox time and its limits** (AGT-45). The runs say how much sandbox time a workspace uses
   (`sandboxSeconds` in `packages/registry/src/runs.ts`):
-  - Each conversation's sandbox counts from a run with it until 15 minutes after the last.
+  - Each conversation's sandbox counts from a run with it until `SANDBOX_IDLE_MINUTES` (5 by
+    default) after the last.
   - Runs that overlap that way are merged.
   - The idle minutes count as soon as a run ends, since the sandbox runs them anyway.
 
@@ -1275,8 +1292,8 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   pull request against the default branch with a token for `pull_requests: write` and
   `contents: read`, or updates the one the branch has open; the sandbox never makes it. GitHub
   lists only the first for these calls, but refuses a pull request with "not all refs are
-  readable" without the second. A sandbox that stopped and starts again (after 15 minutes without
-  use) clones the repository afresh and goes on from the branch as the conversation last pushed
+  readable" without the second. A sandbox that stopped and starts again (after the idle minutes,
+  5 by default, without use) clones the repository afresh and goes on from the branch as the conversation last pushed
   it, so its next push adds to the same pull request. The pull request goes on the run
   (`runs.pull_request`), and Runs and Chat link to it.
 - **Checks before the push** (AGT-142). A repository can have checks: up to 5 bash command lines
@@ -1319,6 +1336,49 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
     what follows into an attribute, and the line ends it whatever quote is open, while it is a
     comment, which shows nothing, where none is. The tool cannot tell which lines Markdown passes
     on as HTML, so it does not try. Nothing of a command's output goes into the body.
+  - **An agent's edits to its own checks make a draft** (`./oracles.ts`). After the push, with or
+    without checks set, the tool asks GitHub which files the branch changes against the default
+    branch (`review` of `PullRequestPort`). A test, a `package.json` whose check configuration
+    differs, a file under `.github/`, or lint, type or test configuration that is modified, deleted
+    or renamed away opens the pull request as a draft, and the tool's section lists the paths
+    (`editsSection`, or inside `checksSection`). For a modified `package.json`, every top-level key
+    counts as check configuration except these: `name`, `version`, `description`, `keywords`,
+    `author`, `contributors`, `license`, `repository`, `homepage`, `bugs`, `funding`, `private`,
+    `files`, `main`, `module`, `types`, `typings`, `exports`, `bin`, `sideEffects`,
+    `dependencies`, `devDependencies`, `peerDependencies`, `peerDependenciesMeta`,
+    `optionalDependencies`, `bundledDependencies`, `overrides`, `resolutions`, `engines`,
+    `packageManager`, `publishConfig` and `workspaces`. So a changed `scripts`, `jest`,
+    `eslintConfig`, `prettier`, `mocha`, `ava`, `nyc`, `c8`, `lint-staged` or any key not on that
+    list is flagged, and a changed dependency version is not. A `package.json` that cannot be
+    parsed, at the base or on the branch, makes the review unverified. Check scripts count too: a
+    file under the top-level `scripts/`, a `Makefile` or `makefile`, `GNUmakefile`, `justfile` or
+    `Justfile`, `Taskfile.yml` or `Taskfile.yaml`, or `noxfile.py`, and any file that a script of
+    a `package.json` at the base names. Snapshots, fixtures and Vite or Python test and lint
+    configuration count as well. Added files are never flagged. A comparison that cannot be read,
+    or that lists 300 files (GitHub's limit), is a draft too. The turn's abort signal is checked
+    right after the review, so a stopped turn creates, updates and converts nothing. A pull
+    request that is open already is converted to a draft (GraphQL `convertPullRequestToDraft`,
+    which REST cannot do) and its section is rewritten; a pull request that failed its checks
+    still stays as it is.
+  - **A script is named by its words, not by what a shell would do with it.** The tool reads
+    every `package.json` of the base commit (one recursive tree read at the merge base, and the
+    commit the comparison saw for the branch's side). A file that existed at the base and that
+    the branch modifies, deletes or renames is a check script when a word of any script names
+    it: the words are what is left of the script after whitespace, quotes and shell operators,
+    and a word names a file when the file's path ends with it at a path boundary (`lint.mjs`
+    names every `lint.mjs`, `tools/lint.mjs` every path ending in `tools/lint.mjs`, `./x.mjs`
+    counts as `x.mjs`). Directories are ignored: `cd`, `sh -c`, `--dir` and `--prefix` change
+    nothing, so `cd tools && node lint.mjs` names `lint.mjs`. A word with `$`, `*`, `?`, `{` or
+    `[` in it names nothing, and does not make the review unverified: a glob over source files
+    is not a check script. The cost is that a script naming a bare, common file (a root script
+    `node index.js`) flags every `index.js` the branch touches. That is accepted, since it fails
+    toward a draft and is rare. If the tree or any `package.json` in it cannot be read, or the
+    tree is cut short, or the base has more than 40 `package.json` files, the review is
+    unverified and the pull request is a draft. A file that is not there (404) counts as empty.
+    What it does not see: a script that is reached only through another script's imports, a file
+    that a script names through a variable, a glob or a brace, and a check that lives outside
+    the `scripts` of a `package.json` (a CI step, a Makefile's recipe, a tool's own
+    configuration), where only the file's own path, as listed above, is looked at.
   - A command gets 10 minutes, a call's checks 20 and a run's 40, counted where the tools are made
     for the turn. A command stopped at its limit is timed out, never passed. Checks a call has no
     time left for fail the round; when the run has none left before a round begins, the checks
@@ -1573,6 +1633,17 @@ trailer uses the engine's name. Commits already on a remote are never rewritten.
 The disclosure and trailer cannot be turned off.
 
 ## Chat
+
+Workspace owners and admins can pause an agent with their session cookie. Resuming it requires
+a fresh Better Auth session. The registry refuses new chat, trigger and outside-task turns for a
+paused agent, including turns answered by a team lead. A refused team call records the reason in
+the caller's edge span. A running Gateweave loop reads the pause before its first model request and
+between later ones, and the chat shows the reason as an error. For a sandbox CLI, the Worker checks
+before forwarding each model request and records a refusal in the trace. In either case the run
+stops with the pause reason. The runtime reads the pause by agent id, so removing a paused agent
+does not hide it from a run under way. A failed read fails open in the loop, where it costs at most
+one more step and stopping a whole run on a transient error would be worse, and fails closed for
+the CLI's requests, which answer a transient `503` that the CLI retries.
 
 Members talk to agents run by Gateweave on the Chat page. Each conversation is a Durable Object
 of its own, `ConversationAgent` (`packages/runtime`), built on the Agents SDK's `AIChatAgent`: it
@@ -2055,6 +2126,45 @@ Threat model, briefly:
   address you trust.
 - The route is off in the demo, as the manual setup is.
 
+### Track run reporting destinations
+
+An owner or admin can connect a reporting destination from the Agents page. The browser goes to
+Track's `/connect/source` approval page to choose a workspace and team. The flow shares the
+one-time pending state, sealed verifier, and ten-minute lifetime of agent setup. It uses its own
+callback and checks admin access both before the exchange and before saving the destination.
+The exchange must name the exact `/api/events` endpoint at the approved Track origin.
+
+The registry keeps one destination per Track origin, workspace and team in
+`track_source_destinations`. It seals the source's event-writing key to the connection id and
+Track origin. Moves and backups carry its ciphertext. Admins see only destination metadata,
+and access to the key stays server-side. A second approval for the same destination keeps the
+original and asks Track to undo the unused source. If the save is interrupted, the callback
+checks the source's identity
+and reports uncertainty when it cannot confirm the save. Disconnect removes the local destination
+and credential. Revocation is managed in Track under Settings > Sources. The demo has the flow off.
+
+A signed Track Work delivery that passes the trigger's filters can report to that destination.
+The registry checks the issue URL against the origin bound to the agent's pinned
+`TRACK_AGENT_KEY`, and matches the signed workspace ID, team ID and issue team key against the
+approval.
+The issue key comes from the signed delivery. Manual webhook setup uses the same check.
+
+An accepted delivery reserves the run ID and reports `queued`. The registry uses that ID when
+the run begins and copies the destination and issue onto the run, so edits to the trigger
+cannot change where its finish goes. Reports use increasing timestamps for that ID. The running
+and terminal reports can include the run's canonical link from `BETTER_AUTH_URL` and the local
+workspace slug. An eligible refusal uses a fixed explanation without a link. Repeated refusals
+of the same delivery are deduplicated, and a retry that begins after a refusal gets a fresh ID.
+Only an authoritative finish produces a terminal report for a started run.
+
+The registry stores each pending report in `track_report_outbox` in the same write as its run
+or delivery update. After that write commits, it checks that the exact destination still exists,
+opens its event-writing key and sends a bounded HTTPS POST to `/api/events` with redirects disabled.
+Network errors and temporary HTTP errors are retried by the registry alarm for up to 24 hours.
+Each retry sends the original run ID, state and timestamp, so a late retry cannot replace a newer
+state in Track. Disconnecting deletes the destination's pending reports. Delivery runs in the
+background, so webhook admission and agent runs can complete while Track is unavailable.
+
 ## Memory
 
 A workspace keeps short notes for its agents to recall in later runs (AGT-107): facts, decisions
@@ -2442,9 +2552,11 @@ the EU. The same code ships to every deployment, and everything the demo does is
   every sandbox. The environment binds no email, Workflow, sandbox container, Workers AI or
   Analytics Engine, which `test/wrangler-config.test.ts` checks.
 - **Cleanup.** The demo's Cron Trigger runs every ten minutes and deletes visitors a day old, up to
-  100 a run (`cleanup.ts`): each one's workspace through the path deleting a workspace takes (its
-  conversations' objects, then its registry), then the workspace's row, then the visitor's. A
-  workspace that fails to go keeps its visitor, so the next run finds it again.
+  100 a run (`cleanup.ts`): each one's workspace row with a deletion note in one batch, then its
+  objects through the path deleting a workspace takes (its conversations, then its registry),
+  then the visitor's row. Objects that fail keep the note, which the same Cron Trigger's retry
+  finishes, so the visitor goes anyway; a workspace whose row fails to go keeps its visitor, so the
+  next run finds it again.
 
 `apps/web/test/demo.test.ts` checks each refusal, and that none of it happens anywhere else; the
 smoke tests (`apps/web/smoke`) open a sandbox on the live demo after each deploy.

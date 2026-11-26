@@ -3,9 +3,9 @@ title: "Docker cloud sandboxes as a sandbox backend"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/docker-sandboxes.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.34.0"
-  updatedAt: "2026-11-02T09:28:06Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.34.0/docs/docker-sandboxes.md"
+  version: "v0.35.0"
+  updatedAt: "2026-11-20T23:08:01Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.35.0/docs/docker-sandboxes.md"
   markdownUrl: "/markdown/agents/docker-sandboxes.md"
 ---
 A decision record for AGT-55: whether Gateweave Agents should run its sandboxes on Docker's
@@ -70,7 +70,8 @@ Today's container against a Docker cloud sandbox:
   engine a model key.
 - **Reach.** Today only its conversation reaches it, over RPC, with no route. On Docker a
   published port is a public HTTPS URL with no Docker sign-in in front of it.
-- **Lifetime.** Today it stops 15 minutes after its last call and lives as long as it is used.
+- **Lifetime.** Today it stops 5 minutes after its last call by default (`SANDBOX_IDLE_MINUTES`
+  sets its own) and lives as long as it is used.
   A Docker sandbox lives at most 24 hours from creation.
 - **Limits.** Today our own rules apply (three per workspace at once); Docker's account defaults
   are 10 at once and 50 stored.
