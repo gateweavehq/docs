@@ -1,4 +1,6 @@
+import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { entryPoints, entryPointsMarkdown, llmsNotes } from "./products.ts";
 import {
 	type Context,
 	convert,
@@ -25,6 +27,38 @@ const id: Repository = {
 	assets: new Set(),
 };
 const at = (path: string, from = track): Context => ({ from, path, all: [track, id] });
+
+describe("llms.txt entry points", () => {
+	it("lists five to eight entry points with unique paths", () => {
+		const paths = entryPoints.map(({ path }) => path);
+		expect(paths.length).toBeGreaterThanOrEqual(5);
+		expect(paths.length).toBeLessThanOrEqual(8);
+		expect(new Set(paths).size).toBe(paths.length);
+	});
+
+	it.each(entryPoints)("links to an existing Markdown copy at $path", ({ path }) => {
+		expect(path).toMatch(/^\/markdown\/.*\.md$/);
+		expect(existsSync(new URL(`../public${path}`, import.meta.url))).toBe(true);
+	});
+
+	it("renders the heading and a line with an absolute link and use for each entry", () => {
+		const origin = "https://x.test";
+		const lines = entryPointsMarkdown(origin).split("\n");
+		expect(lines[0]).toBe("## Recommended entry points");
+		for (const { path, title, use } of entryPoints) {
+			expect(lines).toContain(`- [${title}](${origin}${path}): ${use}`);
+		}
+	});
+
+	it("mentions the small and full files in the notes", () => {
+		expect(llmsNotes).toContain("llms-small.txt");
+		expect(llmsNotes).toContain("llms-full.txt");
+	});
+
+	it("does not reuse the integration's own Notes heading", () => {
+		expect(llmsNotes).not.toMatch(/^## Notes\s*$/m);
+	});
+});
 
 describe("slugs", () => {
 	it("maps the README, the changelog and docs/ to pages, and nothing else", () => {

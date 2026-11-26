@@ -2,11 +2,14 @@ import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import mermaid from "astro-mermaid";
 import starlightLlmsTxt from "starlight-llms-txt";
+import { entryPointsMarkdown, llmsNotes } from "./scripts/products.ts";
 import sidebar from "./src/generated/sidebar.json" with { type: "json" };
 import products from "./src/generated/sources.json" with { type: "json" };
 
+const site = "https://docs.gateweave.com";
+
 export default defineConfig({
-	site: "https://docs.gateweave.com",
+	site,
 	trailingSlash: "always",
 	integrations: [
 		// Before Starlight, so its code blocks reach the page as diagrams.
@@ -35,7 +38,11 @@ export default defineConfig({
 					projectName: "Gateweave",
 					description:
 						"Gateweave is a family of open-source business tools that run on Cloudflare: each is one Worker, with Durable Objects and D1, that you can run on your own account or use on Gateweave Cloud.",
-					details: products.map((p) => `- ${p.name} (${p.version}): ${p.summary}`).join("\n"),
+					details: [
+						products.map((p) => `- ${p.name} (${p.version}): ${p.summary}`).join("\n"),
+						entryPointsMarkdown(site),
+						llmsNotes,
+					].join("\n\n"),
 					// The short version is for using the products: changelogs and architecture notes, which make
 					// up most of the text, stay in llms-full.txt and in each product's own file.
 					exclude: ["*/changelog", "*/architecture"],
