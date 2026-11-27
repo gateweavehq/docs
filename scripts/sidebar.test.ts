@@ -75,6 +75,29 @@ describe("sidebarFor", () => {
 		);
 	});
 
+	it("places an unlisted quickstart directly after Overview without warning", () => {
+		const labels = new Map([
+			["", "Example home"],
+			["quickstart", "Get started quickly"],
+			["architecture", "Architecture"],
+			["start", "Get started"],
+			["recipes/gitea", "Using Gitea"],
+			["format", "File format"],
+		]);
+		using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const { items } = sidebarFor(example, labels);
+		expect(items.map(({ label }) => label)).toEqual([
+			"Overview",
+			"Get started quickly",
+			"Concepts",
+			"Guides",
+			"Reference",
+		]);
+		expect(items[1]).toEqual({ label: "Get started quickly", slug: "example/quickstart" });
+		expect(warn).not.toHaveBeenCalled();
+	});
+
 	it("omits empty groups and warns when a listed page is missing", () => {
 		using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 		const sidebar = sidebarFor(
@@ -99,11 +122,16 @@ describe("sidebarFor", () => {
 		expect(labels.has("")).toBe(true);
 		const [overview, ...items] = sidebarFor(product, labels).items;
 		expect(overview).toEqual({ label: "Overview", slug: key });
-		const groups = items.filter((item) => "items" in item);
-		expect(groups).toEqual(items);
+		const hasQuickstart = labels.has("quickstart");
+		if (hasQuickstart) {
+			expect(items[0]).toEqual({ label: "quickstart", slug: `${key}/quickstart` });
+		}
+		const groupedItems = items.slice(hasQuickstart ? 1 : 0);
+		const groups = groupedItems.filter((item) => "items" in item);
+		expect(groups).toEqual(groupedItems);
 		const expectedSlugs = [...labels.keys()].filter(Boolean).map((slug) => `${key}/${slug}`);
 		expect(
-			linksIn(groups)
+			linksIn(items)
 				.map(({ slug }) => slug)
 				.sort(),
 		).toEqual(expectedSlugs.sort());
@@ -116,30 +144,43 @@ describe("sidebarFor", () => {
 	});
 
 	it.each(products.filter(({ key }) => ["track", "agents", "mail"].includes(key)))(
-		"starts $key Guides with Quickstart and puts MCP in Reference",
+		"places $key Quickstart after Overview and puts MCP in Reference",
 		(product) => {
 			const { key } = product;
-			const groups = sidebarFor(product, contentLabels(key)).items.filter(
-				(item) => "items" in item,
-			);
+			const { items } = sidebarFor(product, contentLabels(key));
+			expect(items.slice(0, 3)).toMatchObject([
+				{ label: "Overview", slug: key },
+				{ label: "quickstart", slug: `${key}/quickstart` },
+				{ label: "Concepts", items: expect.any(Array) },
+			]);
+			expect(product.groups.guides).not.toContain("quickstart");
+			const groups = items.filter((item) => "items" in item);
 			const guides = groups.find(({ label }) => label === "Guides");
-			expect(guides?.items[0]).toMatchObject({ slug: `${key}/quickstart` });
+			expect(linksIn(guides?.items ?? []).map(({ slug }) => slug)).not.toContain(
+				`${key}/quickstart`,
+			);
 			const reference = groups.find(({ label }) => label === "Reference");
 			expect(reference?.items).toContainEqual({ label: "mcp", slug: `${key}/mcp` });
 		},
 	);
 });
 
-it("keeps only the first Overview link directly in each generated product group", () => {
+it("puts Overview and any Quickstart directly in each generated product group", () => {
 	const path = new URL("../src/generated/sidebar.json", import.meta.url);
 	const sidebar = JSON.parse(readFileSync(path, "utf8")) as SidebarGroup[];
 	for (const { key, name } of products) {
 		const group = sidebar.find(({ label }) => label === name);
 		const overview = { label: "Overview", slug: key };
 		expect(group?.items[0], name).toEqual(overview);
+		const directLinks = [overview];
+		if (contentLabels(key).has("quickstart")) {
+			const quickstart = { label: "Quickstart", slug: `${key}/quickstart` };
+			expect(group?.items[1], name).toEqual(quickstart);
+			directLinks.push(quickstart);
+		}
 		expect(
 			group?.items.filter((item) => !("items" in item)),
 			name,
-		).toEqual([overview]);
+		).toEqual(directLinks);
 	}
 });

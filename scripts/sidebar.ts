@@ -19,6 +19,7 @@ export function sidebarFor(product: Product, labels: Map<string, string>): Sideb
 	const slugs = [...labels.keys()].filter((slug) => slug !== "" && slug !== "changelog").sort();
 	const remaining = new Set(slugs);
 	const items: SidebarGroup["items"] = [{ ...link(""), label: "Overview" }];
+	if (remaining.delete("quickstart")) items.push(link("quickstart"));
 	const concepts: SidebarGroup = { label: "Concepts", items: [] };
 	const guides: SidebarGroup = { label: "Guides", items: [] };
 	const reference: SidebarGroup = { label: "Reference", items: [] };
