@@ -23,7 +23,7 @@ github.com/gateweavehq, and `pnpm sync` copies them in.
    every other file under `docs/` (images) as an asset.
 3. Passes each page through `scripts/transform.ts`: title, description, and links, so that links
    between products and to copied files stay on this site and links to code point at the
-   version read.
+   version read. A final Next section with two qualifying links becomes cards on the site.
 4. Writes pages to `src/content/docs/<product>/`, assets to `public/<product>/`, plain Markdown
    copies to `public/markdown/<product>/`, and the versions read and the sidebar to
    `src/generated/`.

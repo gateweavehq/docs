@@ -216,3 +216,117 @@ describe("pages", () => {
 		);
 	});
 });
+
+describe("Next cards", () => {
+	const repository = { ...track, pages: new Set([...track.pages, "docs/mcp.md"]) };
+	const context = at("docs/quickstart.md", repository);
+	const next = [
+		"## Next",
+		"",
+		"- [self-hosting.md](self-hosting.md): your own domain, GitHub or single sign-on, email, who may",
+		"  sign up, updating and backups.",
+		"- [mcp.md](mcp.md): connect an AI agent to your Track, once `BETTER_AUTH_URL` names your address.",
+		"",
+	].join("\n");
+	const withSiteLinks = (source: string) =>
+		source
+			.replace("(self-hosting.md)", "(/track/self-hosting/)")
+			.replace("(mcp.md)", "(/track/mcp/)");
+
+	it.each([
+		{
+			name: "with page titles",
+			titles: new Map([
+				["/track/self-hosting/", "Self-hosting Track"],
+				["/track/mcp/", "MCP reference"],
+			]),
+			selfHostingTitle: "Self-hosting Track",
+			mcpTitle: "MCP reference",
+		},
+		{
+			name: "without page titles",
+			titles: undefined,
+			selfHostingTitle: "self-hosting.md",
+			mcpTitle: "mcp.md",
+		},
+	])("renders two soft-wrapped links as cards $name", ({ titles, selfHostingTitle, mcpTitle }) => {
+		const page = convert(`# Quickstart\n\n${next}`, { ...context, titles }, "fallback");
+		expect(page.body).toBe(
+			[
+				"## Next",
+				"",
+				'<div class="link-cards">',
+				'<a class="link-card" href="/track/self-hosting/">',
+				`<span class="link-card-title">${selfHostingTitle}</span>`,
+				'<span class="link-card-description">Your own domain, GitHub or single sign-on, email, who may sign up, updating and backups.</span>',
+				"</a>",
+				'<a class="link-card" href="/track/mcp/">',
+				`<span class="link-card-title">${mcpTitle}</span>`,
+				'<span class="link-card-description">Connect an AI agent to your Track, once <code>BETTER_AUTH_URL</code> names your address.</span>',
+				"</a>",
+				"</div>",
+				"",
+			].join("\n"),
+		);
+		expect(page.markdown).toBe(withSiteLinks(next));
+	});
+
+	it("handles an ordered list, anchors, explicit labels, and escaped text", () => {
+		const page = convert(
+			[
+				"## Next",
+				"",
+				'1. [mcp.md](mcp.md#tools&more) – **read** & "try" &lt;tools&gt; with `x < y`.',
+				'2. [Architecture & "details"](architecture.md)',
+			].join("\n"),
+			{
+				...context,
+				titles: new Map([
+					["/track/mcp/", 'MCP & "tools"'],
+					["/track/architecture/", "Track architecture"],
+				]),
+			},
+			"fallback",
+		);
+		expect(page.body).toBe(
+			[
+				"## Next",
+				"",
+				'<div class="link-cards">',
+				'<a class="link-card" href="/track/mcp/#tools&amp;more">',
+				'<span class="link-card-title">MCP &amp; &quot;tools&quot;</span>',
+				'<span class="link-card-description">Read &amp; &quot;try&quot; &lt;tools&gt; with <code>x &lt; y</code>.</span>',
+				"</a>",
+				'<a class="link-card" href="/track/architecture/">',
+				'<span class="link-card-title">Architecture &amp; &quot;details&quot;</span>',
+				"</a>",
+				"</div>",
+				"",
+			].join("\n"),
+		);
+	});
+
+	it.each([
+		["three links", `${next}- [Other](https://example.com)\n`],
+		["Next is not the last section", `${next}\n## Appendix\n\nMore information.\n`],
+		["a paragraph before the list", next.replace("## Next\n\n", "## Next\n\nRead on.\n\n")],
+		["a paragraph after the list", `${next}\nRead on.\n`],
+		["a subheading before the list", next.replace("## Next\n\n", "## Next\n\n### More\n\n")],
+		["two links in an item", next.replace("your own", "[your own](https://example.com)")],
+		["a nested list", next.replace("updating and backups.\n", "updating and backups.\n  - More\n")],
+		["a hard line break", next.replace("who may\n", "who may\\\n")],
+		["a task checkbox", next.replace("- [self-hosting", "- [ ] [self-hosting")],
+		["a heading called Next: launch", next.replace("## Next", "## Next: launch")],
+	])("preserves the Markdown with %s", (_name, source) => {
+		const page = convert(source, context, "fallback");
+		expect(page.body).toBe(withSiteLinks(source));
+		expect(page.markdown).toBe(page.body);
+	});
+
+	it("preserves a Next list in a fenced code block", () => {
+		const source = `\`\`\`md\n${next}\`\`\`\n`;
+		const page = convert(source, context, "fallback");
+		expect(page.body).toBe(source);
+		expect(page.markdown).toBe(page.body);
+	});
+});

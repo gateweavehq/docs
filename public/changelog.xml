@@ -2,10 +2,31 @@
 <feed xmlns="http://www.w3.org/2005/Atom">
 	<id>https://docs.gateweave.com/changelog.xml</id>
 	<title>Gateweave: what's new</title>
-	<updated>2026-11-26T00:00:00Z</updated>
+	<updated>2026-11-27T00:00:00Z</updated>
 	<author><name>Gateweave</name></author>
 	<link rel="self" type="application/atom+xml" href="https://docs.gateweave.com/changelog.xml"/>
 	<link rel="alternate" type="text/html" href="https://docs.gateweave.com/changelog/"/>
+	<entry>
+		<id>https://github.com/gateweavehq/track/releases/tag/v0.51.1</id>
+		<title>Gateweave Track 0.51.1</title>
+		<updated>2026-11-27T00:00:00Z</updated>
+		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/track/releases/tag/v0.51.1"/>
+		<summary type="text">No migration, variable or secret. Deploy as usual.</summary>
+	</entry>
+	<entry>
+		<id>https://github.com/gateweavehq/agents/releases/tag/v0.36.0</id>
+		<title>Gateweave Agents 0.36.0</title>
+		<updated>2026-11-27T00:00:00Z</updated>
+		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/agents/releases/tag/v0.36.0"/>
+		<summary type="text">Update. There is no migration, in D1 or in the workspace registry. The registry records each sandbox-minutes alert it sends in its Durable Object's key-value storage, so that each goes out once a month. SANDBOX_MONTHLY_MINUTES is optional. Unset or empty, a workspace has no monthly cap. A number of zero or more sets the minutes; any other value, such as a negative number or a word, allows none. &quot;Sandboxes&quot; in docs/self-hosting.md describes it, and the Settings table in the same file lists it.</summary>
+	</entry>
+	<entry>
+		<id>https://github.com/gateweavehq/mail/releases/tag/v0.4.1</id>
+		<title>Gateweave Mail 0.4.1</title>
+		<updated>2026-11-27T00:00:00Z</updated>
+		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/mail/releases/tag/v0.4.1"/>
+		<summary type="text">No migration, variable or secret. Deploy as usual.</summary>
+	</entry>
 	<entry>
 		<id>https://github.com/gateweavehq/track/releases/tag/v0.51.0</id>
 		<title>Gateweave Track 0.51.0</title>
@@ -49,13 +70,6 @@
 		<summary type="text">Nothing to do. There is no protocol, migration or setting change, and rolling back to 0.47.1 only takes the row and the lookup away.</summary>
 	</entry>
 	<entry>
-		<id>https://github.com/gateweavehq/track/releases/tag/v0.47.1</id>
-		<title>Gateweave Track 0.47.1</title>
-		<updated>2026-11-25T00:00:00Z</updated>
-		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/track/releases/tag/v0.47.1"/>
-		<summary type="text">The protocol goes from 29 to 30. Open tabs reload and sync again. Two workspace migrations (0037 and 0038) run on their own when each workspace wakes. They add the attempt number to signals and fill it in for attempts claimed before. Rolling back to 0.47.0 works, since it ignores the new column. Attempts claimed meanwhile keep going by their ID after you update again.</summary>
-	</entry>
-	<entry>
 		<id>https://github.com/gateweavehq/agents/releases/tag/v0.34.0</id>
 		<title>Gateweave Agents 0.34.0</title>
 		<updated>2026-11-20T00:00:00Z</updated>
@@ -96,13 +110,6 @@
 		<updated>2026-11-20T00:00:00Z</updated>
 		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/guard/releases/tag/v0.5.0"/>
 		<summary type="text">pnpm run deploy applies the D1 migration (0010_track_sources). Reporting needs Track 0.44.0 or later. Against an older Track, every event gets a 404, and after seven days Guard stops sending for that connection until a new key is pasted.</summary>
-	</entry>
-	<entry>
-		<id>https://github.com/gateweavehq/agents/releases/tag/v0.32.0</id>
-		<title>Gateweave Agents 0.32.0</title>
-		<updated>2026-11-19T00:00:00Z</updated>
-		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/agents/releases/tag/v0.32.0"/>
-		<summary type="text">Update. Nothing else to do: no migration, variable or secret.</summary>
 	</entry>
 	<entry>
 		<id>https://github.com/gateweavehq/id/releases/tag/v0.16.3</id>
@@ -159,13 +166,6 @@
 		<updated>2026-11-18T00:00:00Z</updated>
 		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/id/releases/tag/v0.16.1"/>
 		<summary type="text">Update. If an app you registered signs in from a development machine, check that its callback is registered with the exact host and port it uses.</summary>
-	</entry>
-	<entry>
-		<id>https://github.com/gateweavehq/mail/releases/tag/v0.2.0</id>
-		<title>Gateweave Mail 0.2.0</title>
-		<updated>2026-11-18T00:00:00Z</updated>
-		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/mail/releases/tag/v0.2.0"/>
-		<summary type="text">One D1 migration (0026_agent_policy_approval.sql, a nullable column), which pnpm run deploy applies before the new code goes live. No new setting. The send_email, reply and send_template operations answer &quot;sent&quot; or &quot;held&quot; as before; the skill in the Claude Code plugin says what becomes of a message under each policy.</summary>
 	</entry>
 	<entry>
 		<id>https://github.com/gateweavehq/id/releases/tag/v0.16.0</id>

@@ -10,7 +10,7 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { OWNER, type Product, products } from "./products.ts";
 import { type SidebarGroup, sidebarFor } from "./sidebar.ts";
-import { convert, isAsset, type Repository, slugOf } from "./transform.ts";
+import { convert, isAsset, pageUrl, type Repository, slugOf } from "./transform.ts";
 import { buildWhatsNew, FEED_PATH, PAGE_PATH, type WhatsNewSource } from "./whats-new.ts";
 
 const root = join(import.meta.dirname, "..");
@@ -116,6 +116,10 @@ function titleFor(title: string, product: Product): string {
 	}
 }
 
+function fallbackTitle(slug: string, product: Product): string {
+	return slug === "" ? product.name : (slug.split("/").at(-1) ?? slug);
+}
+
 function frontMatter(fields: Record<string, unknown>): string {
 	const lines = ["---"];
 	const write = (value: unknown, key: string, indent: string) => {
@@ -144,6 +148,20 @@ for (const product of products) {
 	fetched.push(result);
 }
 const all = fetched.map((f) => f.repository);
+const titles = new Map<string, string>();
+for (const { product, repository, files } of fetched) {
+	for (const [path, bytes] of files) {
+		const slug = slugOf(path);
+		if (slug === null) continue;
+		const { title } = convert(
+			new TextDecoder().decode(bytes),
+			{ from: repository, path, all },
+			fallbackTitle(slug, product),
+		);
+		titles.set(pageUrl(product.key, slug), titleFor(title, product));
+	}
+}
+
 const sidebar: SidebarGroup[] = [];
 const changelogs: WhatsNewSource[] = [];
 await rm(markdownDir, { recursive: true, force: true });
@@ -159,11 +177,10 @@ for (const { product, repository, version, pageDates, files } of fetched) {
 			await write(join(publicDir, product.key, path.slice("docs/".length)), bytes);
 			continue;
 		}
-		const fallback = slug === "" ? product.name : (slug.split("/").at(-1) ?? slug);
 		const page = convert(
 			new TextDecoder().decode(bytes),
-			{ from: repository, path, all },
-			fallback,
+			{ from: repository, path, all, titles },
+			fallbackTitle(slug, product),
 		);
 		labels.set(slug, slug === "" ? "Overview" : page.title);
 		if (slug === "changelog") {
@@ -172,7 +189,7 @@ for (const { product, repository, version, pageDates, files } of fetched) {
 				name: product.name,
 				repo: product.repo,
 				version,
-				changelog: page.body,
+				changelog: page.markdown,
 			});
 		}
 		const header = frontMatter({
@@ -191,7 +208,7 @@ for (const { product, repository, version, pageDates, files } of fetched) {
 		await write(join(contentDir, product.key, file), header + page.body);
 		await write(
 			join(markdownDir, product.key, file),
-			`# ${titleFor(page.title, product)}\n\n${page.body}`,
+			`# ${titleFor(page.title, product)}\n\n${page.markdown}`,
 		);
 	}
 	sidebar.push(sidebarFor(product, labels));

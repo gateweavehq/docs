@@ -1063,7 +1063,12 @@ to, through Better Auth's MCP plugin (the `jwt()` and `mcp()` plugins in
    never accepted there, so a web page cannot make a signed-in browser call it, and no Origin
    check is needed. There are no agent members here, so the only credential is an OAuth token.
 
-The tools, in `apps/web/src/server/mcp/tools.ts`, only read:
+The tools are in `apps/web/src/server/mcp/tools.ts`, and [docs/mcp.md](/agents/mcp/) lists them in a table
+that a test (`apps/web/src/server/mcp/docs.test.ts`) renders from the server's own `tools/list` and
+fails on when it differs. A token with the `agents` scope gets the five tools that read; one that
+also has `agents:run` (`MCP_RUN_SCOPE`) gets two more, which give an agent a task and read
+its run. Without that scope `createAgentsServer` does not register them, so a read-only token
+cannot even see `run_agent`. The tools that read:
 
 - `list_workspaces` returns the name and slug of every workspace the person belongs to, read
   from D1.
@@ -1086,6 +1091,11 @@ The tools, in `apps/web/src/server/mcp/tools.ts`, only read:
   how few pages have it, with English endings such as plurals taken off.
 - `list_wiki_repos` lists the repositories with a wiki in the person's workspaces, as Devin's
   server lists its own, with each wiki's pages and commit.
+- `run_agent` and `get_run`, with `agents:run`, are the two that act. `run_agent` gives an agent of
+  one of the person's workspaces a task and starts its run, the way a trigger would; the agent must
+  have allowed tasks from outside ("Tasks from MCP clients" on its page), and the run spends the
+  workspace's budget. `get_run` reads a run's state, answer, steps, tokens and its link on the Runs
+  page; a run another member started is an owner's or admin's to read.
 
 Tools reach Agents only through the `AgentsAccess` object `createAgentsServer` is given, which
 offers what the signed-in person may see. A tool that reads a workspace resolves it to the
@@ -1239,8 +1249,8 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   minutes after its last such run ended. An ask over a team's edge has no tools, so it needs no
   sandbox, unless the agent's engine runs only in one, as every engine but Gateweave's loop does.
   A turn awaits as it is prepared (the key, the environment set, the meter), and others may begin
-  meanwhile, so this limit and the daily one below decide again in the write that begins the run
-  (`#sandboxLimitRefusal`), with the same refusal (AGT-63).
+  meanwhile, so the slot limit and both workspace time limits are checked again in the write that
+  begins the run (`#sandboxLimitRefusal`), with the same refusal.
 - **Sandbox time and its limits** (AGT-45). The runs say how much sandbox time a workspace uses
   (`sandboxSeconds` in `packages/registry/src/runs.ts`):
   - Each conversation's sandbox counts from a run with it until `SANDBOX_IDLE_MINUTES` (5 by
@@ -1248,20 +1258,25 @@ until their operator opts in. Cloud offers them only to the workspaces it invite
   - Runs that overlap that way are merged.
   - The idle minutes count as soon as a run ends, since the sandbox runs them anyway.
 
-  Then two limits apply, both off unless the server sets them:
+  Three limits apply, each off unless the server sets it:
   - **Daily.** `SANDBOX_DAILY_MINUTES` refuses a turn that needs a sandbox once the workspace has
     used that much of the UTC day.
-  - **Monthly.** `SANDBOX_MONTHLY_BUDGET` covers the whole deployment. Before such a turn, and
-    after it ends, the registry reports the workspace's figure for the month to `SandboxMeterDO`
+  - **Monthly minutes.** `SANDBOX_MONTHLY_MINUTES` refuses a turn that needs a sandbox once the
+    workspace has used that much of the UTC month. The refusal names the first day of the next
+    UTC month. When a sandbox run ends, the registry checks usage against 80% and 100% of a
+    positive cap. It records each threshold once per workspace per month and calls
+    `sandboxMinutesPassed`. The app's `RegistryDO` emails the workspace's owners.
+  - **Monthly budget.** `SANDBOX_MONTHLY_BUDGET` covers the whole deployment. Before such a turn
+    and after it ends, the registry reports the workspace's figure for the month to `SandboxMeterDO`
     (`packages/registry/src/sandbox-meter.ts`). That is one Durable Object per deployment, bound as
     `SANDBOX_METER`, with no route. It keeps each workspace's latest figure, and prices the total
     at `SANDBOX_SECOND_PRICE`, the most a second of the machine costs. Turns are refused once that
     reaches the budget.
     - The first report to pass 80% or 100% calls `sandboxBudgetPassed` once a month. The app's
       `RegistryDO` emails `SANDBOX_ALERT_EMAIL` from there.
-    - A setting that is not a number allows nothing, so a typo never lifts a limit.
     - A budget without the meter refuses too.
 
+  A setting that is not a number allows nothing, so a typo never lifts a limit.
   A turn that begins under a limit runs to its end, so a limit can be passed by up to an hour of
   each sandbox in use.
 - **A repository in the sandbox** (AGT-41). An agent with a sandbox can choose a repository the

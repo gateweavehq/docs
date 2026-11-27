@@ -30,9 +30,15 @@ export const products: Product[] = [
 			"A realtime issue tracker on one Cloudflare Worker, with a local copy that works offline and AI agents as members.",
 		groups: {
 			concepts: ["ecosystem", "roadmap", "architecture"],
-			guides: ["self-hosting"],
+			guides: ["quickstart", "self-hosting", "recipes"],
+			reference: ["mcp"],
 		},
-		labels: { ecosystem: "The Gateweave ecosystem" },
+		labels: {
+			ecosystem: "The Gateweave ecosystem",
+			"recipes/notes-to-issues": "Meeting notes into issues",
+			"recipes/project-update": "Weekly project update",
+			"recipes/triage-intake": "Triage an intake",
+		},
 	},
 	{
 		key: "agents",
@@ -43,19 +49,24 @@ export const products: Product[] = [
 		groups: {
 			concepts: ["memory", "spec", "architecture"],
 			guides: [
+				"quickstart",
 				"first-pull-request",
 				"self-hosting",
 				"github-app",
 				"track-triage",
 				"track-work",
 				"docker-sandboxes",
+				"recipes",
 			],
+			reference: ["mcp"],
 		},
 		labels: {
 			"github-app": "Connecting GitHub",
 			"track-triage": "Triaging Track issues",
 			"track-work": "Working on Track issues",
 			"docker-sandboxes": "Docker cloud sandboxes",
+			"recipes/ask-the-wiki": "Ask a repository's wiki",
+			"recipes/run-from-your-editor": "Run a task from your editor",
 			spec: "Product spec",
 		},
 	},
@@ -86,7 +97,8 @@ export const products: Product[] = [
 			"Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
 		groups: {
 			concepts: ["architecture"],
-			guides: ["self-hosting"],
+			guides: ["quickstart", "self-hosting"],
+			reference: ["mcp"],
 		},
 	},
 	{
@@ -127,9 +139,14 @@ export const entryPoints: EntryPoint[] = [
 		use: "what Track is and what it does, before you touch it",
 	},
 	{
-		path: "/markdown/track/self-hosting.md",
-		title: "Self-hosting Track",
-		use: "run Track on your own Cloudflare account",
+		path: "/markdown/track/quickstart.md",
+		title: "Quickstart: Track on your own Cloudflare account",
+		use: "deploy Track to your own Cloudflare account from a fresh clone, with no custom domain",
+	},
+	{
+		path: "/markdown/agents/quickstart.md",
+		title: "Quickstart: Agents on your own Cloudflare account",
+		use: "run Agents on your own Cloudflare account and get your first answer through Workers AI",
 	},
 	{
 		path: "/markdown/agents/first-pull-request.md",
@@ -152,9 +169,9 @@ export const entryPoints: EntryPoint[] = [
 		use: "run Guard and connect Cloudflare accounts and repositories",
 	},
 	{
-		path: "/markdown/mail/self-hosting.md",
-		title: "Self-hosting Mail",
-		use: "run Mail on your own Cloudflare account",
+		path: "/markdown/mail/quickstart.md",
+		title: "Quickstart: Mail on your own Cloudflare account",
+		use: "set up Mail on your own Cloudflare account with an address on a domain verified by a TXT record",
 	},
 ];
 

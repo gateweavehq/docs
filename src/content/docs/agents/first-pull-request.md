@@ -3,9 +3,9 @@ title: "From zero to a first pull request"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/first-pull-request.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.35.1"
+  version: "v0.36.0"
   updatedAt: "2026-11-16T00:01:07Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.35.1/docs/first-pull-request.md"
+  url: "https://github.com/gateweavehq/agents/blob/v0.36.0/docs/first-pull-request.md"
   markdownUrl: "/markdown/agents/first-pull-request.md"
 ---
 Every step between an empty Cloudflare account and an agent on your own server that opens a pull

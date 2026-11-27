@@ -21,6 +21,18 @@ function linksIn(items: SidebarGroup["items"]): SidebarLink[] {
 	return items.flatMap((item) => ("items" in item ? linksIn(item.items) : [item]));
 }
 
+function contentLabels(key: string): Map<string, string> {
+	const contentDir = join(import.meta.dirname, "../src/content/docs", key);
+	const labels = new Map<string, string>();
+	for (const file of readdirSync(contentDir, { recursive: true, withFileTypes: true })) {
+		if (!file.isFile() || !file.name.endsWith(".md")) continue;
+		const path = relative(contentDir, join(file.parentPath, file.name)).split(sep).join("/");
+		const slug = path === "index.md" ? "" : path.slice(0, -".md".length);
+		labels.set(slug, slug);
+	}
+	return labels;
+}
+
 describe("sidebarFor", () => {
 	it("orders the groups and places unlisted pages after the listed Guides", () => {
 		const labels = new Map([
@@ -82,14 +94,7 @@ describe("sidebarFor", () => {
 
 	it.each(products)("groups every $key content page exactly once", (product) => {
 		const { key } = product;
-		const contentDir = join(import.meta.dirname, "../src/content/docs", key);
-		const labels = new Map<string, string>();
-		for (const file of readdirSync(contentDir, { recursive: true, withFileTypes: true })) {
-			if (!file.isFile() || !file.name.endsWith(".md")) continue;
-			const path = relative(contentDir, join(file.parentPath, file.name)).split(sep).join("/");
-			const slug = path === "index.md" ? "" : path.slice(0, -".md".length);
-			labels.set(slug, slug);
-		}
+		const labels = contentLabels(key);
 
 		expect(labels.has("")).toBe(true);
 		const [overview, ...items] = sidebarFor(product, labels).items;
@@ -109,6 +114,20 @@ describe("sidebarFor", () => {
 			if (labels.has(slug)) expect(conceptSlugs).toContain(`${key}/${slug}`);
 		}
 	});
+
+	it.each(products.filter(({ key }) => ["track", "agents", "mail"].includes(key)))(
+		"starts $key Guides with Quickstart and puts MCP in Reference",
+		(product) => {
+			const { key } = product;
+			const groups = sidebarFor(product, contentLabels(key)).items.filter(
+				(item) => "items" in item,
+			);
+			const guides = groups.find(({ label }) => label === "Guides");
+			expect(guides?.items[0]).toMatchObject({ slug: `${key}/quickstart` });
+			const reference = groups.find(({ label }) => label === "Reference");
+			expect(reference?.items).toContainEqual({ label: "mcp", slug: `${key}/mcp` });
+		},
+	);
 });
 
 it("keeps only the first Overview link directly in each generated product group", () => {
