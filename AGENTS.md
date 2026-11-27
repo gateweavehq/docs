@@ -41,7 +41,7 @@ workflow.
 | Path | Edit here? |
 | --- | --- |
 | `src/content/docs/<product>/`, `public/<product>/`, `public/markdown/`, `src/generated/`, `src/content/docs/changelog.md`, `public/changelog.xml` | No. Written by `pnpm sync`; a hand edit is lost on the next run. Fix the page in the product's repository. |
-| `scripts/products.ts` | Yes: which products, their summaries, and which of their pages go under Concepts, Guides and Reference, in what order and with what labels. A page not listed there still appears, at the end of Guides, with a warning from the sync. |
+| `scripts/products.ts` | Yes: which products, their summaries, and which of their pages go under Concepts, Guides and Reference, in what order and with what labels. A `quickstart` page goes right after Overview without being listed. A page not listed there still appears, at the end of Guides, with a warning from the sync. |
 | `scripts/sync.ts`, `scripts/sidebar.ts`, `scripts/transform.ts`, `scripts/whats-new.ts` | Yes, with a test in `scripts/sidebar.test.ts`, `scripts/transform.test.ts` or `scripts/whats-new.test.ts`. |
 | `src/content/docs/index.mdx`, `agent-setup.mdx`, `community-rules.md`, `404.md` | Yes: the pages that belong to this site. |
 | `src/components/`, `src/styles/`, `src/assets/`, `astro.config.ts` | Yes: the site's look and behavior. |

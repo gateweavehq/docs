@@ -13,6 +13,7 @@ export interface Product {
 	/**
 	 * The page slugs in each sidebar group, in display order. A directory name (`recipes`) puts
 	 * its pages in a nested group. Unlisted pages appear at the end of Guides.
+	 * A `quickstart` page goes right after Overview automatically.
 	 */
 	groups: { concepts?: string[]; guides?: string[]; reference?: string[] };
 	/** Shorter sidebar labels than the pages' titles, by slug. */
@@ -30,7 +31,7 @@ export const products: Product[] = [
 			"A realtime issue tracker on one Cloudflare Worker, with a local copy that works offline and AI agents as members.",
 		groups: {
 			concepts: ["ecosystem", "roadmap", "architecture"],
-			guides: ["quickstart", "self-hosting", "recipes"],
+			guides: ["self-hosting", "recipes"],
 			reference: ["mcp"],
 		},
 		labels: {
@@ -49,7 +50,6 @@ export const products: Product[] = [
 		groups: {
 			concepts: ["memory", "spec", "architecture"],
 			guides: [
-				"quickstart",
 				"first-pull-request",
 				"self-hosting",
 				"github-app",
@@ -97,7 +97,7 @@ export const products: Product[] = [
 			"Mailboxes for people and AI agents on one Cloudflare Worker. Early: it is not on Gateweave Cloud yet.",
 		groups: {
 			concepts: ["architecture"],
-			guides: ["quickstart", "self-hosting"],
+			guides: ["self-hosting"],
 			reference: ["mcp"],
 		},
 	},

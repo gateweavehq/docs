@@ -7,6 +7,10 @@
 				"slug": "track"
 			},
 			{
+				"label": "Quickstart",
+				"slug": "track/quickstart"
+			},
+			{
 				"label": "Concepts",
 				"items": [
 					{
@@ -26,10 +30,6 @@
 			{
 				"label": "Guides",
 				"items": [
-					{
-						"label": "Quickstart",
-						"slug": "track/quickstart"
-					},
 					{
 						"label": "Self-hosting",
 						"slug": "track/self-hosting"
@@ -81,6 +81,10 @@
 				"slug": "agents"
 			},
 			{
+				"label": "Quickstart",
+				"slug": "agents/quickstart"
+			},
+			{
 				"label": "Concepts",
 				"items": [
 					{
@@ -100,10 +104,6 @@
 			{
 				"label": "Guides",
 				"items": [
-					{
-						"label": "Quickstart",
-						"slug": "agents/quickstart"
-					},
 					{
 						"label": "From zero to a first pull request",
 						"slug": "agents/first-pull-request"
@@ -241,6 +241,10 @@
 				"slug": "mail"
 			},
 			{
+				"label": "Quickstart",
+				"slug": "mail/quickstart"
+			},
+			{
 				"label": "Concepts",
 				"items": [
 					{
@@ -252,10 +256,6 @@
 			{
 				"label": "Guides",
 				"items": [
-					{
-						"label": "Quickstart",
-						"slug": "mail/quickstart"
-					},
 					{
 						"label": "Self-hosting",
 						"slug": "mail/self-hosting"

@@ -1,12 +1,11 @@
 import { existsSync } from "node:fs";
+import { satteri } from "@astrojs/markdown-satteri";
+import rehypeParse from "rehype-parse";
+import rehypeRemark from "rehype-remark";
+import remarkGfm from "remark-gfm";
+import remarkStringify from "remark-stringify";
+import { unified } from "unified";
 import { describe, expect, it } from "vitest";
-// Use the same pnpm-hoisted packages as Astro and starlight-llms-txt.
-import { satteri } from "../node_modules/.pnpm/node_modules/@astrojs/markdown-satteri/dist/index.js";
-import rehypeParse from "../node_modules/.pnpm/node_modules/rehype-parse/index.js";
-import rehypeRemark from "../node_modules/.pnpm/node_modules/rehype-remark/index.js";
-import remarkGfm from "../node_modules/.pnpm/node_modules/remark-gfm/index.js";
-import remarkStringify from "../node_modules/.pnpm/node_modules/remark-stringify/index.js";
-import { unified } from "../node_modules/.pnpm/node_modules/unified/index.js";
 import { entryPoints, entryPointsMarkdown, llmsNotes } from "./products.ts";
 import {
 	type Context,
