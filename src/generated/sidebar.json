@@ -27,8 +27,38 @@
 				"label": "Guides",
 				"items": [
 					{
+						"label": "Quickstart",
+						"slug": "track/quickstart"
+					},
+					{
 						"label": "Self-hosting",
 						"slug": "track/self-hosting"
+					},
+					{
+						"label": "Recipes",
+						"items": [
+							{
+								"label": "Meeting notes into issues",
+								"slug": "track/recipes/notes-to-issues"
+							},
+							{
+								"label": "Weekly project update",
+								"slug": "track/recipes/project-update"
+							},
+							{
+								"label": "Triage an intake",
+								"slug": "track/recipes/triage-intake"
+							}
+						]
+					}
+				]
+			},
+			{
+				"label": "Reference",
+				"items": [
+					{
+						"label": "MCP reference",
+						"slug": "track/mcp"
 					}
 				]
 			},
@@ -71,6 +101,10 @@
 				"label": "Guides",
 				"items": [
 					{
+						"label": "Quickstart",
+						"slug": "agents/quickstart"
+					},
+					{
 						"label": "From zero to a first pull request",
 						"slug": "agents/first-pull-request"
 					},
@@ -93,6 +127,28 @@
 					{
 						"label": "Docker cloud sandboxes",
 						"slug": "agents/docker-sandboxes"
+					},
+					{
+						"label": "Recipes",
+						"items": [
+							{
+								"label": "Ask a repository's wiki",
+								"slug": "agents/recipes/ask-the-wiki"
+							},
+							{
+								"label": "Run a task from your editor",
+								"slug": "agents/recipes/run-from-your-editor"
+							}
+						]
+					}
+				]
+			},
+			{
+				"label": "Reference",
+				"items": [
+					{
+						"label": "MCP reference",
+						"slug": "agents/mcp"
 					}
 				]
 			},
@@ -197,8 +253,21 @@
 				"label": "Guides",
 				"items": [
 					{
+						"label": "Quickstart",
+						"slug": "mail/quickstart"
+					},
+					{
 						"label": "Self-hosting",
 						"slug": "mail/self-hosting"
+					}
+				]
+			},
+			{
+				"label": "Reference",
+				"items": [
+					{
+						"label": "MCP and HTTP reference",
+						"slug": "mail/mcp"
 					}
 				]
 			},

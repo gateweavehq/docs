@@ -3,9 +3,9 @@ title: "Self-hosting Mail"
 editUrl: "https://github.com/gateweavehq/mail/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Mail"
-  version: "v0.4.0"
-  updatedAt: "2026-11-20T09:15:04Z"
-  url: "https://github.com/gateweavehq/mail/blob/v0.4.0/docs/self-hosting.md"
+  version: "v0.4.1"
+  updatedAt: "2026-11-26T23:17:29Z"
+  url: "https://github.com/gateweavehq/mail/blob/v0.4.1/docs/self-hosting.md"
   markdownUrl: "/markdown/mail/self-hosting.md"
 ---
 Gateweave Mail runs on your own Cloudflare account as one Worker. It is early: today it has
@@ -96,7 +96,8 @@ file unless you want them, and close what it opened.
 
 ## Deploy from the command line
 
-Requirements: Node.js 24 (22+ works) and pnpm 12.
+Requirements: Node.js 24 (22+ works) and pnpm 12. The [quickstart](/mail/quickstart/) takes these
+steps one at a time, up to a first address.
 
 ```sh
 git clone https://github.com/gateweavehq/mail.git

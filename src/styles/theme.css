@@ -21,3 +21,64 @@
 	border-radius: 0.5rem;
 	border: 1px solid var(--sl-color-hairline);
 }
+
+.sl-markdown-content ul.link-cards {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 1rem;
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+@media (min-width: 50rem) {
+	.sl-markdown-content ul.link-cards {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+.sl-markdown-content li.link-card {
+	position: relative;
+	margin: 0;
+	border: 1px solid var(--sl-color-gray-5);
+	border-radius: 0.5rem;
+	padding: 1rem;
+	color: var(--sl-color-white);
+	overflow-wrap: anywhere;
+}
+
+.sl-markdown-content li.link-card:is(:hover, :focus-within) {
+	border-color: var(--sl-color-accent);
+}
+
+.sl-markdown-content a.link-card-title {
+	display: flex;
+	padding-inline-end: 1.5rem;
+	color: var(--sl-color-white);
+	font-weight: 600;
+	text-decoration: none;
+}
+
+.sl-markdown-content a.link-card-title::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+}
+
+.sl-markdown-content li.link-card::after {
+	content: "→" / "";
+	position: absolute;
+	inset-block-start: 1rem;
+	inset-inline-end: 1rem;
+	pointer-events: none;
+}
+
+.sl-markdown-content .link-card-description {
+	display: block;
+	margin-block-start: 0.25rem;
+	color: var(--sl-color-gray-3);
+}
+
+.sl-markdown-content .link-card-description code {
+	color: var(--sl-color-white);
+}

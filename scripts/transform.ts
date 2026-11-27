@@ -4,12 +4,11 @@ import { fromMarkdown } from "mdast-util-from-markdown";
 import { gfmFromMarkdown } from "mdast-util-gfm";
 import { toString as textOf } from "mdast-util-to-string";
 import { gfm } from "micromark-extension-gfm";
-import { visit } from "unist-util-visit";
+import { EXIT, visit } from "unist-util-visit";
 
 /**
  * Turns a product repository's Markdown into pages for this site: a title and description for the
- * front matter, and links that point where they should from here. Everything else in the source
- * is left as written, so a page reads as it does on GitHub.
+ * front matter, links that point where they should from here, and cards for two final Next links.
  */
 
 /** Where a product's files are, and which of them become pages or images here. */
@@ -33,6 +32,8 @@ export interface Context {
 	path: string;
 	/** Every product's repository, so links between them stay on this site. */
 	all: readonly Repository[];
+	/** Display titles of copied pages, keyed by their site URLs. */
+	titles?: ReadonlyMap<string, string>;
 }
 
 /** A page's slug within its product: `""` for the overview, null for files that are no page. */
@@ -109,6 +110,7 @@ export interface Page {
 	title: string;
 	description?: string;
 	body: string;
+	markdown: string;
 }
 
 interface Edit {
@@ -117,13 +119,17 @@ interface Edit {
 	text: string;
 }
 
-/** Converts one Markdown file. `fallbackTitle` is used when it has no top-level heading. */
-export function convert(source: string, context: Context, fallbackTitle: string): Page {
-	const markdown = source.replace(/\r\n?/g, "\n");
-	const tree: Root = fromMarkdown(markdown, {
+function parseMarkdown(markdown: string): Root {
+	return fromMarkdown(markdown, {
 		extensions: [gfm()],
 		mdastExtensions: [gfmFromMarkdown()],
 	});
+}
+
+/** Converts one Markdown file. `fallbackTitle` is used when it has no top-level heading. */
+export function convert(source: string, context: Context, fallbackTitle: string): Page {
+	const normalized = source.replace(/\r\n?/g, "\n");
+	const tree = parseMarkdown(normalized);
 	const edits: Edit[] = [];
 	const removed = new Set<Nodes>();
 	let title: string | undefined;
@@ -166,7 +172,7 @@ export function convert(source: string, context: Context, fallbackTitle: string)
 		const start = node.position?.start.offset;
 		const end = node.position?.end.offset;
 		if (start === undefined || end === undefined) return;
-		const text = markdown.slice(start, end);
+		const text = normalized.slice(start, end);
 
 		if (node.type === "html") {
 			const rewritten = rewriteHtml((node as Html).value, context);
@@ -194,11 +200,73 @@ export function convert(source: string, context: Context, fallbackTitle: string)
 	});
 
 	edits.sort((a, b) => b.start - a.start);
-	let body = markdown;
-	for (const edit of edits) body = body.slice(0, edit.start) + edit.text + body.slice(edit.end);
-	body = `${body.replace(/^\s+/, "").replace(/\s+$/, "")}\n`;
+	let markdown = normalized;
+	for (const edit of edits) {
+		markdown = markdown.slice(0, edit.start) + edit.text + markdown.slice(edit.end);
+	}
+	markdown = `${markdown.replace(/^\s+/, "").replace(/\s+$/, "")}\n`;
+	const body = renderNextCards(markdown, context.titles);
 
-	return { title: title || fallbackTitle, ...(description && { description }), body };
+	return { title: title || fallbackTitle, ...(description && { description }), body, markdown };
+}
+
+function renderNextCards(markdown: string, titles?: ReadonlyMap<string, string>): string {
+	const { children } = parseMarkdown(markdown);
+	const nextIndex = children.findLastIndex((node) => node.type === "heading" && node.depth === 2);
+	const heading = children[nextIndex];
+	if (!heading || textOf(heading, { includeHtml: false }).trim() !== "Next") return markdown;
+	const [list, ...rest] = children.slice(nextIndex + 1);
+	if (rest.length || list?.type !== "list" || list.children.length !== 2) return markdown;
+	const start = list.position?.start.offset;
+	const end = list.position?.end.offset;
+	if (start === undefined || end === undefined) return markdown;
+
+	const cards = ['<ul class="link-cards">'];
+	for (const item of list.children) {
+		const [paragraph] = item.children;
+		if (item.checked != null || item.children.length !== 1 || paragraph?.type !== "paragraph") {
+			return markdown;
+		}
+		const [link, ...descriptionNodes] = paragraph.children;
+		if (link?.type !== "link") return markdown;
+		let hasExtraLinkOrBreak = false;
+		visit(paragraph, ["link", "linkReference", "break"], (node) => {
+			if (node === link) return;
+			hasExtraLinkOrBreak = true;
+			return EXIT;
+		});
+		if (hasExtraLinkOrBreak) return markdown;
+
+		const label = textOf(link, { includeHtml: false });
+		const target = link.url.split("#", 1)[0] ?? link.url;
+		const title = /^[\w./-]+\.md$/.test(label) ? (titles?.get(target) ?? label) : label;
+		const description = descriptionNodes
+			.map((node) =>
+				node.type === "inlineCode"
+					? `<code>${escapeHtml(node.value)}</code>`
+					: escapeHtml(textOf(node, { includeHtml: false })),
+			)
+			.join("")
+			.replace(/[ \t]*\n[ \t]*/g, " ")
+			.trim()
+			.replace(/^[:–—-]\s*/, "")
+			.replace(/^\p{L}/u, (letter) => letter.toUpperCase());
+		const titleLink = `<a class="link-card-title" href="${escapeHtml(link.url)}">${escapeHtml(title)}</a>`;
+		const descriptionHtml = description
+			? `<span class="sr-only">: </span><span class="link-card-description">${description}</span>`
+			: "";
+		cards.push('<li class="link-card">', titleLink + descriptionHtml, "</li>");
+	}
+	cards.push("</ul>");
+	return markdown.slice(0, start) + cards.join("\n") + markdown.slice(end);
+}
+
+function escapeHtml(text: string): string {
+	return text
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;");
 }
 
 function replaceUrl(edits: Edit[], at: number, written: string, context: Context): void {

@@ -4,9 +4,9 @@ description: "Assign an issue to an AI agent and get a pull request back. Open s
 editUrl: "https://github.com/gateweavehq/agents/edit/main/README.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.35.1"
-  updatedAt: "2026-11-19T08:42:03Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.35.1/README.md"
+  version: "v0.36.0"
+  updatedAt: "2026-11-26T23:32:14Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.36.0/README.md"
   markdownUrl: "/markdown/agents/index.md"
 ---
 <p align="center">
@@ -15,7 +15,7 @@ source:
   <a href="https://gateweave.com/agents"><strong>See what it does</strong></a> ·
   <a href="#self-hosting"><strong>Deploy your own</strong></a> ·
   <a href="/agents/first-pull-request/"><strong>From zero to a first pull request</strong></a> ·
-  <a href="https://github.com/gateweavehq/agents/tree/v0.35.1/setups">Ready-made setups</a>
+  <a href="https://github.com/gateweavehq/agents/tree/v0.36.0/setups">Ready-made setups</a>
 </p>
 
 <p align="center">
@@ -73,8 +73,8 @@ tools that run on Cloudflare, next to [Gateweave Track](https://github.com/gatew
   which repositories carry each one and which are behind.
 - **Apply it.** Setups pin those assets for a set of coding agents, preview the files they write, apply
   them to a repository by pull request and show where a repository has drifted from them since.
-  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.35.1/setups), are added to a workspace in one click,
-  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.35.1/packages/cli) applies a setup to a working tree and checks it in CI.
+  Ready-made setups, kept as plain folders in [setups/](https://github.com/gateweavehq/agents/tree/v0.36.0/setups), are added to a workspace in one click,
+  and the [CLI](https://github.com/gateweavehq/agents/blob/v0.36.0/packages/cli) applies a setup to a working tree and checks it in CI.
 - **Read about the code.** A model writes a wiki of each repository, private ones included, with the
   workspace's own key: numbered pages that cite the lines they explain, steered by `.devin/wiki.json`
   as DeepWiki is. AI agents read it and ask it questions over MCP with DeepWiki's tools, signing in with
@@ -156,13 +156,15 @@ files, add the `SANDBOX` binding and the `containers` entry that the `staging` e
 `sandbox/Dockerfile`, and your Cloudflare account pays for the
 [Containers](https://developers.cloudflare.com/containers/) time; each workspace has at most three
 sandboxes at once, and each stops after 15 minutes without use. To offer them only to some
-workspaces, list their ids in `SANDBOX_WORKSPACES`, separated by commas. To cap what they cost, set
-`SANDBOX_DAILY_MINUTES` (each workspace's minutes per UTC day) and `SANDBOX_MONTHLY_BUDGET` (US
-dollars per UTC month for the whole server). The budget prices sandbox time at the most Cloudflare
-charges for its machine, about $0.074 an hour, so your bill comes in under it. Set
+workspaces, list their ids in `SANDBOX_WORKSPACES`, separated by commas. Sandbox limits are
+`SANDBOX_DAILY_MINUTES` (each workspace's minutes per UTC day), `SANDBOX_MONTHLY_MINUTES`
+(each workspace's minutes per UTC month), and `SANDBOX_MONTHLY_BUDGET` (US dollars per UTC month
+for the whole server). The budget prices sandbox time at the most Cloudflare charges for its
+machine, about $0.074 an hour, so your bill comes in under it. Set
 `SANDBOX_ALERT_EMAIL` as a secret to get an email at 80% and at 100% of the budget (this needs
-email, above). Turns that would go over a limit are refused with a message that says which one. An agent's sandbox can check out
-one of the workspace's repositories when the server is set up as a GitHub App (see above), and
+email, above). Once a limit is reached, new turns that need a sandbox are refused. An agent's
+sandbox can check out one of the workspace's repositories when the server is set up as a GitHub
+App (see above), and
 propose its work as a pull request. The Worker mints a token for that repository alone and adds it
 as the clone leaves, so the token never enters the sandbox. For the one push a pull request needs,
 it mints a token that writes, and only to the conversation's own branch. An agent can also take its
@@ -176,17 +178,19 @@ to their requests on the way out, so the key never enters the sandbox either.
 
 The button copies Agents to your GitHub or GitLab account, creates the database, and deploys it
 to your Cloudflare account; every push to your copy deploys again. From the command line, use
-`pnpm run deploy`. See [docs/self-hosting.md](/agents/self-hosting/) for the first deploy, every
+`pnpm run deploy`; [docs/quickstart.md](/agents/quickstart/) takes you from a fresh clone to an
+agent that answers a first message through Workers AI. See
+[docs/self-hosting.md](/agents/self-hosting/) for the first deploy, every
 setting, your own domain, email, sandboxes and their limits, and updating, and
 [docs/first-pull-request.md](/agents/first-pull-request/) for each step from the button to an
 agent's first pull request, with the plan and the accounts each one needs.
 
 ## Contributing
 
-Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.35.1/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.35.1/AGENTS.md). Run `pnpm verify` before you
+Read [CONTRIBUTING.md](https://github.com/gateweavehq/agents/blob/v0.36.0/CONTRIBUTING.md) and [AGENTS.md](https://github.com/gateweavehq/agents/blob/v0.36.0/AGENTS.md). Run `pnpm verify` before you
 open a pull request.
 
 ## License
 
-[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.35.1/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.35.1/CLA.md), which covers every Gateweave
+[AGPL-3.0](https://github.com/gateweavehq/agents/blob/v0.36.0/LICENSE). Contributions are made under the [CLA](https://github.com/gateweavehq/agents/blob/v0.36.0/CLA.md), which covers every Gateweave
 project.

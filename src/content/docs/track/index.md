@@ -4,9 +4,9 @@ description: "An open-source, realtime issue tracker that runs on one Cloudflare
 editUrl: "https://github.com/gateweavehq/track/edit/main/README.md"
 source:
   product: "Gateweave Track"
-  version: "v0.51.0"
-  updatedAt: "2026-11-19T22:03:10Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.51.0/README.md"
+  version: "v0.51.1"
+  updatedAt: "2026-11-26T22:59:45Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.51.1/README.md"
   markdownUrl: "/markdown/track/index.md"
 ---
 <p align="center">
@@ -147,6 +147,8 @@ on wherever `BETTER_AUTH_URL` is set (see [self-hosting](/track/self-hosting/#ai
 Locally, set it to `http://localhost:4710` in `.dev.vars` and connect to
 `http://localhost:4710/mcp`.
 
+Every tool, with what it takes, returns and needs, is on the [MCP reference](/track/mcp/) page.
+
 An agent that works on its own, such as a triage bot, should not act as you. An admin creates
 an agent member for it under Settings, Agents: it joins the workspace under its own name, can do
 what members do, and connects with a key instead of signing in:
@@ -192,7 +194,8 @@ pnpm run deploy    # builds, applies D1 migrations, deploys
 ```
 
 Use the Workers Paid plan, because a password sign-in takes more CPU than the Free plan gives a
-request. [docs/self-hosting.md](/track/self-hosting/) covers both ways, your own domain, AI agents,
+request. [docs/quickstart.md](/track/quickstart/) takes you from a fresh clone to a first issue on
+your own Cloudflare account. [docs/self-hosting.md](/track/self-hosting/) covers both ways, your own domain, AI agents,
 GitHub sign-in, email and updating.
 
 Gateweave Cloud deploys itself from GitHub Actions (`.github/workflows/deploy.yml`): every green
@@ -218,17 +221,17 @@ each release changed.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.51.0/CONTRIBUTING.md) and our
-[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.51.0/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
-[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.51.0/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
-Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.51.0/SECURITY.md).
+Contributions are welcome. See [CONTRIBUTING.md](https://github.com/gateweavehq/track/blob/v0.51.1/CONTRIBUTING.md) and our
+[Code of Conduct](https://github.com/gateweavehq/track/blob/v0.51.1/CODE_OF_CONDUCT.md). If you work with an AI coding agent, point it at
+[AGENTS.md](https://github.com/gateweavehq/track/blob/v0.51.1/AGENTS.md). Questions and ideas go to [GitHub Discussions](https://github.com/gateweavehq/track/discussions).
+Report security issues privately, as described in [SECURITY.md](https://github.com/gateweavehq/track/blob/v0.51.1/SECURITY.md).
 
 ## License
 
 Copyright © 2026 Yiğit Tanrıverdi.
 
-Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.51.0/LICENSE). You can
+Gateweave Track is licensed under the [GNU Affero General Public License v3.0](https://github.com/gateweavehq/track/blob/v0.51.1/LICENSE). You can
 self-host, use and modify Track freely. If you run a modified version as a network service, you must
 make your changes available to its users under the same license.
 
-Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.51.0/CLA.md).
+Contributions are accepted under the [Contributor License Agreement](https://github.com/gateweavehq/track/blob/v0.51.1/CLA.md).

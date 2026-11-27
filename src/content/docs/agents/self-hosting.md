@@ -3,9 +3,9 @@ title: "Self-hosting Agents"
 editUrl: "https://github.com/gateweavehq/agents/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Agents"
-  version: "v0.35.1"
-  updatedAt: "2026-11-26T15:23:55Z"
-  url: "https://github.com/gateweavehq/agents/blob/v0.35.1/docs/self-hosting.md"
+  version: "v0.36.0"
+  updatedAt: "2026-11-26T23:32:14Z"
+  url: "https://github.com/gateweavehq/agents/blob/v0.36.0/docs/self-hosting.md"
   markdownUrl: "/markdown/agents/self-hosting.md"
 ---
 Agents runs on your own Cloudflare account as one Worker. It uses:
@@ -69,7 +69,8 @@ file unless you want them, and close what it opened.
 
 ## Deploy from the command line
 
-Requirements: Node.js 24 (22+ works) and pnpm 12.
+Requirements: Node.js 24 (22+ works) and pnpm 12. [The quickstart](/agents/quickstart/) walks through
+these steps and on to an agent's first answer through Workers AI.
 
 ```sh
 git clone https://github.com/gateweavehq/agents.git
@@ -200,6 +201,7 @@ after updating.
 | `WORKERS_AI_DAILY_DOLLARS`    | US dollars each workspace may spend on Workers AI in a day (UTC), at its list prices.                                                                                     |
 | `SANDBOX_WORKSPACES`          | The ids of the workspaces that may use sandboxes, separated by commas. Every workspace when unset.                                                                        |
 | `SANDBOX_DAILY_MINUTES`       | Minutes of sandbox time each workspace may use in a day (UTC).                                                                                                            |
+| `SANDBOX_MONTHLY_MINUTES`     | Minutes of sandbox time each workspace may use in a month (UTC). Unset or empty leaves it unlimited.                                                                      |
 | `SANDBOX_MONTHLY_BUDGET`      | US dollars the server may spend on sandboxes in a month (UTC).                                                                                                            |
 | `SANDBOX_ALERT_EMAIL`         | Who hears when sandboxes have spent 80% and then all of the monthly budget. Needs email.                                                                                  |
 | `INVITATION_CONTACT`          | Where a workspace asks for an invitation to Workers AI or sandboxes: an email address or an https URL. Settings > Models links to it. Keep an address as a secret.        |
@@ -427,6 +429,10 @@ bill in hand:
   follow-up turn within them reuses its checkout and installed packages, and after them the next
   turn pays for them again.
 - `SANDBOX_DAILY_MINUTES` limits each workspace's minutes per day.
+- `SANDBOX_MONTHLY_MINUTES` limits each workspace's sandbox time per UTC month, including the idle
+  time before each sandbox stops. At the cap, new turns that need a sandbox are refused and the
+  message names the reset date. Running turns can finish. With email configured, the workspace's
+  owners hear at 80% and 100%, once per threshold each month.
 - `SANDBOX_MONTHLY_BUDGET` limits the server's spending per month. Agents prices sandbox time at
   the most it can cost, so Cloudflare's bill stays under the budget. Set `SANDBOX_ALERT_EMAIL` to
   hear at 80% and at 100%.
@@ -442,10 +448,10 @@ when one fails and what the section **Checks run by Gateweave** near the end of 
 means.
 
 A command may run for 10 minutes, the checks of one pull request call for 20 and those of one run
-for 40. That time is sandbox time like any other: it counts toward `SANDBOX_DAILY_MINUTES` and
-`SANDBOX_MONTHLY_BUDGET`, which still decide whether a run starts at all. A repository without
-checks uses none of it. The commands run with the sandbox's network: package registries and the
-repository itself, nothing else.
+for 40. That time counts toward `SANDBOX_DAILY_MINUTES`, `SANDBOX_MONTHLY_MINUTES` and
+`SANDBOX_MONTHLY_BUDGET`, which decide whether a run starts. A repository without checks uses none
+of it. The commands run with the sandbox's network: package registries and the repository itself,
+nothing else.
 
 The update that adds checks changes each workspace's registry by itself when the workspace is
 next used (one column, empty for every repository). Nothing is to be done by hand.

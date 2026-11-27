@@ -8,6 +8,10 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 
 ## Gateweave Track
 
+- 2026-11-27 · [v0.51.1](https://github.com/gateweavehq/track/releases/tag/v0.51.1)
+
+  No migration, variable or secret. Deploy as usual.
+
 - 2026-11-26 · [v0.51.0](https://github.com/gateweavehq/track/releases/tag/v0.51.0)
 
   - **The protocol stays at 31.** Open tabs keep their copy.
@@ -37,17 +41,19 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
   - **Nothing to do.** There is no protocol, migration or setting change, and rolling back to
     0.47.1 only takes the row and the lookup away.
 
-- 2026-11-25 · [v0.47.1](https://github.com/gateweavehq/track/releases/tag/v0.47.1)
-
-  - **The protocol goes from 29 to 30.** Open tabs reload and sync again.
-  - **Two workspace migrations** (`0037` and `0038`) run on their own when each workspace wakes.
-    They add the attempt number to signals and fill it in for attempts claimed before.
-  - **Rolling back to 0.47.0** works, since it ignores the new column. Attempts claimed meanwhile
-    keep going by their ID after you update again.
-
 [Full Gateweave Track changelog](/track/changelog/)
 
 ## Gateweave Agents
+
+- 2026-11-27 · [v0.36.0](https://github.com/gateweavehq/agents/releases/tag/v0.36.0)
+
+  - **Update.** There is no migration, in D1 or in the workspace registry. The registry records
+    each sandbox-minutes alert it sends in its Durable Object's key-value storage, so that each
+    goes out once a month.
+  - **`SANDBOX_MONTHLY_MINUTES`** is optional. Unset or empty, a workspace has no monthly cap. A
+    number of zero or more sets the minutes; any other value, such as a negative number or a word,
+    allows none. "Sandboxes" in `docs/self-hosting.md` describes it, and the Settings table in the
+    same file lists it.
 
 - 2026-11-26 · [v0.35.1](https://github.com/gateweavehq/agents/releases/tag/v0.35.1)
 
@@ -89,10 +95,6 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
     run; a copy it could not erase is tried again the day after. A deployment that never
     moved its objects into a jurisdiction has nothing to erase.
 
-- 2026-11-19 · [v0.32.0](https://github.com/gateweavehq/agents/releases/tag/v0.32.0)
-
-  - **Update.** Nothing else to do: no migration, variable or secret.
-
 [Full Gateweave Agents changelog](/agents/changelog/)
 
 ## Gateweave ID
@@ -128,6 +130,10 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 
 ## Gateweave Mail
 
+- 2026-11-27 · [v0.4.1](https://github.com/gateweavehq/mail/releases/tag/v0.4.1)
+
+  No migration, variable or secret. Deploy as usual.
+
 - 2026-11-20 · [v0.4.0](https://github.com/gateweavehq/mail/releases/tag/v0.4.0)
 
   - **Update.** Two D1 migrations (`0027_agent_any_recipient`, `0028_agent_webhook_hosts`), which
@@ -151,13 +157,6 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 - 2026-11-19 · [v0.2.1](https://github.com/gateweavehq/mail/releases/tag/v0.2.1)
 
   No migration, variable or secret. Deploy as usual.
-
-- 2026-11-18 · [v0.2.0](https://github.com/gateweavehq/mail/releases/tag/v0.2.0)
-
-  - One D1 migration (`0026_agent_policy_approval.sql`, a nullable column), which `pnpm run deploy`
-    applies before the new code goes live. No new setting.
-  - The `send_email`, `reply` and `send_template` operations answer "sent" or "held" as before; the
-    skill in the Claude Code plugin says what becomes of a message under each policy.
 
 [Full Gateweave Mail changelog](/mail/changelog/)
 

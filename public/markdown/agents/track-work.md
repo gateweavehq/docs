@@ -196,7 +196,7 @@ comments continue the work, open the agent's page, edit its trigger under **Trig
 `comment.created` to **Events**, tick **One conversation per issue**, and make the prompt fit any
 event, such as `Track sent {{type}} for the issue {{data.issue.key}}. It is assigned to you: work
 on it as your instructions say.` Then add **Comment added** to the webhook's events in Track, and
-bring the `Track issue work` instructions up to date from [the current ones](https://github.com/gateweavehq/agents/blob/v0.35.1/apps/web/src/server/track-work.md).
+bring the `Track issue work` instructions up to date from [the current ones](https://github.com/gateweavehq/agents/blob/v0.36.0/apps/web/src/server/track-work.md).
 
 ## When it does not work
 

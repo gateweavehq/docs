@@ -3,9 +3,9 @@ title: "Self-hosting Track"
 editUrl: "https://github.com/gateweavehq/track/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Track"
-  version: "v0.51.0"
-  updatedAt: "2026-11-20T16:23:22Z"
-  url: "https://github.com/gateweavehq/track/blob/v0.51.0/docs/self-hosting.md"
+  version: "v0.51.1"
+  updatedAt: "2026-11-26T22:59:45Z"
+  url: "https://github.com/gateweavehq/track/blob/v0.51.1/docs/self-hosting.md"
   markdownUrl: "/markdown/track/self-hosting.md"
 ---
 Track runs on your own Cloudflare account as one Worker, with a D1 database for accounts and the
@@ -64,6 +64,8 @@ file unless you want them, and close what it opened.
 ## Deploy from the command line
 
 Requirements: Node.js 24 (22+ works) and pnpm 12.
+
+[Quickstart](/track/quickstart/) walks through this to a first issue, one step at a time.
 
 ```sh
 git clone https://github.com/gateweavehq/track.git
