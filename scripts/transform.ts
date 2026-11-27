@@ -221,7 +221,7 @@ function renderNextCards(markdown: string, titles?: ReadonlyMap<string, string>)
 	const end = list.position?.end.offset;
 	if (start === undefined || end === undefined) return markdown;
 
-	const cards = ['<div class="link-cards">'];
+	const cards = ['<ul class="link-cards">'];
 	for (const item of list.children) {
 		const [paragraph] = item.children;
 		if (item.checked != null || item.children.length !== 1 || paragraph?.type !== "paragraph") {
@@ -251,14 +251,13 @@ function renderNextCards(markdown: string, titles?: ReadonlyMap<string, string>)
 			.trim()
 			.replace(/^[:–—-]\s*/, "")
 			.replace(/^\p{L}/u, (letter) => letter.toUpperCase());
-		cards.push(
-			`<a class="link-card" href="${escapeHtml(link.url)}">`,
-			`<span class="link-card-title">${escapeHtml(title)}</span>`,
-		);
-		if (description) cards.push(`<span class="link-card-description">${description}</span>`);
-		cards.push("</a>");
+		const titleLink = `<a class="link-card-title" href="${escapeHtml(link.url)}">${escapeHtml(title)}</a>`;
+		const descriptionHtml = description
+			? `<span class="sr-only">: </span><span class="link-card-description">${description}</span>`
+			: "";
+		cards.push('<li class="link-card">', titleLink + descriptionHtml, "</li>");
 	}
-	cards.push("</div>");
+	cards.push("</ul>");
 	return markdown.slice(0, start) + cards.join("\n") + markdown.slice(end);
 }
 

@@ -1,5 +1,12 @@
 import { existsSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+// Use the same pnpm-hoisted packages as Astro and starlight-llms-txt.
+import { satteri } from "../node_modules/.pnpm/node_modules/@astrojs/markdown-satteri/dist/index.js";
+import rehypeParse from "../node_modules/.pnpm/node_modules/rehype-parse/index.js";
+import rehypeRemark from "../node_modules/.pnpm/node_modules/rehype-remark/index.js";
+import remarkGfm from "../node_modules/.pnpm/node_modules/remark-gfm/index.js";
+import remarkStringify from "../node_modules/.pnpm/node_modules/remark-stringify/index.js";
+import { unified } from "../node_modules/.pnpm/node_modules/unified/index.js";
 import { entryPoints, entryPointsMarkdown, llmsNotes } from "./products.ts";
 import {
 	type Context,
@@ -220,6 +227,10 @@ describe("pages", () => {
 describe("Next cards", () => {
 	const repository = { ...track, pages: new Set([...track.pages, "docs/mcp.md"]) };
 	const context = at("docs/quickstart.md", repository);
+	const pageTitles = new Map([
+		["/track/self-hosting/", "Self-hosting Track"],
+		["/track/mcp/", "MCP reference"],
+	]);
 	const next = [
 		"## Next",
 		"",
@@ -236,10 +247,7 @@ describe("Next cards", () => {
 	it.each([
 		{
 			name: "with page titles",
-			titles: new Map([
-				["/track/self-hosting/", "Self-hosting Track"],
-				["/track/mcp/", "MCP reference"],
-			]),
+			titles: pageTitles,
 			selfHostingTitle: "Self-hosting Track",
 			mcpTitle: "MCP reference",
 		},
@@ -255,20 +263,42 @@ describe("Next cards", () => {
 			[
 				"## Next",
 				"",
-				'<div class="link-cards">',
-				'<a class="link-card" href="/track/self-hosting/">',
-				`<span class="link-card-title">${selfHostingTitle}</span>`,
-				'<span class="link-card-description">Your own domain, GitHub or single sign-on, email, who may sign up, updating and backups.</span>',
-				"</a>",
-				'<a class="link-card" href="/track/mcp/">',
-				`<span class="link-card-title">${mcpTitle}</span>`,
-				'<span class="link-card-description">Connect an AI agent to your Track, once <code>BETTER_AUTH_URL</code> names your address.</span>',
-				"</a>",
-				"</div>",
+				'<ul class="link-cards">',
+				'<li class="link-card">',
+				`<a class="link-card-title" href="/track/self-hosting/">${selfHostingTitle}</a>` +
+					'<span class="sr-only">: </span><span class="link-card-description">Your own domain, GitHub or single sign-on, email, who may sign up, updating and backups.</span>',
+				"</li>",
+				'<li class="link-card">',
+				`<a class="link-card-title" href="/track/mcp/">${mcpTitle}</a>` +
+					'<span class="sr-only">: </span><span class="link-card-description">Connect an AI agent to your Track, once <code>BETTER_AUTH_URL</code> names your address.</span>',
+				"</li>",
+				"</ul>",
 				"",
 			].join("\n"),
 		);
 		expect(page.markdown).toBe(withSiteLinks(next));
+	});
+
+	it("converts Next cards to separate llms Markdown bullets with inline code", async () => {
+		const page = convert(`# Quickstart\n\n${next}`, { ...context, titles: pageTitles }, "fallback");
+		const renderer = await satteri().createRenderer({});
+		const { code: html } = await renderer.render(page.body);
+		const markdown = await unified()
+			.use(rehypeParse, { fragment: true })
+			.use(rehypeRemark)
+			.use(remarkGfm)
+			.use(remarkStringify)
+			.process(html);
+
+		expect(String(markdown)).toBe(
+			[
+				"## Next",
+				"",
+				"* [Self-hosting Track](/track/self-hosting/): Your own domain, GitHub or single sign-on, email, who may sign up, updating and backups.",
+				"* [MCP reference](/track/mcp/): Connect an AI agent to your Track, once `BETTER_AUTH_URL` names your address.",
+				"",
+			].join("\n"),
+		);
 	});
 
 	it("handles an ordered list, anchors, explicit labels, and escaped text", () => {
@@ -292,15 +322,15 @@ describe("Next cards", () => {
 			[
 				"## Next",
 				"",
-				'<div class="link-cards">',
-				'<a class="link-card" href="/track/mcp/#tools&amp;more">',
-				'<span class="link-card-title">MCP &amp; &quot;tools&quot;</span>',
-				'<span class="link-card-description">Read &amp; &quot;try&quot; &lt;tools&gt; with <code>x &lt; y</code>.</span>',
-				"</a>",
-				'<a class="link-card" href="/track/architecture/">',
-				'<span class="link-card-title">Architecture &amp; &quot;details&quot;</span>',
-				"</a>",
-				"</div>",
+				'<ul class="link-cards">',
+				'<li class="link-card">',
+				'<a class="link-card-title" href="/track/mcp/#tools&amp;more">MCP &amp; &quot;tools&quot;</a>' +
+					'<span class="sr-only">: </span><span class="link-card-description">Read &amp; &quot;try&quot; &lt;tools&gt; with <code>x &lt; y</code>.</span>',
+				"</li>",
+				'<li class="link-card">',
+				'<a class="link-card-title" href="/track/architecture/">Architecture &amp; &quot;details&quot;</a>',
+				"</li>",
+				"</ul>",
 				"",
 			].join("\n"),
 		);

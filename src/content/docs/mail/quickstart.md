@@ -363,13 +363,11 @@ sending are in [self-hosting.md](/mail/self-hosting/).
 
 ## Next
 
-<div class="link-cards">
-<a class="link-card" href="/mail/self-hosting/">
-<span class="link-card-title">Self-hosting Mail</span>
-<span class="link-card-description">Receiving with Email Routing (&quot;Getting a domain's mail to the Worker&quot;) and sending with Email Service (&quot;Email&quot;), then your own domain, sign-in providers and updating.</span>
-</a>
-<a class="link-card" href="/mail/mcp/">
-<span class="link-card-title">MCP and HTTP reference</span>
-<span class="link-card-description">Connect an AI agent to your Mail, with an agent's key from Settings › Agents.</span>
-</a>
-</div>
+<ul class="link-cards">
+<li class="link-card">
+<a class="link-card-title" href="/mail/self-hosting/">Self-hosting Mail</a><span class="sr-only">: </span><span class="link-card-description">Receiving with Email Routing (&quot;Getting a domain's mail to the Worker&quot;) and sending with Email Service (&quot;Email&quot;), then your own domain, sign-in providers and updating.</span>
+</li>
+<li class="link-card">
+<a class="link-card-title" href="/mail/mcp/">MCP and HTTP reference</a><span class="sr-only">: </span><span class="link-card-description">Connect an AI agent to your Mail, with an agent's key from Settings › Agents.</span>
+</li>
+</ul>

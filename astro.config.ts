@@ -62,6 +62,8 @@ export default defineConfig({
 					// up most of the text, stay in llms-full.txt and in each product's own file. The matcher
 					// is anchored, so the root "What's new" page needs its own entry.
 					exclude: ["changelog", "*/changelog", "*/architecture"],
+					// Preserve the line breaks that separate Markdown list items.
+					minify: { whitespace: false },
 					customSets: [
 						...products.map((p) => ({
 							label: p.name,

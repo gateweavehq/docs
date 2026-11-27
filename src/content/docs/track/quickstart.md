@@ -212,13 +212,11 @@ This is the shortest path: no custom domain, no sign-in provider and no email. T
 
 ## Next
 
-<div class="link-cards">
-<a class="link-card" href="/track/self-hosting/">
-<span class="link-card-title">Self-hosting Track</span>
-<span class="link-card-description">Your own domain, GitHub or single sign-on, email, who may sign up, updating and backups.</span>
-</a>
-<a class="link-card" href="/track/mcp/">
-<span class="link-card-title">MCP reference</span>
-<span class="link-card-description">Connect an AI agent to your Track, once <code>BETTER_AUTH_URL</code> names your address.</span>
-</a>
-</div>
+<ul class="link-cards">
+<li class="link-card">
+<a class="link-card-title" href="/track/self-hosting/">Self-hosting Track</a><span class="sr-only">: </span><span class="link-card-description">Your own domain, GitHub or single sign-on, email, who may sign up, updating and backups.</span>
+</li>
+<li class="link-card">
+<a class="link-card-title" href="/track/mcp/">MCP reference</a><span class="sr-only">: </span><span class="link-card-description">Connect an AI agent to your Track, once <code>BETTER_AUTH_URL</code> names your address.</span>
+</li>
+</ul>

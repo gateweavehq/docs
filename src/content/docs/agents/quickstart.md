@@ -348,13 +348,11 @@ model](/agents/self-hosting/#when-cloudflare-removes-a-workers-ai-model) has the
 
 ## Next
 
-<div class="link-cards">
-<a class="link-card" href="/agents/first-pull-request/">
-<span class="link-card-title">From zero to a first pull request</span>
-<span class="link-card-description">The longer route, from here to an agent that opens a pull request, with the plan and the accounts each step needs.</span>
-</a>
-<a class="link-card" href="/agents/self-hosting/">
-<span class="link-card-title">Self-hosting Agents</span>
-<span class="link-card-description">Your own domain, sign-in providers, email, who may sign up, sandboxes, updating and backups.</span>
-</a>
-</div>
+<ul class="link-cards">
+<li class="link-card">
+<a class="link-card-title" href="/agents/first-pull-request/">From zero to a first pull request</a><span class="sr-only">: </span><span class="link-card-description">The longer route, from here to an agent that opens a pull request, with the plan and the accounts each step needs.</span>
+</li>
+<li class="link-card">
+<a class="link-card-title" href="/agents/self-hosting/">Self-hosting Agents</a><span class="sr-only">: </span><span class="link-card-description">Your own domain, sign-in providers, email, who may sign up, sandboxes, updating and backups.</span>
+</li>
+</ul>
