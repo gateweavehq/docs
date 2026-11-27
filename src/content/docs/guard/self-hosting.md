@@ -3,9 +3,9 @@ title: "Self-hosting Guard"
 editUrl: "https://github.com/gateweavehq/guard/edit/main/docs/self-hosting.md"
 source:
   product: "Gateweave Guard"
-  version: "v0.6.1"
-  updatedAt: "2026-11-20T17:29:50Z"
-  url: "https://github.com/gateweavehq/guard/blob/v0.6.1/docs/self-hosting.md"
+  version: "v0.6.2"
+  updatedAt: "2026-11-26T20:53:15Z"
+  url: "https://github.com/gateweavehq/guard/blob/v0.6.2/docs/self-hosting.md"
   markdownUrl: "/markdown/guard/self-hosting.md"
 ---
 Gateweave Guard runs on your own Cloudflare account as one Worker. It is early: today it has
@@ -169,8 +169,8 @@ assistants you allowed, each with a Take back button that ends its access at onc
 The assistant acts as the person who allowed it, in every workspace they belong to, and can do what
 the Findings and Traffic pages let that person do: read findings, and for an owner or admin dismiss
 one and start a scan. What it reads goes to the assistant, so connect only ones you trust. It never
-sees a connection's token. There are no keys for jobs with no browser yet. See "MCP" in
-[architecture.md](/guard/architecture/).
+sees a connection's token. There are no keys for jobs with no browser yet. The tools and what each
+needs are in [mcp.md](/guard/mcp/); for how it is built, see "MCP" in [architecture.md](/guard/architecture/).
 
 ### Connections and SECRETS_KEY
 
@@ -204,9 +204,10 @@ an admin can delete it.
 
 For an older Track, use the paste field. Make a source in Track's Settings > Sources for each Guard connection.
 Choose product `guard`, the destination team and a lowest severity (Track defaults to high). Add
-the exact Guard origin shown in Guard's Track settings to the source's link origins. Leave
-"close when cleared" off unless fixed findings should complete their issue. For a repository,
-you can set an assignee in Track.
+the exact Guard origin shown in Guard's Track settings to the source's link origins. Turn on
+"close when cleared", as Connect Track does: Guard clears a finding only after a complete scan,
+Track then completes its issue only if nobody has started it, and a finding that comes back
+reopens the issue. For a repository, you can set an assignee in Track.
 
 Paste the source key beside the corresponding connection in Guard's Track settings. Enter the
 Track HTTPS origin on first setup. Guard seals the key under `SECRETS_KEY`. Switching a workspace

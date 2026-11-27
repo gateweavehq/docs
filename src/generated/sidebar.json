@@ -304,6 +304,10 @@
 					{
 						"label": "Self-hosting",
 						"slug": "guard/self-hosting"
+					},
+					{
+						"label": "MCP",
+						"slug": "guard/mcp"
 					}
 				]
 			},

@@ -28,6 +28,13 @@
 		<summary type="text">No migration, variable or secret. Deploy as usual.</summary>
 	</entry>
 	<entry>
+		<id>https://github.com/gateweavehq/guard/releases/tag/v0.6.2</id>
+		<title>Gateweave Guard 0.6.2</title>
+		<updated>2026-11-27T00:00:00Z</updated>
+		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/guard/releases/tag/v0.6.2"/>
+		<summary type="text">No migration, variable or secret. Deploy as usual, with pnpm install first so the new dependency versions are installed. The dependency updates in #45 change no setting you made. Nothing in the diff adds or renames a binding, a variable or a secret. #49 makes Gateweave's own CI read the Cloudflare account id from a secret instead of a variable. It changes only that workflow, so a self-hosted copy needs nothing for it.</summary>
+	</entry>
+	<entry>
 		<id>https://github.com/gateweavehq/track/releases/tag/v0.51.0</id>
 		<title>Gateweave Track 0.51.0</title>
 		<updated>2026-11-26T00:00:00Z</updated>
@@ -145,13 +152,6 @@
 		<updated>2026-11-19T00:00:00Z</updated>
 		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/guard/releases/tag/v0.4.1"/>
 		<summary type="text">No migration, variable or secret. Deploy as usual.</summary>
-	</entry>
-	<entry>
-		<id>https://github.com/gateweavehq/guard/releases/tag/v0.4.0</id>
-		<title>Gateweave Guard 0.4.0</title>
-		<updated>2026-11-19T00:00:00Z</updated>
-		<link rel="alternate" type="text/html" href="https://github.com/gateweavehq/guard/releases/tag/v0.4.0"/>
-		<summary type="text">Update. No migration, variable or secret is needed. A copy made with the Deploy button can take this release with the commands under &quot;Updating&quot; in docs/self-hosting.md. They run the script from Guard's repository, so the copy does not need it first.</summary>
 	</entry>
 	<entry>
 		<id>https://github.com/gateweavehq/id/releases/tag/v0.16.2</id>

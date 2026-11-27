@@ -162,6 +162,16 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 
 ## Gateweave Guard
 
+- 2026-11-27 · [v0.6.2](https://github.com/gateweavehq/guard/releases/tag/v0.6.2)
+
+  - No migration, variable or secret. Deploy as usual, with `pnpm install` first so the new
+    dependency versions are installed.
+  - The dependency updates in [#45](https://github.com/gateweavehq/guard/pull/45) change no setting
+    you made. Nothing in the diff adds or renames a binding, a variable or a secret.
+  - [#49](https://github.com/gateweavehq/guard/pull/49) makes Gateweave's own CI read the Cloudflare
+    account id from a secret instead of a variable. It changes only that workflow, so a self-hosted
+    copy needs nothing for it.
+
 - 2026-11-20 · [v0.6.1](https://github.com/gateweavehq/guard/releases/tag/v0.6.1)
 
   No migration, variable or secret. Deploy as usual. The hourly run logs `reports:` with how many
@@ -184,13 +194,6 @@ The latest 5 releases of each Gateweave product, newest first. Under a release, 
 - 2026-11-19 · [v0.4.1](https://github.com/gateweavehq/guard/releases/tag/v0.4.1)
 
   No migration, variable or secret. Deploy as usual.
-
-- 2026-11-19 · [v0.4.0](https://github.com/gateweavehq/guard/releases/tag/v0.4.0)
-
-  - **Update.** No migration, variable or secret is needed.
-  - **A copy made with the Deploy button** can take this release with the commands under
-    "Updating" in `docs/self-hosting.md`. They run the script from Guard's repository, so the copy
-    does not need it first.
 
 [Full Gateweave Guard changelog](/guard/changelog/)
 

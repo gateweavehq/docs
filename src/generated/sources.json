@@ -32,7 +32,7 @@
 		"name": "Gateweave Guard",
 		"summary": "See Cloudflare and repository security findings in one place, then connect them to Track issues and Agents fixes.",
 		"repo": "gateweavehq/guard",
-		"version": "v0.6.1"
+		"version": "v0.6.2"
 	},
 	{
 		"key": "backup",

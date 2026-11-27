@@ -3,9 +3,9 @@ title: "Guard architecture"
 editUrl: "https://github.com/gateweavehq/guard/edit/main/docs/architecture.md"
 source:
   product: "Gateweave Guard"
-  version: "v0.6.1"
+  version: "v0.6.2"
   updatedAt: "2026-11-20T17:29:50Z"
-  url: "https://github.com/gateweavehq/guard/blob/v0.6.1/docs/architecture.md"
+  url: "https://github.com/gateweavehq/guard/blob/v0.6.2/docs/architecture.md"
   markdownUrl: "/markdown/guard/architecture.md"
 ---
 How Gateweave Guard is built today, and the shape it is planned to take. This file changes with
