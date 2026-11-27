@@ -304,7 +304,12 @@
 					{
 						"label": "Self-hosting",
 						"slug": "guard/self-hosting"
-					},
+					}
+				]
+			},
+			{
+				"label": "Reference",
+				"items": [
 					{
 						"label": "MCP",
 						"slug": "guard/mcp"
