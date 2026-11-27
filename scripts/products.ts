@@ -110,6 +110,7 @@ export const products: Product[] = [
 		groups: {
 			concepts: ["architecture"],
 			guides: ["self-hosting"],
+			reference: ["mcp"],
 		},
 	},
 	{
