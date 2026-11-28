@@ -13,7 +13,12 @@ export default defineConfig({
 	trailingSlash: "always",
 	integrations: [
 		// Before Starlight, so its code blocks reach the page as diagrams.
-		mermaid({ autoTheme: true, enableLog: false }),
+		// Dagre keeps flowcharts from downloading Mermaid 12's default ELK layout.
+		mermaid({
+			autoTheme: true,
+			enableLog: false,
+			mermaidConfig: { layout: "dagre", flowchart: { useMaxWidth: false } },
+		}),
 		starlight({
 			title: "Gateweave Docs",
 			description:

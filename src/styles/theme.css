@@ -22,6 +22,17 @@
 	border: 1px solid var(--sl-color-hairline);
 }
 
+/* Center diagrams that fit. Keep the full chart reachable from the left edge when it scrolls. */
+.sl-markdown-content pre.mermaid:has(> svg) {
+	justify-content: safe center;
+}
+
+/* A flowchart with a numeric width keeps its labels at the size Mermaid drew them. */
+.sl-markdown-content pre.mermaid > svg[width]:not([width$="%"]) {
+	flex: none;
+	max-width: none;
+}
+
 .sl-markdown-content ul.link-cards {
 	display: grid;
 	grid-template-columns: minmax(0, 1fr);
