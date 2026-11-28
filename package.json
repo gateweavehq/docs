@@ -16,7 +16,8 @@
 		"check": "biome check && astro check",
 		"format": "biome check --write",
 		"test": "vitest run",
-		"verify": "pnpm check && pnpm test && pnpm build"
+		"test:built": "node scripts/check-llms.ts",
+		"verify": "pnpm check && pnpm test && pnpm build && pnpm test:built"
 	},
 	"dependencies": {
 		"@astrojs/starlight": "0.43.1",
