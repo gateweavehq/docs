@@ -33,6 +33,32 @@ function contentLabels(key: string): Map<string, string> {
 	return labels;
 }
 
+// Content frontmatter holds display titles; the sidebar keeps their shorter source titles.
+function sidebarTitle(title: string, key: string): string {
+	const product = products.find((product) => product.key === key);
+	const short = product?.name.replace(/^Gateweave /, "");
+	for (const name of ["architecture", "changelog", "roadmap"] as const) {
+		if (title === `${short} ${name}`) return name.charAt(0).toUpperCase() + name.slice(1);
+	}
+	return title === `Self-hosting ${short}` ? "Self-hosting" : title;
+}
+
+function contentTitles(key: string): Map<string, string> {
+	const contentDir = join(import.meta.dirname, "../src/content/docs", key);
+	const labels = new Map<string, string>();
+	for (const file of readdirSync(contentDir, { recursive: true, withFileTypes: true })) {
+		if (!file.isFile() || !file.name.endsWith(".md")) continue;
+		const path = relative(contentDir, join(file.parentPath, file.name)).split(sep).join("/");
+		const slug = path === "index.md" ? "" : path.slice(0, -".md".length);
+		const source = readFileSync(join(file.parentPath, file.name), "utf8");
+		const title = source.match(/^title: (".*")$/m);
+		const rawTitle = title?.[1];
+		if (!rawTitle) throw new Error(`${key}/${path} has no frontmatter title`);
+		labels.set(slug, sidebarTitle(JSON.parse(rawTitle), key));
+	}
+	return labels;
+}
+
 describe("sidebarFor", () => {
 	it("orders the groups and places unlisted pages after the listed Guides", () => {
 		const labels = new Map([
@@ -183,4 +209,15 @@ it("puts Overview and any Quickstart directly in each generated product group", 
 			name,
 		).toEqual(directLinks);
 	}
+});
+
+it("matches the sidebar committed in src/generated", () => {
+	const path = new URL("../src/generated/sidebar.json", import.meta.url);
+	const committed = JSON.parse(readFileSync(path, "utf8")) as SidebarGroup[];
+	const rebuilt = products.map((product) => sidebarFor(product, contentTitles(product.key)));
+
+	expect(
+		committed,
+		"src/generated/sidebar.json is stale; regenerate it with `pnpm sync` and commit the result",
+	).toEqual(rebuilt);
 });
