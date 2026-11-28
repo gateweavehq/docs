@@ -30,16 +30,20 @@ export function sidebarFor(product: Product, labels: Map<string, string>): Sideb
 		["reference", reference],
 	] as const) {
 		for (const entry of product.groups[key] ?? []) {
-			if (slugs.includes(entry)) {
+			const hasPage = slugs.includes(entry);
+			const inside = slugs.filter((slug) => slug.startsWith(`${entry}/`));
+			if (hasPage && inside.length === 0) {
 				if (remaining.delete(entry)) group.items.push(link(entry));
 				continue;
 			}
-			const inside = slugs.filter((slug) => slug.startsWith(`${entry}/`));
-			if (inside.length === 0) {
+			if (!hasPage && inside.length === 0) {
 				console.warn(`${product.key}: no page "${entry}"`);
 				continue;
 			}
-			const nestedItems = inside.filter((slug) => remaining.delete(slug)).map(link);
+			const nestedItems = [
+				...(hasPage && remaining.delete(entry) ? [link(entry)] : []),
+				...inside.filter((slug) => remaining.delete(slug)).map(link),
+			];
 			const label = entry.charAt(0).toUpperCase() + entry.slice(1);
 			if (nestedItems.length > 0) group.items.push({ label, items: nestedItems });
 		}

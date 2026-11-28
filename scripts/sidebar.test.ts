@@ -75,6 +75,37 @@ describe("sidebarFor", () => {
 		);
 	});
 
+	it("nests pages under a page that is also a directory", () => {
+		const labels = new Map([
+			["", "Example home"],
+			["architecture", "Architecture"],
+			["start", "Get started"],
+			["recipes", "Recipes"],
+			["recipes/gitea", "Using Gitea"],
+			["recipes/outline", "Outline"],
+			["format", "File format"],
+		]);
+		using warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+		const { items } = sidebarFor(example, labels);
+		const guides = items.find((item) => "items" in item && item.label === "Guides");
+		expect(guides).toEqual({
+			label: "Guides",
+			items: [
+				{ label: "Get started", slug: "example/start" },
+				{
+					label: "Recipes",
+					items: [
+						{ label: "Recipes", slug: "example/recipes" },
+						{ label: "Gitea", slug: "example/recipes/gitea" },
+						{ label: "Outline", slug: "example/recipes/outline" },
+					],
+				},
+			],
+		});
+		expect(warn).not.toHaveBeenCalled();
+	});
+
 	it("places an unlisted quickstart directly after Overview without warning", () => {
 		const labels = new Map([
 			["", "Example home"],
