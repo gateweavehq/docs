@@ -16,6 +16,12 @@ work with.
   not dropped: they come back for discussion once about 25 people have had a pull request merged
   within 90 days.
 
+## Thanks in release notes
+
+A maintainer ends a release-note entry for a merged outside pull request with `thanks @login`.
+This is only a thank-you: there are no totals or rankings. To opt out, say so on the pull request
+and the maintainer leaves the mention out.
+
 ## Red lines
 
 - Nothing that grants standing, rank, review or merge is for sale.
