@@ -1,6 +1,7 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig } from "astro/config";
 import mermaid from "astro-mermaid";
+import starlightLinksValidator from "starlight-links-validator";
 import starlightLlmsTxt from "starlight-llms-txt";
 import { entryPointsMarkdown, llmsNotes } from "./scripts/products.ts";
 import sidebar from "./src/generated/sidebar.json" with { type: "json" };
@@ -54,6 +55,7 @@ export default defineConfig({
 			lastUpdated: false,
 			pagination: true,
 			plugins: [
+				starlightLinksValidator(),
 				starlightLlmsTxt({
 					projectName: "Gateweave",
 					description:

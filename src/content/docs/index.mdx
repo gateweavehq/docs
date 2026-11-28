@@ -20,54 +20,114 @@ import { Card, CardGrid } from "@astrojs/starlight/components";
 import AgentPrompt from "../../components/AgentPrompt.astro";
 import products from "../../generated/sources.json";
 
-export const paths = {
-	track: {
-		start: "/track/#getting-started",
-		selfHost: "/track/self-hosting/",
-		mcp: "/track/#connect-an-ai-agent",
-	},
-	agents: {
-		start: "/agents/#getting-started",
-		selfHost: "/agents/self-hosting/",
-	},
-	id: {
-		start: "/id/#running-it-locally",
-		selfHost: "/id/self-hosting/",
-	},
-	mail: {
-		start: "/mail/#getting-started",
-		selfHost: "/mail/self-hosting/",
-		mcp: "/mail/#connect-an-agent",
-	},
-	guard: {
-		start: "/guard/self-hosting/#deploy-with-the-button",
-		selfHost: "/guard/self-hosting/",
-		mcp: "/guard/self-hosting/#connect-an-ai-assistant",
-	},
-	backup: {
-		start: "/backup/#quick-start",
-		selfHost: "/backup/deploy/",
-	},
-};
+export function product(key) {
+	const found = products.find((product) => product.key === key);
+	if (!found) throw new Error(`The sync does not know ${key}`);
+	return found;
+}
+
+export function versioned(key) {
+	const found = product(key);
+	return `${found.summary} ${found.version === "main" ? "Not released yet." : `Version ${found.version}.`}`;
+}
 
 ## Products
 
+{/* The anchor elements stay on their own lines: the link validator does not see inline JSX. */}
 <CardGrid>
-	{products.map((product) => {
-		const links = Object.hasOwn(paths, product.key) ? paths[product.key] : undefined;
-
-		return (
-			<Card title={product.name}>
-				<p>{`${product.summary} ${product.version === "main" ? "Not released yet." : `Version ${product.version}.`}`}</p>
-				<ul>
-					<li><a href={`/${product.key}/`}>Overview</a></li>
-					{links?.start && <li><a href={links.start}>Get started</a></li>}
-					{links?.selfHost && <li><a href={links.selfHost}>Self-host</a></li>}
-					{links?.mcp && <li><a href={links.mcp}>MCP</a></li>}
-				</ul>
-			</Card>
-		);
-	})}
+	<Card title={product("track").name}>
+		<p>{versioned("track")}</p>
+		<ul>
+			<li>
+				<a href="/track/">Overview</a>
+			</li>
+			<li>
+				<a href="/track/#getting-started">Get started</a>
+			</li>
+			<li>
+				<a href="/track/self-hosting/">Self-host</a>
+			</li>
+			<li>
+				<a href="/track/#connect-an-ai-agent">MCP</a>
+			</li>
+		</ul>
+	</Card>
+	<Card title={product("agents").name}>
+		<p>{versioned("agents")}</p>
+		<ul>
+			<li>
+				<a href="/agents/">Overview</a>
+			</li>
+			<li>
+				<a href="/agents/#getting-started">Get started</a>
+			</li>
+			<li>
+				<a href="/agents/self-hosting/">Self-host</a>
+			</li>
+		</ul>
+	</Card>
+	<Card title={product("id").name}>
+		<p>{versioned("id")}</p>
+		<ul>
+			<li>
+				<a href="/id/">Overview</a>
+			</li>
+			<li>
+				<a href="/id/#running-it-locally">Get started</a>
+			</li>
+			<li>
+				<a href="/id/self-hosting/">Self-host</a>
+			</li>
+		</ul>
+	</Card>
+	<Card title={product("mail").name}>
+		<p>{versioned("mail")}</p>
+		<ul>
+			<li>
+				<a href="/mail/">Overview</a>
+			</li>
+			<li>
+				<a href="/mail/#getting-started">Get started</a>
+			</li>
+			<li>
+				<a href="/mail/self-hosting/">Self-host</a>
+			</li>
+			<li>
+				<a href="/mail/#connect-an-agent">MCP</a>
+			</li>
+		</ul>
+	</Card>
+	<Card title={product("guard").name}>
+		<p>{versioned("guard")}</p>
+		<ul>
+			<li>
+				<a href="/guard/">Overview</a>
+			</li>
+			<li>
+				<a href="/guard/self-hosting/#deploy-with-the-button">Get started</a>
+			</li>
+			<li>
+				<a href="/guard/self-hosting/">Self-host</a>
+			</li>
+			<li>
+				<a href="/guard/self-hosting/#connect-an-ai-assistant">MCP</a>
+			</li>
+		</ul>
+	</Card>
+	<Card title={product("backup").name}>
+		<p>{versioned("backup")}</p>
+		<ul>
+			<li>
+				<a href="/backup/">Overview</a>
+			</li>
+			<li>
+				<a href="/backup/#quick-start">Get started</a>
+			</li>
+			<li>
+				<a href="/backup/deploy/">Self-host</a>
+			</li>
+		</ul>
+	</Card>
 </CardGrid>
 
 ## How the products fit together
