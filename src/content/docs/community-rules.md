@@ -50,8 +50,9 @@ Moderation is based on each repository's Code of Conduct:
 [Docs](https://github.com/gateweavehq/docs/blob/main/CODE_OF_CONDUCT.md),
 [Forms](https://github.com/gateweavehq/forms/blob/main/CODE_OF_CONDUCT.md),
 [Status](https://github.com/gateweavehq/status/blob/main/CODE_OF_CONDUCT.md),
-[Runner](https://github.com/gateweavehq/runner/blob/main/CODE_OF_CONDUCT.md) and
-[CLI](https://github.com/gateweavehq/cli/blob/main/CODE_OF_CONDUCT.md).
+[Runner](https://github.com/gateweavehq/runner/blob/main/CODE_OF_CONDUCT.md),
+[CLI](https://github.com/gateweavehq/cli/blob/main/CODE_OF_CONDUCT.md) and
+[Run pilot](https://github.com/gateweavehq/run-pilot/blob/main/CODE_OF_CONDUCT.md).
 
 ## Closes and appeals
 
