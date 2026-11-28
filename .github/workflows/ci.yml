@@ -26,3 +26,5 @@ jobs:
         run: pnpm test
       - name: Build
         run: pnpm build
+      - name: Test the built llms.txt
+        run: pnpm test:built
